@@ -1,16 +1,66 @@
-# React + Vite
+# 🎬 FrameWork
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+> **Build Films Together.**
 
-Currently, two official plugins are available:
+FrameWork is an open film collaboration platform designed for **film students and independent short filmmakers in India**.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+It helps filmmakers turn ideas and scripts into actual films by connecting them with people who have the skills needed to bring those projects to life.
 
-## React Compiler
+Instead of simply showcasing films or profiles, FrameWork focuses on the entire journey:
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+**Idea → Script → Crew → Collaboration → Film → Credits**
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## 🚀 About The Project
+
+Finding the right people to make a short film can be difficult, especially for student filmmakers and independent creators.
+
+A filmmaker may have:
+
+- A script
+- A story idea
+- A vision
+
+But they may not have:
+
+- An editor
+- Cinematographer
+- Actor
+- Sound designer
+- Production designer
+- VFX artist
+- Other required crew members
+
+At the same time, many aspiring filmmakers have valuable skills but struggle to find meaningful projects to work on.
+
+**FrameWork connects both sides.**
+
+Creators can publish their projects and specify the roles they need, while collaborators can discover projects, apply to them, and build their filmmaking portfolio through real projects and credits.
+
+---
+
+## 🎯 Vision
+
+The long-term vision of FrameWork is to become a **collaboration ecosystem for emerging filmmakers**.
+
+The goal is to make the process of creating an independent film easier:
+
+```text
+        FILM IDEA
+            ↓
+          SCRIPT
+            ↓
+      POST PROJECT
+            ↓
+       FIND CREW
+            ↓
+       BUILD TEAM
+            ↓
+       MAKE FILM
+            ↓
+      GET CREDITS
+            ↓
+      BUILD PORTFOLIO
+            ↓
+       NEXT FILM
