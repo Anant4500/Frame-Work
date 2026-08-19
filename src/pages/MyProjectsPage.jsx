@@ -1,8 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
-import { useProjects } from '../context/ProjectsContext'
-import { joinedProjects, myApplications, getDashboardStats } from '../data/myProjectsData'
+import { useAuth } from '../context/useAuth'
+import { useProjects } from '../context/useProjects'
+import { getDashboardStats } from '../data/myProjectsData'
 
 const STATUS_STYLES = {
   'Open': 'border-purple/40 text-purple-light bg-purple/15 shadow-[0_0_8px_rgba(139,92,246,0.15)]',
@@ -28,25 +28,75 @@ function MyProjectsPage() {
 
   useEffect(() => {
     if (!user) { navigate('/login'); return }
-    if (user.role !== 'creator') { navigate('/'); return }
   }, [user, navigate])
 
   const createdProjects = useMemo(() =>
-    projects.filter((p) => p.creator?.name === user?.name),
+    (Array.isArray(projects) ? projects : []).filter((p) => p && p.creator?.name === user?.name),
     [projects, user]
   )
 
+  const joinedProjectsList = useMemo(() => {
+    if (!user) return []
+    const joined = []
+    const projectsList = Array.isArray(projects) ? projects : []
+    projectsList.forEach((p) => {
+      if (p && Array.isArray(p.applicants)) {
+        p.applicants.forEach((a) => {
+          if (a && a.name === user.name && a.status === 'accepted') {
+            joined.push({
+              id: a.id || `${p.id}-${a.role}`,
+              projectId: p.id,
+              title: p.title || 'Untitled Project',
+              poster: p.thumbnail || '',
+              status: p.status || 'Open',
+              role: a.role || 'Collaborator',
+              creatorName: p.creator?.name || 'Unknown',
+              location: p.location || 'Remote',
+            })
+          }
+        })
+      }
+    })
+    return joined
+  }, [projects, user])
+
+  const myApplicationsList = useMemo(() => {
+    if (!user) return []
+    const apps = []
+    const projectsList = Array.isArray(projects) ? projects : []
+    projectsList.forEach((p) => {
+      if (p && Array.isArray(p.applicants)) {
+        p.applicants.forEach((a) => {
+          if (a && a.name === user.name) {
+            const rawStatus = a.status || 'pending'
+            const status = rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1).toLowerCase()
+            apps.push({
+              id: a.id || `${p.id}-${a.role}`,
+              projectId: p.id,
+              title: p.title || 'Untitled Project',
+              poster: p.thumbnail || '',
+              status: status,
+              roleApplied: a.role || 'Collaborator',
+              dateApplied: a.dateApplied || p.date || 'Recently',
+            })
+          }
+        })
+      }
+    })
+    return apps
+  }, [projects, user])
+
   const stats = useMemo(() =>
-    getDashboardStats(createdProjects, joinedProjects, myApplications),
-    [createdProjects]
+    getDashboardStats(createdProjects, joinedProjectsList, myApplicationsList),
+    [createdProjects, joinedProjectsList, myApplicationsList]
   )
 
-  if (!user || user.role !== 'creator') return null
+  if (!user) return null
 
   const tabs = [
     { key: 'created', label: 'Created', count: createdProjects.length },
-    { key: 'joined', label: 'Joined', count: joinedProjects.length },
-    { key: 'applications', label: 'Applications', count: myApplications.length },
+    { key: 'joined', label: 'Joined', count: joinedProjectsList.length },
+    { key: 'applications', label: 'Applications', count: myApplicationsList.length },
   ]
 
   return (
@@ -111,8 +161,8 @@ function MyProjectsPage() {
         {/* Tab Content */}
         <div style={{ animation: 'fadeInUp 0.5s ease-out' }} key={activeTab}>
           {activeTab === 'created' && <CreatedTab projects={createdProjects} />}
-          {activeTab === 'joined' && <JoinedTab />}
-          {activeTab === 'applications' && <ApplicationsTab />}
+          {activeTab === 'joined' && <JoinedTab projects={joinedProjectsList} />}
+          {activeTab === 'applications' && <ApplicationsTab applications={myApplicationsList} />}
         </div>
       </div>
     </section>
@@ -221,12 +271,12 @@ function CreatedCard({ project }) {
 }
 
 /* ─── Joined Tab ─── */
-function JoinedTab() {
-  if (joinedProjects.length === 0) {
+function JoinedTab({ projects = [] }) {
+  if (projects.length === 0) {
     return (
       <EmptyState
         icon={<IconUsers />}
-        title="You haven't joined a project yet."
+        title="No Projects Joined Yet"
         subtitle="Discover films looking for collaborators like you."
         btnLabel="Explore Projects"
         btnLink="/explore"
@@ -235,7 +285,7 @@ function JoinedTab() {
   }
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-      {joinedProjects.map((p) => (
+      {projects.map((p) => (
         <div key={p.id} className="group bg-[#111111] border border-white/5 rounded-2xl overflow-hidden transition-all duration-500 hover:translate-y-[-4px] hover:shadow-[0_12px_40px_rgba(0,0,0,0.5)] hover:border-white/10">
           <div className="relative h-40 overflow-hidden">
             <img src={p.poster} alt={p.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
@@ -275,12 +325,12 @@ function JoinedTab() {
 }
 
 /* ─── Applications Tab ─── */
-function ApplicationsTab() {
-  if (myApplications.length === 0) {
+function ApplicationsTab({ applications = [] }) {
+  if (applications.length === 0) {
     return (
       <EmptyState
         icon={<IconSend />}
-        title="You haven't applied to any projects yet."
+        title="No Applications Yet"
         subtitle="Find a project that matches your skills and apply."
         btnLabel="Find a Project"
         btnLink="/explore"
@@ -289,7 +339,7 @@ function ApplicationsTab() {
   }
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-      {myApplications.map((app) => (
+      {applications.map((app) => (
         <div key={app.id} className={`group bg-[#111111] border rounded-2xl overflow-hidden transition-all duration-500 hover:translate-y-[-4px] hover:shadow-[0_12px_40px_rgba(0,0,0,0.5)] ${app.status === 'Rejected' ? 'border-white/5 opacity-60 hover:opacity-80' : 'border-white/5 hover:border-white/10'}`}>
           <div className="relative h-36 overflow-hidden">
             <img src={app.poster} alt={app.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />

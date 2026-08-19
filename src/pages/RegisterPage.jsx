@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
+import { useAuth } from '../context/useAuth'
 
-const skillsUser = ['Actor', 'Editor', 'DOP', 'Music', 'Writer']
-const skillsCreator = ['Director', 'Writer', 'Producer']
+// Skills matching the database records in public.skills
+const skillsCollaborator = ['Acting', 'Video Editing', 'Cinematography', 'Music', 'Screenwriting', 'Sound Design', 'Color Grading', 'Animation', 'VFX', 'Photography']
+const skillsCreator = ['Direction', 'Screenwriting', 'Production', 'Cinematography', 'Production Design']
 const experienceLevels = ['Beginner', 'Student', 'Intermediate', 'Professional']
 
 function RegisterPage() {
@@ -13,10 +14,12 @@ function RegisterPage() {
   const [role, setRole] = useState(null) // 'user' | 'creator'
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
 
   const [form, setForm] = useState({
     name: '',
     email: '',
+    password: '',
     phone: '',
     skills: [],
     experience: '',
@@ -54,28 +57,105 @@ function RegisterPage() {
     setTimeout(() => setStep('form'), 300)
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     if (!form.name || !form.email || !form.phone) {
       setError('Please fill in all required fields')
+      return
+    }
+    if (!form.password) {
+      setError('Please enter a password')
+      return
+    }
+    if (form.password.length < 6) {
+      setError('Password must be at least 6 characters')
       return
     }
     if (form.skills.length === 0) {
       setError('Please select at least one skill')
       return
     }
+
     setLoading(true)
-    setTimeout(() => {
-      register({
+    setError('')
+
+    try {
+      const profileData = {
         name: form.name,
-        email: form.email,
-        role,
-        avatar: form.photoPreview,
-        skills: form.skills,
-      })
-      setLoading(false)
+        phone: form.phone,
+        role: role, // 'user' or 'creator' — AuthContext maps to DB format
+        bio: form.bio || null,
+        experience_level: form.experience || null,
+        profile_photo_url: form.photoPreview || null,
+        resume_url: null, // File upload handled separately in future
+      }
+
+      const result = await register(form.email, form.password, profileData, form.skills)
+
+      if (result.needsEmailConfirmation) {
+        setSuccessMessage(
+          `Account created! Please check your email (${form.email}) to verify your account before logging in.`
+        )
+        setLoading(false)
+        return
+      }
+
+      // Registration successful and no email confirmation needed
       navigate('/')
-    }, 1500)
+    } catch (err) {
+      console.error('Registration error:', err)
+      // Map common Supabase errors to user-friendly messages
+      const msg = err.message || 'Registration failed'
+      if (msg.includes('User already registered') || msg.includes('already been registered')) {
+        setError('An account with this email already exists. Please login instead.')
+      } else if (msg.includes('Password should be at least')) {
+        setError('Password is too weak. Please use at least 6 characters.')
+      } else if (msg.includes('Invalid email')) {
+        setError('Please enter a valid email address.')
+      } else if (msg.includes('profile setup failed')) {
+        setError(msg)
+      } else if (msg.includes('skill setup failed')) {
+        setError(msg)
+      } else {
+        setError(msg)
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Show email confirmation success message
+  if (successMessage) {
+    return (
+      <div className="min-h-screen flex items-center justify-center relative px-4 py-28">
+        {/* Background */}
+        <div className="fixed inset-0 -z-10">
+          <img src="/images/auth-bg.png" alt="" className="w-full h-full object-cover blur-sm opacity-30" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/90 to-black" />
+        </div>
+
+        <div className="w-full max-w-md">
+          <div className="bg-[#111111] rounded-2xl p-8 sm:p-10 border border-white/5 shadow-[0_8px_40px_rgba(0,0,0,0.5)] text-center">
+            {/* Success Icon */}
+            <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto mb-6">
+              <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+              </svg>
+            </div>
+
+            <h2 className="font-[Montserrat] text-xl font-bold mb-3">Check Your Email</h2>
+            <p className="text-white/50 text-sm leading-relaxed mb-6">{successMessage}</p>
+
+            <Link
+              to="/login"
+              className="inline-block px-6 py-3 bg-purple text-white text-sm font-semibold rounded-xl transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_30px_rgba(139,92,246,0.4)]"
+            >
+              Go to Login
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -203,7 +283,7 @@ function RoleSelection({ onSelect }) {
 
 /* ─── Step 2: Registration Form ─── */
 function RegistrationForm({ role, form, handleChange, toggleSkill, handleFileChange, handleSubmit, loading, error, onBack }) {
-  const skills = role === 'creator' ? skillsCreator : skillsUser
+  const skills = role === 'creator' ? skillsCreator : skillsCollaborator
 
   return (
     <div className="w-full max-w-lg">
@@ -262,6 +342,20 @@ function RegistrationForm({ role, form, handleChange, toggleSkill, handleFileCha
             />
           </div>
 
+          {/* Password */}
+          <div>
+            <label htmlFor="reg-password" className="block text-sm font-medium text-white/60 mb-2">Password *</label>
+            <input
+              id="reg-password"
+              type="password"
+              name="password"
+              value={form.password}
+              onChange={handleChange}
+              placeholder="Min 6 characters"
+              className="w-full px-4 py-3.5 bg-[#1A1A1A] border border-white/10 rounded-xl text-sm text-white placeholder-white/25 outline-none transition-all duration-300 focus:border-purple/60 focus:shadow-[0_0_15px_rgba(139,92,246,0.1)]"
+            />
+          </div>
+
           {/* Phone */}
           <div>
             <label htmlFor="reg-phone" className="block text-sm font-medium text-white/60 mb-2">Phone *</label>
@@ -300,7 +394,7 @@ function RegistrationForm({ role, form, handleChange, toggleSkill, handleFileCha
             </div>
           </div>
 
-          {/* Experience (User only) */}
+          {/* Experience (Collaborator only) */}
           {role === 'user' && (
             <div>
               <label htmlFor="reg-experience" className="block text-sm font-medium text-white/60 mb-2">Experience Level</label>
@@ -342,7 +436,7 @@ function RegistrationForm({ role, form, handleChange, toggleSkill, handleFileCha
             </div>
           )}
 
-          {/* Resume (User only) */}
+          {/* Resume (Collaborator only) */}
           {role === 'user' && (
             <div>
               <label className="block text-sm font-medium text-white/60 mb-2">Resume</label>

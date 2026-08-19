@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
+import { useAuth } from '../context/useAuth'
 
 function LoginPage() {
   const { login } = useAuth()
@@ -14,23 +14,34 @@ function LoginPage() {
     setError('')
   }
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     if (!form.email || !form.password) {
       setError('Please fill in all fields')
       return
     }
+
     setLoading(true)
-    setTimeout(() => {
-      login({
-        name: form.email.split('@')[0],
-        email: form.email,
-        role: 'user',
-        avatar: null,
-      })
-      setLoading(false)
+    setError('')
+
+    try {
+      await login(form.email, form.password)
       navigate('/')
-    }, 1200)
+    } catch (err) {
+      console.error('Login error:', err)
+      const msg = err.message || 'Login failed'
+      if (msg.includes('Invalid login credentials')) {
+        setError('Invalid email or password. Please try again.')
+      } else if (msg.includes('Email not confirmed')) {
+        setError('Please verify your email address before logging in.')
+      } else if (msg.includes('Invalid email')) {
+        setError('Please enter a valid email address.')
+      } else {
+        setError(msg)
+      }
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (

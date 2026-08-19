@@ -1,4 +1,8 @@
+import { Link } from 'react-router-dom'
+import { useAuth } from '../context/useAuth'
+
 function CallToAction() {
+  const { user } = useAuth()
   return (
     <section id="cta" className="relative py-32 px-6 overflow-hidden">
       {/* Background Effects */}
@@ -33,8 +37,8 @@ function CallToAction() {
           Start your next project today and connect with a community of passionate filmmakers.
         </p>
 
-        <a
-          href="#"
+        <Link
+          to={user ? "/create-project" : "/register"}
           id="cta-button"
           className="inline-flex items-center gap-2 px-10 py-5 bg-purple text-white font-bold text-lg rounded-full transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_60px_rgba(139,92,246,0.5)] hover:scale-105 active:scale-95 animate-pulse-glow"
         >
@@ -42,7 +46,7 @@ function CallToAction() {
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
           </svg>
-        </a>
+        </Link>
 
         <p className="mt-6 text-white/20 text-sm">
           Free to use · No credit card required

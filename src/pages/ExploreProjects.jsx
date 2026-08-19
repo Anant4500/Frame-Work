@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
-import { useProjects } from '../context/ProjectsContext'
+import { useAuth } from '../context/useAuth'
+import { useProjects } from '../context/useProjects'
 
 const locations = ['Mumbai', 'Pune', 'Delhi', 'Bangalore', 'Hyderabad', 'Chennai', 'Kolkata']
 const genres = ['Drama', 'Thriller', 'Comedy', 'Sci-Fi', 'Action', 'Horror', 'Romance', 'Mystery', 'Documentary']
@@ -42,25 +42,25 @@ function ExploreProjects() {
       const q = search.toLowerCase()
       result = result.filter(
         (p) =>
-          p.title.toLowerCase().includes(q) ||
-          p.genre.toLowerCase().includes(q) ||
-          p.location.toLowerCase().includes(q) ||
-          p.roles.some((r) => r.toLowerCase().includes(q))
+          (p.title && p.title.toLowerCase().includes(q)) ||
+          (p.genre && p.genre.toLowerCase().includes(q)) ||
+          (p.location && p.location.toLowerCase().includes(q)) ||
+          (p.roles && p.roles.some((r) => r.toLowerCase().includes(q)))
       )
     }
 
     if (selectedLocations.length > 0) {
-      result = result.filter((p) => selectedLocations.includes(p.location))
+      result = result.filter((p) => p.location && selectedLocations.includes(p.location))
     }
     if (selectedGenres.length > 0) {
-      result = result.filter((p) => selectedGenres.includes(p.genre))
+      result = result.filter((p) => p.genre && selectedGenres.includes(p.genre))
     }
     if (selectedRoles.length > 0) {
-      result = result.filter((p) => p.roles.some((r) => selectedRoles.includes(r)))
+      result = result.filter((p) => p.roles && p.roles.some((r) => selectedRoles.includes(r)))
     }
 
     if (sortBy === 'newest') {
-      result.sort((a, b) => new Date(b.date) - new Date(a.date))
+      result.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))
     } else {
       result.sort((a, b) => (b.popular === a.popular ? 0 : b.popular ? 1 : -1))
     }
@@ -254,32 +254,55 @@ function ExploreProjects() {
               </div>
             )}
 
-            {/* Results Count */}
-            <p className="text-white/30 text-sm mb-6">
-              {filtered.length} project{filtered.length !== 1 ? 's' : ''} found
-            </p>
+            {/* Results Count (only when projects exist) */}
+            {projects.length > 0 && (
+              <p className="text-white/30 text-sm mb-6">
+                {filtered.length} project{filtered.length !== 1 ? 's' : ''} found
+              </p>
+            )}
 
-            {/* Project Grid */}
+            {/* Project Grid or Appropriate Empty State */}
             {visible.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
                 {visible.map((project) => (
                   <ProjectCard key={project.id} project={project} />
                 ))}
               </div>
+            ) : projects.length === 0 ? (
+              /* STATE A — No projects exist at all */
+              <div className="text-center py-20">
+                <div className="w-20 h-20 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-center mx-auto mb-6">
+                  <svg className="w-10 h-10 text-white/15" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m-3.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-1.5A1.125 1.125 0 0118 18.375" />
+                  </svg>
+                </div>
+                <h3 className="font-[Montserrat] text-xl font-bold text-white/70 mb-2">No Projects Yet</h3>
+                <p className="text-white/30 text-sm mb-6 max-w-sm mx-auto">Be the first to bring a film idea to FrameWork.</p>
+                <Link
+                  to="/create-project"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-purple text-white text-sm font-semibold rounded-full transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_30px_rgba(139,92,246,0.4)] hover:scale-[1.02] active:scale-95"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                  </svg>
+                  Start a Project
+                </Link>
+              </div>
             ) : (
+              /* STATE B — Projects exist, but current filters return 0 results */
               <div className="text-center py-20">
                 <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4">
                   <svg className="w-8 h-8 text-white/20" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
                   </svg>
                 </div>
-                <p className="text-white/40 text-lg font-medium mb-2">No projects found</p>
+                <p className="text-white/40 text-lg font-medium mb-2">No projects match your filters.</p>
                 <p className="text-white/20 text-sm">Try adjusting your filters or search query.</p>
                 <button
                   onClick={clearFilters}
                   className="mt-4 px-5 py-2 text-sm text-purple hover:text-purple-light transition-colors"
                 >
-                  Clear all filters
+                  Clear Filters
                 </button>
               </div>
             )}
@@ -366,22 +389,27 @@ function FilterGroup({ title, items, selected, onToggle }) {
 
 /* ─── Project Card Component ─── */
 function ProjectCard({ project }) {
+  const roles = Array.isArray(project.roles) ? project.roles : []
+  const thumbnail = project.thumbnail || '/images/hero-bg.png'
+
   return (
     <Link
       to={`/project/${project.id}`}
       className="group glass-card rounded-2xl overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:shadow-[0_8px_40px_rgba(139,92,246,0.15)] hover:border-purple/20 block"
     >
       {/* Thumbnail */}
-      <div className="relative h-48 overflow-hidden">
+      <div className="relative h-48 overflow-hidden bg-white/5">
         <img
-          src={project.thumbnail}
-          alt={project.title}
+          src={thumbnail}
+          alt={project.title || 'Film Project'}
           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-        <span className="absolute top-3 left-3 px-3 py-1 text-xs font-medium bg-purple/80 backdrop-blur-sm rounded-full">
-          {project.genre}
-        </span>
+        {project.genre && (
+          <span className="absolute top-3 left-3 px-3 py-1 text-xs font-medium bg-purple/80 backdrop-blur-sm rounded-full">
+            {project.genre}
+          </span>
+        )}
         {project.status && (
           <span className={`absolute top-3 right-3 px-2.5 py-1 text-[10px] font-bold backdrop-blur-sm rounded-full border ${
             project.status === 'Open' ? 'border-purple/40 text-purple-light bg-purple/20' :
@@ -396,27 +424,31 @@ function ProjectCard({ project }) {
       {/* Content */}
       <div className="p-5">
         <h3 className="font-[Montserrat] text-lg font-bold mb-1 group-hover:text-purple-light transition-colors duration-300">
-          {project.title}
+          {project.title || 'Untitled Project'}
         </h3>
-        <p className="text-white/40 text-sm mb-4 flex items-center gap-1">
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-          {project.location}
-        </p>
+        {project.location && (
+          <p className="text-white/40 text-sm mb-4 flex items-center gap-1">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            {project.location}
+          </p>
+        )}
 
         {/* Roles */}
-        <div className="flex flex-wrap gap-2 mb-5">
-          {project.roles.map((role) => (
-            <span
-              key={role}
-              className="px-2.5 py-1 text-xs font-medium text-purple-light border border-purple/20 rounded-full transition-all duration-300 group-hover:bg-purple/10 group-hover:border-purple/40 cursor-default"
-            >
-              {role}
-            </span>
-          ))}
-        </div>
+        {roles.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-5">
+            {roles.map((role) => (
+              <span
+                key={role}
+                className="px-2.5 py-1 text-xs font-medium text-purple-light border border-purple/20 rounded-full transition-all duration-300 group-hover:bg-purple/10 group-hover:border-purple/40 cursor-default"
+              >
+                {role}
+              </span>
+            ))}
+          </div>
+        )}
 
         {/* View Project Button */}
         <span className="block w-full py-3 text-sm font-semibold bg-purple text-white rounded-xl transition-all duration-300 group-hover:bg-purple-dark group-hover:shadow-[0_0_20px_rgba(139,92,246,0.3)] text-center">

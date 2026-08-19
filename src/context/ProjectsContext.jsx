@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback } from 'react'
+import { createContext, useState, useCallback } from 'react'
 
 const defaultProjects = [
   {
@@ -149,7 +149,7 @@ const defaultProjects = [
   },
 ]
 
-const ProjectsContext = createContext(null)
+export const ProjectsContext = createContext(null)
 
 export function ProjectsProvider({ children }) {
   const [projects, setProjects] = useState(() => {
@@ -223,8 +223,4 @@ export function ProjectsProvider({ children }) {
   )
 }
 
-export function useProjects() {
-  const ctx = useContext(ProjectsContext)
-  if (!ctx) throw new Error('useProjects must be used within ProjectsProvider')
-  return ctx
-}
+

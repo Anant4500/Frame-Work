@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
-import { useProjects } from '../context/ProjectsContext'
+import { useAuth } from '../context/useAuth'
+import { useProjects } from '../context/useProjects'
+
+const generateApplicantId = () => `a${Date.now()}`
 
 function ProjectDetailPage() {
   const { id } = useParams()
@@ -36,7 +38,7 @@ function ProjectDetailPage() {
             </svg>
           </div>
           <h2 className="font-[Montserrat] text-2xl font-bold mb-2">Project Not Found</h2>
-          <p className="text-white/40 mb-6">This project doesn't exist or has been removed.</p>
+          <p className="text-white/40 mb-6">This project may have been removed or is not available yet.</p>
           <Link
             to="/explore"
             className="px-6 py-3 bg-purple text-white text-sm font-semibold rounded-full transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_30px_rgba(139,92,246,0.4)]"
@@ -48,8 +50,21 @@ function ProjectDetailPage() {
     )
   }
 
-  const isCreatorOwner = user && user.role === 'creator' && user.name === project.creator.name
-  const hasApplied = user && project.applicants.some((a) => a.name === user.name)
+  const isCreatorRole = user?.role?.toLowerCase() === 'creator'
+  const isCreatorOwner = Boolean(
+    user &&
+    isCreatorRole &&
+    (
+      (user.id && (user.id === project.creator?.id || user.id === project.creatorId)) ||
+      (user.name && (user.name === project.creator?.name || user.name === project.creatorId || `c_${user.name}` === project.creator?.id)) ||
+      (user.email && (user.email === project.creator?.id || user.email === project.creatorId || `c_${user.email.split('@')[0]}` === project.creator?.id))
+    )
+  )
+  const hasApplied = Boolean(
+    user &&
+    project.applicants &&
+    project.applicants.some((a) => (user.id && a.id === user.id) || (user.name && a.name === user.name))
+  )
 
   const statusColors = {
     'Open': 'border-purple text-purple-light bg-purple/10',
@@ -73,7 +88,7 @@ function ProjectDetailPage() {
       return
     }
     const newApplicant = {
-      id: `a${Date.now()}`,
+      id: generateApplicantId(),
       name: user.name,
       role: applyRole,
       message: applyMessage,
@@ -206,7 +221,11 @@ function ProjectDetailPage() {
                     'VFX Artist': '✨', 'Director': '🎬', 'Writer': '✍️', 'DOP': '📹',
                     'Composer': '🎵', 'Stunt Coordinator': '🤸', 'Producer': '🎞️',
                   }
-                  const alreadyAppliedForRole = user && project.applicants.some((a) => a.name === user.name && a.role === role)
+                  const alreadyAppliedForRole = Boolean(
+                    user &&
+                    project.applicants &&
+                    project.applicants.some((a) => ((user.id && a.id === user.id) || (user.name && a.name === user.name)) && a.role === role)
+                  )
 
                   return (
                     <div
@@ -246,15 +265,17 @@ function ProjectDetailPage() {
               <h3 className="text-xs font-semibold text-white/30 uppercase tracking-wider mb-5">About the Creator</h3>
               <div className="flex items-center gap-4 mb-5">
                 <div className="w-14 h-14 rounded-full bg-purple/15 border-2 border-purple/30 flex items-center justify-center overflow-hidden shrink-0">
-                  {project.creator.avatar ? (
-                    <img src={project.creator.avatar} alt={project.creator.name} className="w-full h-full object-cover" />
+                  {project.creator?.avatar ? (
+                    <img src={project.creator.avatar} alt={project.creator?.name || 'Unknown Creator'} className="w-full h-full object-cover" />
                   ) : (
-                    <span className="text-lg font-bold text-purple">{project.creator.name.charAt(0)}</span>
+                    <span className="text-lg font-bold text-purple">
+                      {(project.creator?.name || 'Unknown Creator').charAt(0).toUpperCase()}
+                    </span>
                   )}
                 </div>
                 <div>
-                  <p className="font-[Montserrat] font-bold text-white">{project.creator.name}</p>
-                  <p className="text-sm text-white/40">{project.creator.role}</p>
+                  <p className="font-[Montserrat] font-bold text-white">{project.creator?.name || 'Unknown Creator'}</p>
+                  <p className="text-sm text-white/40">{project.creator?.role || 'Creator'}</p>
                 </div>
               </div>
               <button className="w-full py-3 text-sm font-medium border border-white/10 rounded-xl text-white/60 transition-all duration-300 hover:border-purple/30 hover:text-white hover:bg-white/[0.03]">

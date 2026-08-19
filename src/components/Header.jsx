@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
+import { useAuth } from '../context/useAuth'
 
 function Header() {
   const [scrolled, setScrolled] = useState(false)
@@ -21,6 +21,34 @@ function Header() {
     setMobileMenuOpen(false)
     setProfileOpen(false)
   }, [location])
+
+  useEffect(() => {
+    if (location.pathname === '/' && location.hash === '#creators') {
+      const timer = setTimeout(() => {
+        const element = document.getElementById('creators')
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth' })
+        }
+      }, 150)
+      return () => clearTimeout(timer)
+    }
+  }, [location])
+
+  const handleCreatorsClick = (e) => {
+    e.preventDefault()
+    if (mobileMenuOpen) {
+      setMobileMenuOpen(false)
+    }
+    if (isHome) {
+      const element = document.getElementById('creators')
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth' })
+      }
+      window.history.pushState(null, '', '#creators')
+    } else {
+      navigate('/#creators')
+    }
+  }
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -78,12 +106,13 @@ function Header() {
             Explore
           </Link>
           <Link
-            to={isHome ? '#creators' : '/'}
+            to="/#creators"
+            onClick={handleCreatorsClick}
             className="text-sm font-medium text-white/70 hover:text-white transition-colors duration-300 relative after:content-[''] after:absolute after:bottom-[-4px] after:left-0 after:w-0 after:h-[2px] after:bg-purple after:transition-all after:duration-300 hover:after:w-full"
           >
             Creators
           </Link>
-          {user && user.role === 'creator' && (
+          {user && (
             <Link
               to="/my-projects"
               className={`text-sm font-medium transition-colors duration-300 relative after:content-[''] after:absolute after:bottom-[-4px] after:left-0 after:h-[2px] after:bg-purple after:transition-all after:duration-300 ${
@@ -92,7 +121,7 @@ function Header() {
                   : 'text-white/70 hover:text-white after:w-0 hover:after:w-full'
               }`}
             >
-              My Projects
+              {user.role === 'creator' ? 'My Projects' : 'Dashboard'}
             </Link>
           )}
 
@@ -143,18 +172,16 @@ function Header() {
                     </svg>
                     My Profile
                   </Link>
-                  {user.role === 'creator' && (
-                    <Link
-                      to="/my-projects"
-                      onClick={() => { setProfileOpen(false) }}
-                      className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-white/60 hover:text-white hover:bg-white/5 transition-all duration-200"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m-3.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-1.5A1.125 1.125 0 0118 18.375" />
-                      </svg>
-                      My Projects
-                    </Link>
-                  )}
+                  <Link
+                    to="/my-projects"
+                    onClick={() => { setProfileOpen(false) }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-white/60 hover:text-white hover:bg-white/5 transition-all duration-200"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m-3.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-1.5A1.125 1.125 0 0118 18.375" />
+                    </svg>
+                    {user.role === 'creator' ? 'My Projects' : 'Dashboard'}
+                  </Link>
                 </div>
 
                 <div className="border-t border-white/5 py-1">
@@ -216,12 +243,12 @@ function Header() {
           <Link to="/explore" className="text-white/70 hover:text-white transition-colors py-2">
             Explore
           </Link>
-          <Link to="/" className="text-white/70 hover:text-white transition-colors py-2">
+          <Link to="/#creators" onClick={handleCreatorsClick} className="text-white/70 hover:text-white transition-colors py-2">
             Creators
           </Link>
-          {user && user.role === 'creator' && (
+          {user && (
             <Link to="/my-projects" className={`transition-colors py-2 font-medium ${location.pathname === '/my-projects' ? 'text-purple-light' : 'text-white/70 hover:text-white'}`}>
-              My Projects
+              {user.role === 'creator' ? 'My Projects' : 'Dashboard'}
             </Link>
           )}
           {user ? (
