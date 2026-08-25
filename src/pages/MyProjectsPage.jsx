@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/useAuth'
-import { useProjects } from '../context/useProjects'
+import { supabase } from '../lib/supabaseClient'
 import { getDashboardStats } from '../data/myProjectsData'
 
 const STATUS_STYLES = {
@@ -21,8 +21,16 @@ const APP_STATUS = {
 function MyProjectsPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const { projects } = useProjects()
-  const [activeTab, setActiveTab] = useState('created')
+  const [createdProjects, setCreatedProjects] = useState([])
+  const [incomingApplications, setIncomingApplications] = useState([])
+  const [myApplicationsList, setMyApplicationsList] = useState([])
+  const [loadingCreated, setLoadingCreated] = useState(true)
+  const [loadingApps, setLoadingApps] = useState(true)
+  const [toast, setToast] = useState(null)
+  const isCreator = user?.role === 'creator'
+  const [activeTab, setActiveTab] = useState(() =>
+    user?.role === 'creator' ? 'created' : 'applications'
+  )
 
   useEffect(() => { window.scrollTo(0, 0) }, [])
 
@@ -30,74 +38,243 @@ function MyProjectsPage() {
     if (!user) { navigate('/login'); return }
   }, [user, navigate])
 
-  const createdProjects = useMemo(() =>
-    (Array.isArray(projects) ? projects : []).filter((p) => p && p.creator?.name === user?.name),
-    [projects, user]
-  )
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 3000)
+      return () => clearTimeout(timer)
+    }
+  }, [toast])
+
+  // Fetch creator's live projects and incoming applications from Supabase
+  useEffect(() => {
+    if (!user?.id) return
+    let isMounted = true
+
+    const fetchCreatorData = async () => {
+      try {
+        setLoadingCreated(true)
+        const { data: projData, error: projError } = await supabase
+          .from('projects')
+          .select('*, roles:project_roles(*)')
+          .eq('creator_id', user.id)
+          .order('created_at', { ascending: false })
+
+        if (projError) throw projError
+
+        if (isMounted) {
+          const mappedProjects = (projData || []).map((p) => ({
+            id: p.id,
+            title: p.title || 'Untitled Project',
+            logline: p.description || '',
+            description: p.description || '',
+            genre: p.genre || 'Drama',
+            location: p.location || 'Remote',
+            budget: p.budget,
+            timeline: p.timeline,
+            thumbnail: p.poster_url || '/images/hero-bg.png',
+            poster_url: p.poster_url,
+            status: p.status === 'OPEN' ? 'Open' : p.status === 'IN_PRODUCTION' ? 'In Production' : p.status === 'COMPLETED' ? 'Completed' : p.status,
+            date: p.created_at ? p.created_at.split('T')[0] : '',
+            created_at: p.created_at,
+            creator: {
+              id: user.id,
+              name: user.name,
+              avatar: user.avatar
+            },
+            roles: Array.isArray(p.roles) ? p.roles.map((r) => r.role) : [],
+            rawRoles: p.roles || [],
+            applicants: []
+          }))
+          setCreatedProjects(mappedProjects)
+        }
+
+        // If creator, fetch incoming applications across all creator's projects
+        if (isCreator) {
+          setLoadingApps(true)
+          const { data: incomingData, error: incomingError } = await supabase
+            .from('applications')
+            .select('*, project:projects!inner(id, title, creator_id), role:project_roles(role), applicant:profiles(id, name, profile_photo_url, location, resume_url)')
+            .eq('project.creator_id', user.id)
+            .order('created_at', { ascending: false })
+
+          if (incomingError) throw incomingError
+
+          if (isMounted) {
+            const mappedIncoming = (incomingData || []).map((a) => {
+              const rawStatus = a.status || 'PENDING'
+              const status = rawStatus.toUpperCase() === 'ACCEPTED' ? 'Accepted' : rawStatus.toUpperCase() === 'REJECTED' ? 'Rejected' : 'Pending'
+              return {
+                id: a.id,
+                projectId: a.project?.id || a.project_id,
+                projectTitle: a.project?.title || 'Project',
+                applicantId: a.applicant_id,
+                applicantName: a.applicant?.name || 'Applicant',
+                applicantAvatar: a.applicant?.profile_photo_url || null,
+                applicantLocation: a.applicant?.location || 'Remote',
+                applicantResume: a.applicant?.resume_url || null,
+                roleApplied: a.role?.role || 'Collaborator',
+                message: a.message || '',
+                status,
+                dateApplied: a.created_at ? a.created_at.split('T')[0] : 'Recently',
+              }
+            })
+            setIncomingApplications(mappedIncoming)
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching creator dashboard data:', err)
+      } finally {
+        if (isMounted) {
+          setLoadingCreated(false)
+          setLoadingApps(false)
+        }
+      }
+    }
+
+    const fetchCollaboratorData = async () => {
+      try {
+        setLoadingApps(true)
+        const { data: appData, error: appError } = await supabase
+          .from('applications')
+          .select('*, project:projects(id, title, poster_url, location, genre), role:project_roles(role)')
+          .eq('applicant_id', user.id)
+          .order('created_at', { ascending: false })
+
+        if (appError) throw appError
+
+        if (isMounted) {
+          const mappedApps = (appData || []).map((a) => {
+            const rawStatus = a.status || 'PENDING'
+            const status = rawStatus.toUpperCase() === 'ACCEPTED' ? 'Accepted' : rawStatus.toUpperCase() === 'REJECTED' ? 'Rejected' : 'Pending'
+            return {
+              id: a.id,
+              projectId: a.project?.id || a.project_id,
+              title: a.project?.title || 'Untitled Project',
+              poster: a.project?.poster_url || '/images/hero-bg.png',
+              genre: a.project?.genre || 'Film',
+              location: a.project?.location || 'Remote',
+              status,
+              roleApplied: a.role?.role || 'Collaborator',
+              dateApplied: a.created_at ? a.created_at.split('T')[0] : 'Recently',
+              message: a.message || '',
+            }
+          })
+          setMyApplicationsList(mappedApps)
+        }
+      } catch (err) {
+        console.error('Error fetching collaborator applications:', err)
+      } finally {
+        if (isMounted) setLoadingApps(false)
+      }
+    }
+
+    if (isCreator) {
+      fetchCreatorData()
+    } else {
+      fetchCollaboratorData()
+    }
+
+    return () => {
+      isMounted = false
+    }
+  }, [user?.id, isCreator])
 
   const joinedProjectsList = useMemo(() => {
-    if (!user) return []
-    const joined = []
-    const projectsList = Array.isArray(projects) ? projects : []
-    projectsList.forEach((p) => {
-      if (p && Array.isArray(p.applicants)) {
-        p.applicants.forEach((a) => {
-          if (a && a.name === user.name && a.status === 'accepted') {
-            joined.push({
-              id: a.id || `${p.id}-${a.role}`,
-              projectId: p.id,
-              title: p.title || 'Untitled Project',
-              poster: p.thumbnail || '',
-              status: p.status || 'Open',
-              role: a.role || 'Collaborator',
-              creatorName: p.creator?.name || 'Unknown',
-              location: p.location || 'Remote',
-            })
-          }
-        })
-      }
-    })
-    return joined
-  }, [projects, user])
-
-  const myApplicationsList = useMemo(() => {
-    if (!user) return []
-    const apps = []
-    const projectsList = Array.isArray(projects) ? projects : []
-    projectsList.forEach((p) => {
-      if (p && Array.isArray(p.applicants)) {
-        p.applicants.forEach((a) => {
-          if (a && a.name === user.name) {
-            const rawStatus = a.status || 'pending'
-            const status = rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1).toLowerCase()
-            apps.push({
-              id: a.id || `${p.id}-${a.role}`,
-              projectId: p.id,
-              title: p.title || 'Untitled Project',
-              poster: p.thumbnail || '',
-              status: status,
-              roleApplied: a.role || 'Collaborator',
-              dateApplied: a.dateApplied || p.date || 'Recently',
-            })
-          }
-        })
-      }
-    })
-    return apps
-  }, [projects, user])
+    if (isCreator) {
+      return []
+    }
+    return myApplicationsList
+      .filter((a) => a.status === 'Accepted')
+      .map((a) => ({
+        id: a.id,
+        projectId: a.projectId,
+        title: a.title,
+        poster: a.poster,
+        status: 'In Production',
+        role: a.roleApplied,
+        creatorName: 'Creator',
+        location: a.location,
+      }))
+  }, [isCreator, myApplicationsList])
 
   const stats = useMemo(() =>
-    getDashboardStats(createdProjects, joinedProjectsList, myApplicationsList),
-    [createdProjects, joinedProjectsList, myApplicationsList]
+    getDashboardStats(createdProjects, joinedProjectsList),
+    [createdProjects, joinedProjectsList]
   )
+
+  const handleAcceptApplication = async (appId) => {
+    try {
+      const { error } = await supabase
+        .from('applications')
+        .update({ status: 'ACCEPTED' })
+        .eq('id', appId)
+
+      if (error) throw error
+
+      const app = incomingApplications.find((a) => a.id === appId)
+      setIncomingApplications((prev) =>
+        prev.map((a) => a.id === appId ? { ...a, status: 'Accepted' } : a)
+      )
+      setToast({ type: 'success', text: 'Application accepted successfully!' })
+
+      // Notify the applicant
+      if (app?.applicantId) {
+        supabase.from('notifications').insert({
+          user_id: app.applicantId,
+          project_id: app.projectId,
+          message: `Your application for "${app.roleApplied}" on "${app.projectTitle}" was ACCEPTED! 🎉`,
+        }).then(() => {}).catch(() => {})
+      }
+    } catch (err) {
+      console.error('Error accepting application:', err)
+      setToast({ type: 'error', text: err.message || 'Failed to accept application' })
+    }
+  }
+
+  const handleRejectApplication = async (appId) => {
+    try {
+      const { error } = await supabase
+        .from('applications')
+        .update({ status: 'REJECTED' })
+        .eq('id', appId)
+
+      if (error) throw error
+
+      const app = incomingApplications.find((a) => a.id === appId)
+      setIncomingApplications((prev) =>
+        prev.map((a) => a.id === appId ? { ...a, status: 'Rejected' } : a)
+      )
+      setToast({ type: 'error', text: 'Application rejected' })
+
+      // Notify the applicant
+      if (app?.applicantId) {
+        supabase.from('notifications').insert({
+          user_id: app.applicantId,
+          project_id: app.projectId,
+          message: `Your application for "${app.roleApplied}" on "${app.projectTitle}" was declined.`,
+        }).then(() => {}).catch(() => {})
+      }
+    } catch (err) {
+      console.error('Error rejecting application:', err)
+      setToast({ type: 'error', text: err.message || 'Failed to reject application' })
+    }
+  }
 
   if (!user) return null
 
-  const tabs = [
-    { key: 'created', label: 'Created', count: createdProjects.length },
-    { key: 'joined', label: 'Joined', count: joinedProjectsList.length },
-    { key: 'applications', label: 'Applications', count: myApplicationsList.length },
-  ]
+  // Tab order differs by role
+  const displayedApplications = isCreator ? incomingApplications : myApplicationsList
+
+  const tabs = isCreator
+    ? [
+        { key: 'created', label: 'Created', count: createdProjects.length },
+        { key: 'applications', label: 'Applications', count: incomingApplications.length },
+        { key: 'joined', label: 'Joined', count: joinedProjectsList.length },
+      ]
+    : [
+        { key: 'applications', label: 'Applications', count: myApplicationsList.length },
+        { key: 'joined', label: 'Joined Projects', count: joinedProjectsList.length },
+      ]
 
   return (
     <section className="min-h-screen pt-28 pb-20 px-4 sm:px-6">
@@ -105,23 +282,53 @@ function MyProjectsPage() {
         {/* Page Header */}
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between mb-10 gap-4 animate-fade-in-up">
           <div>
+            {/* Role Badge */}
+            <span className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full border mb-4 ${
+              isCreator
+                ? 'text-purple-light bg-purple/10 border-purple/30'
+                : 'text-emerald-400 bg-emerald-500/10 border-emerald-500/25'
+            }`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${
+                isCreator ? 'bg-purple' : 'bg-emerald-400'
+              }`} />
+              {isCreator ? 'Creator Mode' : 'Collaborator Mode'}
+            </span>
             <h1 className="font-[Montserrat] text-4xl sm:text-5xl font-black tracking-tight mb-3">
-              My <span className="gradient-text">Projects</span>
+              {isCreator ? (
+                <>My <span className="gradient-text">Projects</span></>
+              ) : (
+                <>Collaborator <span className="gradient-text">Dashboard</span></>
+              )}
             </h1>
             <p className="text-white/40 text-lg max-w-xl">
-              Manage the projects you're creating and the films you're helping bring to life.
+              {isCreator
+                ? 'Manage projects you are creating and track incoming applications.'
+                : 'Track your applications and films you have joined.'}
             </p>
           </div>
-          <Link
-            to="/create-project"
-            id="start-new-project-btn"
-            className="inline-flex items-center gap-2 px-6 py-3.5 bg-purple text-white text-sm font-semibold rounded-full transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_30px_rgba(139,92,246,0.4)] hover:scale-[1.03] active:scale-95 shrink-0"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-            Start New Project
-          </Link>
+          {isCreator ? (
+            <Link
+              to="/create-project"
+              id="start-new-project-btn"
+              className="inline-flex items-center gap-2 px-6 py-3.5 bg-purple text-white text-sm font-semibold rounded-full transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_30px_rgba(139,92,246,0.4)] hover:scale-[1.03] active:scale-95 shrink-0"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+              Start New Project
+            </Link>
+          ) : (
+            <Link
+              to="/explore"
+              id="explore-projects-btn"
+              className="inline-flex items-center gap-2 px-6 py-3.5 bg-purple text-white text-sm font-semibold rounded-full transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_30px_rgba(139,92,246,0.4)] hover:scale-[1.03] active:scale-95 shrink-0"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+              </svg>
+              Explore Projects
+            </Link>
+          )}
         </div>
 
         {/* Stats Row */}
@@ -160,11 +367,40 @@ function MyProjectsPage() {
 
         {/* Tab Content */}
         <div style={{ animation: 'fadeInUp 0.5s ease-out' }} key={activeTab}>
-          {activeTab === 'created' && <CreatedTab projects={createdProjects} />}
+          {isCreator && activeTab === 'created' && <CreatedTab projects={createdProjects} loading={loadingCreated} />}
           {activeTab === 'joined' && <JoinedTab projects={joinedProjectsList} />}
-          {activeTab === 'applications' && <ApplicationsTab applications={myApplicationsList} />}
+          {activeTab === 'applications' && (
+            <ApplicationsTab
+              applications={displayedApplications}
+              isCreator={isCreator}
+              loading={loadingApps}
+              onAccept={handleAcceptApplication}
+              onReject={handleRejectApplication}
+            />
+          )}
         </div>
       </div>
+
+      {/* Toast */}
+      {toast && (
+        <div className={`fixed bottom-6 right-6 z-50 px-5 py-3.5 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.4)] border backdrop-blur-xl toast-enter flex items-center gap-3 ${
+          toast.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
+          toast.type === 'error' ? 'bg-red-500/10 border-red-500/20 text-red-400' :
+          'bg-purple/10 border-purple/20 text-purple-light'
+        }`}>
+          {toast.type === 'success' && (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          )}
+          {toast.type === 'error' && (
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          )}
+          <span className="text-sm font-medium">{toast.text}</span>
+        </div>
+      )}
     </section>
   )
 }
@@ -185,7 +421,18 @@ function StatCard({ label, value, icon }) {
 }
 
 /* ─── Created Tab ─── */
-function CreatedTab({ projects }) {
+function CreatedTab({ projects, loading }) {
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <svg className="w-10 h-10 text-purple animate-spin mb-4" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
+          <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" />
+        </svg>
+        <p className="text-white/40 text-sm">Loading your created projects...</p>
+      </div>
+    )
+  }
   if (projects.length === 0) {
     return (
       <EmptyState
@@ -325,18 +572,117 @@ function JoinedTab({ projects = [] }) {
 }
 
 /* ─── Applications Tab ─── */
-function ApplicationsTab({ applications = [] }) {
+function ApplicationsTab({ applications = [], isCreator = false, loading = false, onAccept, onReject }) {
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <svg className="w-10 h-10 text-purple animate-spin mb-4" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
+          <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" />
+        </svg>
+        <p className="text-white/40 text-sm">Loading applications...</p>
+      </div>
+    )
+  }
+
   if (applications.length === 0) {
     return (
       <EmptyState
         icon={<IconSend />}
-        title="No Applications Yet"
-        subtitle="Find a project that matches your skills and apply."
-        btnLabel="Find a Project"
-        btnLink="/explore"
+        title={isCreator ? "No Applications Received Yet" : "No Applications Yet"}
+        subtitle={isCreator ? "When collaborators apply for roles in your projects, they will appear here." : "Find a project that matches your skills and apply."}
+        btnLabel={isCreator ? "View Your Projects" : "Find a Project"}
+        btnLink={isCreator ? "/my-projects" : "/explore"}
       />
     )
   }
+
+  // Creator incoming applications layout
+  if (isCreator) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {applications.map((app) => (
+          <div key={app.id} className="bg-[#111111] border border-white/5 rounded-2xl p-6 transition-all duration-300 hover:border-white/10 flex flex-col justify-between">
+            <div>
+              {/* Header: Applicant info + Status */}
+              <div className="flex items-start justify-between gap-3 mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-purple/15 border border-purple/25 flex items-center justify-center overflow-hidden shrink-0">
+                    {app.applicantAvatar ? (
+                      <img src={app.applicantAvatar} alt={app.applicantName} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-sm font-bold text-purple">{app.applicantName.charAt(0)}</span>
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="font-[Montserrat] font-bold text-base text-white">{app.applicantName}</h3>
+                    <p className="text-white/40 text-xs">{app.applicantLocation}</p>
+                  </div>
+                </div>
+                <span className={`px-2.5 py-1 text-[10px] font-bold backdrop-blur-sm rounded-full border ${APP_STATUS[app.status] || APP_STATUS['Pending']}`}>
+                  {app.status}
+                </span>
+              </div>
+
+              {/* Application details */}
+              <div className="space-y-2 mb-4">
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="text-white/40">Role applied:</span>
+                  <span className="font-semibold text-purple-light bg-purple/10 px-2 py-0.5 rounded border border-purple/20">
+                    {app.roleApplied}
+                  </span>
+                </div>
+                <div className="text-xs text-white/40">
+                  Project: <Link to={`/project/${app.projectId}`} className="text-white hover:text-purple-light transition-colors font-medium">{app.projectTitle}</Link>
+                </div>
+                {app.message && (
+                  <div className="bg-white/[0.02] border border-white/5 rounded-xl p-3 text-xs text-white/60 leading-relaxed italic">
+                    "{app.message}"
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Actions / Links */}
+            <div>
+              <div className="flex items-center justify-between text-xs text-white/30 pt-3 border-t border-white/5 mb-4">
+                <span>Applied {app.dateApplied}</span>
+                {app.applicantResume && (
+                  <a
+                    href={app.applicantResume}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-purple-light hover:text-purple transition-colors font-medium flex items-center gap-1"
+                  >
+                    View Resume &rarr;
+                  </a>
+                )}
+              </div>
+
+              {app.status === 'Pending' && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => onAccept && onAccept(app.id)}
+                    className="flex-1 py-2 text-xs font-semibold bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg transition-all duration-300 hover:bg-emerald-500/20 hover:border-emerald-500/40 hover:scale-[1.02] active:scale-[0.98]"
+                  >
+                    Accept
+                  </button>
+                  <button
+                    onClick={() => onReject && onReject(app.id)}
+                    className="flex-1 py-2 text-xs font-semibold bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg transition-all duration-300 hover:bg-red-500/20 hover:border-red-500/40 hover:scale-[1.02] active:scale-[0.98]"
+                  >
+                    Reject
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  // Collaborator sent applications layout
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
       {applications.map((app) => (

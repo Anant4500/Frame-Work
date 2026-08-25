@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/useAuth'
-import { useProjects } from '../context/useProjects'
+import { supabase } from '../lib/supabaseClient'
 
 const genreOptions = ['Drama', 'Thriller', 'Comedy', 'Sci-Fi', 'Action', 'Horror', 'Romance', 'Mystery', 'Documentary']
 const locationOptions = ['Mumbai', 'Pune', 'Delhi', 'Bangalore', 'Hyderabad', 'Chennai', 'Kolkata']
@@ -9,7 +9,6 @@ const roleOptions = ['Actor', 'Editor', 'Sound Designer', 'Cinematographer', 'VF
 
 function CreateProjectPage() {
   const { user } = useAuth()
-  const { addProject } = useProjects()
   const navigate = useNavigate()
   const [toast, setToast] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -20,6 +19,8 @@ function CreateProjectPage() {
     logline: '',
     genre: '',
     location: '',
+    budget: '',
+    timeline: '',
     status: 'Open',
     roles: [],
     scriptFile: null,
@@ -34,39 +35,116 @@ function CreateProjectPage() {
 
   useEffect(() => {
     if (toast) {
-      const timer = setTimeout(() => setToast(null), 3000)
+      const timer = setTimeout(() => setToast(null), 6000)
       return () => clearTimeout(timer)
     }
   }, [toast])
 
-  // Redirect non-creators
-  if (!user || user.role !== 'creator') {
+  // Redirect unauthenticated users to login
+  if (!user) {
     return (
       <section className="min-h-screen flex items-center justify-center px-4">
         <div className="text-center max-w-md">
-          <div className="w-20 h-20 rounded-full bg-purple/10 border border-purple/20 flex items-center justify-center mx-auto mb-6">
-            <svg className="w-10 h-10 text-purple/50" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+          <div className="w-20 h-20 rounded-full bg-white/[0.04] border border-white/10 flex items-center justify-center mx-auto mb-6">
+            <svg className="w-10 h-10 text-white/20" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
             </svg>
           </div>
-          <h2 className="font-[Montserrat] text-2xl font-bold mb-3">Creator Access Only</h2>
+          <h2 className="font-[Montserrat] text-2xl font-bold mb-3">Sign In Required</h2>
           <p className="text-white/40 text-sm leading-relaxed mb-6">
-            You need a Creator account to publish projects. Register as a Creator to start building your film team.
+            You need to be logged in to create a project.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link
-              to="/register"
+              to="/login"
               className="px-6 py-3 bg-purple text-white text-sm font-semibold rounded-full transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_30px_rgba(139,92,246,0.4)] hover:scale-[1.02]"
             >
-              Register as Creator
+              Sign In
             </Link>
             <Link
-              to="/explore"
+              to="/register"
               className="px-6 py-3 border border-white/10 text-white/60 text-sm font-medium rounded-full transition-all duration-300 hover:border-white/20 hover:text-white"
             >
-              Explore Projects
+              Create Account
             </Link>
           </div>
+        </div>
+      </section>
+    )
+  }
+
+  // Collaborator-specific informative prompt
+  if (user.role !== 'creator') {
+    return (
+      <section className="min-h-screen flex items-center justify-center px-4">
+        <div className="max-w-lg w-full">
+          {/* Card */}
+          <div className="bg-[#111111] rounded-2xl border border-white/5 overflow-hidden shadow-[0_8px_40px_rgba(0,0,0,0.5)]">
+            {/* Top accent strip */}
+            <div className="h-1 w-full bg-gradient-to-r from-emerald-500/40 via-emerald-400/60 to-emerald-500/40" />
+
+            <div className="p-8 sm:p-10">
+              {/* Icon */}
+              <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto mb-6">
+                <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+                </svg>
+              </div>
+
+              {/* Role badge */}
+              <div className="flex justify-center mb-4">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/25 rounded-full">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  Collaborator / Crew
+                </span>
+              </div>
+
+              {/* Heading */}
+              <h2 className="font-[Montserrat] text-2xl font-bold text-center mb-3">
+                You're a Collaborator
+              </h2>
+
+              {/* Description */}
+              <p className="text-white/50 text-sm leading-relaxed text-center mb-2">
+                Your account is registered as a <span className="text-white/80 font-medium">Collaborator</span>. Creating and publishing film projects is available for Creator accounts.
+              </p>
+              <p className="text-white/35 text-sm leading-relaxed text-center mb-8">
+                As a Collaborator, you can browse open projects, apply for roles, and build your portfolio.
+              </p>
+
+              {/* Actions */}
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Link
+                  to="/explore"
+                  id="collab-explore-btn"
+                  className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-purple text-white text-sm font-semibold rounded-xl transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_30px_rgba(139,92,246,0.4)] hover:scale-[1.02] active:scale-95"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                  </svg>
+                  Explore Projects
+                </Link>
+                <Link
+                  to="/my-projects"
+                  id="collab-dashboard-btn"
+                  className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3.5 border border-white/10 text-white/60 text-sm font-medium rounded-xl transition-all duration-300 hover:border-white/20 hover:text-white hover:bg-white/[0.03] hover:scale-[1.02] active:scale-95"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                  </svg>
+                  Go to Dashboard
+                </Link>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer hint */}
+          <p className="text-center text-white/20 text-xs mt-6">
+            Want to create projects?{' '}
+            <Link to="/register" className="text-purple/60 hover:text-purple transition-colors">
+              Register a new Creator account
+            </Link>
+          </p>
         </div>
       </section>
     )
@@ -119,28 +197,130 @@ function CreateProjectPage() {
     setCurrentStep((s) => Math.max(s - 1, 1))
   }
 
-  const handlePublish = () => {
+  const handlePublish = async () => {
     if (!validateStep(1) || !validateStep(2)) return
 
+    // 0. Verify active authenticated user session
+    const { data: { session } } = await supabase.auth.getSession()
+    const activeUserId = session?.user?.id || user?.id
+
+    if (!activeUserId) {
+      setToast({
+        type: 'error',
+        text: 'Authentication required. No active user session found. Please sign in again.'
+      })
+      return
+    }
+
     setLoading(true)
-    setTimeout(() => {
-      addProject({
-        title: form.title,
-        logline: form.logline,
+
+    try {
+      let posterUrl = null
+      let scriptPath = null
+
+      // Step 1A: Upload project poster if a file was selected
+      if (form.thumbnailFile) {
+        const file = form.thumbnailFile
+        const fileExt = file.name.split('.').pop() || 'png'
+        const sanitizedFileName = `${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${fileExt}`
+        const filePath = `${activeUserId}/${sanitizedFileName}`
+
+        const { error: uploadError } = await supabase.storage
+          .from('project-posters')
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: false,
+          })
+
+        if (uploadError) {
+          throw new Error(`[Storage Error] Poster upload failed: ${uploadError.message || JSON.stringify(uploadError)}`)
+        }
+
+        const { data: publicUrlData } = supabase.storage
+          .from('project-posters')
+          .getPublicUrl(filePath)
+
+        posterUrl = publicUrlData?.publicUrl || null
+      }
+
+      // Step 1B: Upload project script if a file was selected
+      if (form.scriptFile) {
+        const file = form.scriptFile
+        const sanitizedFileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+        const filePath = `${activeUserId}/${sanitizedFileName}`
+
+        const { error: scriptUploadError } = await supabase.storage
+          .from('scripts')
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: false,
+          })
+
+        if (scriptUploadError) {
+          throw new Error(`[Storage Error] Script upload failed: ${scriptUploadError.message || JSON.stringify(scriptUploadError)}`)
+        }
+
+        scriptPath = filePath
+      }
+
+      // Step 2: Insert project record into public.projects
+      const projectData = {
+        creator_id: activeUserId,
+        title: form.title.trim(),
+        description: form.logline.trim(),
         genre: form.genre,
         location: form.location,
-        status: form.status,
-        roles: form.roles,
-        thumbnail: form.thumbnailPreview || '/images/project-1.png',
-        scriptUrl: form.scriptFile
-          ? URL.createObjectURL(form.scriptFile)
-          : 'https://mozilla.github.io/pdf.js/web/compressed.tracemonkey-pldi-09.pdf',
-        creator: { id: `c_${user.name}`, name: user.name, role: user.skills?.[0] || 'Creator', avatar: user.avatar || null },
-      })
+        budget: form.budget === '' || form.budget == null ? null : Number(form.budget),
+        timeline: form.timeline.trim() || null,
+        poster_url: posterUrl,
+        script_url: scriptPath,
+        status: 'OPEN',
+      }
+
+      const { data: createdProject, error: projectError } = await supabase
+        .from('projects')
+        .insert(projectData)
+        .select('id')
+        .single()
+
+      if (projectError) {
+        throw new Error(`[Database Error] Project creation failed: ${projectError.message || JSON.stringify(projectError)}`)
+      }
+
+      if (!createdProject?.id) {
+        throw new Error('[Database Error] Project was created but no valid ID was returned.')
+      }
+
+      // Step 3: Insert roles into public.project_roles
+      if (form.roles && form.roles.length > 0) {
+        const rolesToInsert = form.roles.map((roleName) => ({
+          project_id: createdProject.id,
+          role: roleName,
+          positions_needed: 1,
+          positions_filled: 0,
+        }))
+
+        const { error: rolesError } = await supabase
+          .from('project_roles')
+          .insert(rolesToInsert)
+
+        if (rolesError) {
+          throw new Error(`[Database Error] Adding project roles failed: ${rolesError.message || JSON.stringify(rolesError)}`)
+        }
+      }
+
+      // Step 4: Success feedback & navigation
+      setToast({ type: 'success', text: 'Project published successfully to Supabase!' })
+      setTimeout(() => {
+        navigate('/my-projects')
+      }, 1500)
+    } catch (err) {
+      console.error('Project publish error:', err)
+      const errorMsg = err?.message || (typeof err === 'string' ? err : 'An unexpected error occurred while publishing the project.')
+      setToast({ type: 'error', text: errorMsg })
+    } finally {
       setLoading(false)
-      setToast({ type: 'success', text: 'Project published successfully!' })
-      setTimeout(() => navigate('/explore'), 1500)
-    }, 2000)
+    }
   }
 
   const steps = [
@@ -286,6 +466,35 @@ function CreateProjectPage() {
                   </div>
                 </div>
               </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div>
+                  <label htmlFor="create-budget" className="block text-sm font-medium text-white/60 mb-2">Budget (₹)</label>
+                  <input
+                    id="create-budget"
+                    type="number"
+                    name="budget"
+                    value={form.budget}
+                    onChange={handleChange}
+                    placeholder="e.g. 500000"
+                    min="0"
+                    className="w-full px-4 py-3.5 bg-[#0d0d0d] border border-white/10 rounded-xl text-sm text-white placeholder-white/25 outline-none transition-all duration-300 focus:border-purple/60 focus:shadow-[0_0_15px_rgba(139,92,246,0.1)]"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="create-timeline" className="block text-sm font-medium text-white/60 mb-2">Timeline</label>
+                  <input
+                    id="create-timeline"
+                    type="text"
+                    name="timeline"
+                    value={form.timeline}
+                    onChange={handleChange}
+                    placeholder="e.g. Shooting Nov 2026 / 3 Months"
+                    className="w-full px-4 py-3.5 bg-[#0d0d0d] border border-white/10 rounded-xl text-sm text-white placeholder-white/25 outline-none transition-all duration-300 focus:border-purple/60 focus:shadow-[0_0_15px_rgba(139,92,246,0.1)]"
+                  />
+                </div>
+              </div>
             </div>
           )}
 
@@ -388,6 +597,8 @@ function CreateProjectPage() {
                   <SummaryRow label="Title" value={form.title} />
                   <SummaryRow label="Genre" value={form.genre} />
                   <SummaryRow label="Location" value={form.location} />
+                  {form.budget && <SummaryRow label="Budget" value={`₹${Number(form.budget).toLocaleString('en-IN')}`} />}
+                  {form.timeline && <SummaryRow label="Timeline" value={form.timeline} />}
                   <SummaryRow label="Roles" value={form.roles.join(', ')} />
                   <SummaryRow label="Script" value={form.scriptFileName || 'Default sample'} />
                 </div>

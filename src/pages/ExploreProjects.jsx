@@ -1,14 +1,16 @@
 import { useState, useMemo, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/useAuth'
-import { useProjects } from '../context/useProjects'
+import { supabase } from '../lib/supabaseClient'
 
 const locations = ['Mumbai', 'Pune', 'Delhi', 'Bangalore', 'Hyderabad', 'Chennai', 'Kolkata']
 const genres = ['Drama', 'Thriller', 'Comedy', 'Sci-Fi', 'Action', 'Horror', 'Romance', 'Mystery', 'Documentary']
 const roles = ['Actor', 'Editor', 'DOP', 'Director', 'Writer', 'Composer', 'VFX Artist', 'Sound Designer', 'Cinematographer']
 
 function ExploreProjects() {
-  const { projects } = useProjects()
+  const [projects, setProjects] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const { user } = useAuth()
   const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState('newest')
@@ -20,6 +22,63 @@ function ExploreProjects() {
 
   useEffect(() => {
     window.scrollTo(0, 0)
+  }, [])
+
+  useEffect(() => {
+    let isMounted = true
+
+    const fetchProjects = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+
+        const { data, error: fetchError } = await supabase
+          .from('projects')
+          .select('*, creator:profiles(name, profile_photo_url, location), roles:project_roles(role, positions_needed, positions_filled)')
+          .eq('status', 'OPEN')
+          .order('created_at', { ascending: false })
+
+        if (fetchError) throw fetchError
+
+        if (isMounted) {
+          const mapped = (data || []).map((p) => ({
+            id: p.id,
+            title: p.title || 'Untitled Project',
+            logline: p.description || '',
+            description: p.description || '',
+            genre: p.genre || 'Drama',
+            location: p.location || 'Remote',
+            budget: p.budget,
+            timeline: p.timeline,
+            thumbnail: p.poster_url || '/images/hero-bg.png',
+            poster_url: p.poster_url,
+            status: p.status === 'OPEN' ? 'Open' : p.status === 'IN_PRODUCTION' ? 'In Production' : p.status === 'COMPLETED' ? 'Completed' : p.status,
+            date: p.created_at ? p.created_at.split('T')[0] : '',
+            created_at: p.created_at,
+            popular: false,
+            creator: p.creator ? {
+              name: p.creator.name,
+              avatar: p.creator.profile_photo_url,
+              location: p.creator.location,
+            } : null,
+            roles: Array.isArray(p.roles) ? p.roles.map((r) => r.role) : [],
+            rawRoles: p.roles || [],
+          }))
+          setProjects(mapped)
+        }
+      } catch (err) {
+        console.error('Error fetching explore projects:', err)
+        if (isMounted) setError(err.message)
+      } finally {
+        if (isMounted) setLoading(false)
+      }
+    }
+
+    fetchProjects()
+
+    return () => {
+      isMounted = false
+    }
   }, [])
 
   const toggleFilter = (value, list, setter) => {
@@ -60,7 +119,7 @@ function ExploreProjects() {
     }
 
     if (sortBy === 'newest') {
-      result.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))
+      result.sort((a, b) => new Date(b.created_at || b.date || 0) - new Date(a.created_at || a.date || 0))
     } else {
       result.sort((a, b) => (b.popular === a.popular ? 0 : b.popular ? 1 : -1))
     }
@@ -261,8 +320,16 @@ function ExploreProjects() {
               </p>
             )}
 
-            {/* Project Grid or Appropriate Empty State */}
-            {visible.length > 0 ? (
+            {/* Project Grid, Loading, or Empty State */}
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-28 text-center">
+                <svg className="w-10 h-10 text-purple animate-spin mb-4" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
+                  <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" />
+                </svg>
+                <p className="text-white/40 text-sm">Loading live projects...</p>
+              </div>
+            ) : visible.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
                 {visible.map((project) => (
                   <ProjectCard key={project.id} project={project} />

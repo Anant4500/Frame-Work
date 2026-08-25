@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/useAuth'
-import { useProjects } from '../context/useProjects'
+import { supabase } from '../lib/supabaseClient'
 
 const generateApplicantId = () => `a${Date.now()}`
 
@@ -9,16 +9,116 @@ function ProjectDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
-  const { projects, updateApplicantStatus, applyToProject } = useProjects()
+  const [project, setProject] = useState(null)
+  const [signedScriptUrl, setSignedScriptUrl] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [toast, setToast] = useState(null)
   const [applyModalOpen, setApplyModalOpen] = useState(false)
+  const [editModalOpen, setEditModalOpen] = useState(false)
   const [applyRole, setApplyRole] = useState('')
   const [applyMessage, setApplyMessage] = useState('')
 
-  const project = projects.find((p) => p.id === Number(id))
-
   useEffect(() => {
     window.scrollTo(0, 0)
+  }, [id])
+
+  const fetchProject = async (showLoading = true) => {
+    try {
+      if (showLoading) setLoading(true)
+      setError(null)
+      setSignedScriptUrl(null)
+
+      const { data, error: fetchError } = await supabase
+        .from('projects')
+        .select('*, creator:profiles(*), roles:project_roles(*)')
+        .eq('id', id)
+        .single()
+
+      if (fetchError) throw fetchError
+
+      if (data) {
+        // Fetch applications for this project
+        let projectApplicants = []
+        try {
+          const { data: appData } = await supabase
+            .from('applications')
+            .select('*, applicant:profiles(id, name, profile_photo_url, location, resume_url), role:project_roles(role)')
+            .eq('project_id', id)
+
+          if (appData) {
+            projectApplicants = appData.map((a) => ({
+              id: a.id,
+              applicant_id: a.applicant_id,
+              project_role_id: a.project_role_id,
+              name: a.applicant?.name || 'Applicant',
+              role: a.role?.role || 'Collaborator',
+              message: a.message || '',
+              status: (a.status || 'pending').toLowerCase(),
+              avatar: a.applicant?.profile_photo_url || null,
+              resumeUrl: a.applicant?.resume_url || null,
+            }))
+          }
+        } catch (appErr) {
+          console.error('Error fetching applications for project:', appErr)
+        }
+
+        const mapped = {
+          id: data.id,
+          title: data.title || 'Untitled Project',
+          logline: data.description || '',
+          description: data.description || '',
+          genre: data.genre || 'Drama',
+          location: data.location || 'Remote',
+          budget: data.budget,
+          timeline: data.timeline,
+          status: data.status === 'OPEN' ? 'Open' : data.status === 'IN_PRODUCTION' ? 'In Production' : data.status === 'COMPLETED' ? 'Completed' : data.status,
+          thumbnail: data.poster_url || '/images/hero-bg.png',
+          poster_url: data.poster_url,
+          script_url: data.script_url || null,
+          created_at: data.created_at,
+          creator_id: data.creator_id,
+          creator: data.creator ? {
+            id: data.creator.id,
+            name: data.creator.name || 'Creator',
+            role: data.creator.role === 'CREATOR' ? 'Director' : (data.creator.role || 'Creator'),
+            avatar: data.creator.profile_photo_url || null,
+            bio: data.creator.bio || '',
+            location: data.creator.location || data.location,
+          } : null,
+          roles: Array.isArray(data.roles) ? data.roles.map((r) => r.role) : [],
+          rawRoles: data.roles || [],
+          applicants: projectApplicants
+        }
+        setProject(mapped)
+
+        // Generate signed URL for private script if uploaded
+        if (data.script_url) {
+          const { data: signedData, error: signedError } = await supabase
+            .storage
+            .from('scripts')
+            .createSignedUrl(data.script_url, 60 * 60)
+
+          if (!signedError && signedData?.signedUrl) {
+            setSignedScriptUrl(signedData.signedUrl)
+          } else if (signedError) {
+            console.error('Error generating signed URL for script:', signedError)
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching project detail:', err)
+      setError(err.message)
+      setProject(null)
+    } finally {
+      if (showLoading) setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (id) {
+      fetchProject(true)
+    }
   }, [id])
 
   useEffect(() => {
@@ -27,6 +127,20 @@ function ProjectDetailPage() {
       return () => clearTimeout(timer)
     }
   }, [toast])
+
+  if (loading) {
+    return (
+      <section className="min-h-screen flex items-center justify-center">
+        <div className="flex flex-col items-center justify-center text-center">
+          <svg className="w-10 h-10 text-purple animate-spin mb-4" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
+            <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" />
+          </svg>
+          <p className="text-white/40 text-sm font-medium">Loading project details...</p>
+        </div>
+      </section>
+    )
+  }
 
   if (!project) {
     return (
@@ -55,15 +169,14 @@ function ProjectDetailPage() {
     user &&
     isCreatorRole &&
     (
-      (user.id && (user.id === project.creator?.id || user.id === project.creatorId)) ||
-      (user.name && (user.name === project.creator?.name || user.name === project.creatorId || `c_${user.name}` === project.creator?.id)) ||
-      (user.email && (user.email === project.creator?.id || user.email === project.creatorId || `c_${user.email.split('@')[0]}` === project.creator?.id))
+      (user.id && (user.id === project.creator?.id || user.id === project.creator_id)) ||
+      (user.name && (user.name === project.creator?.name))
     )
   )
   const hasApplied = Boolean(
     user &&
     project.applicants &&
-    project.applicants.some((a) => (user.id && a.id === user.id) || (user.name && a.name === user.name))
+    project.applicants.some((a) => (user.id && (a.applicant_id === user.id || a.id === user.id)) || (user.name && a.name === user.name))
   )
 
   const statusColors = {
@@ -82,24 +195,79 @@ function ProjectDetailPage() {
     setApplyModalOpen(true)
   }
 
-  const handleApplySubmit = () => {
+  const handleApplySubmit = async () => {
     if (!applyMessage.trim()) {
       setToast({ type: 'error', text: 'Please write a short message' })
       return
     }
-    const newApplicant = {
-      id: generateApplicantId(),
-      name: user.name,
-      role: applyRole,
-      message: applyMessage,
-      status: 'pending',
-      avatar: user.avatar || null,
+    const { data: { session } } = await supabase.auth.getSession()
+    const activeUserId = session?.user?.id || user?.id
+
+    if (!activeUserId) {
+      navigate('/login')
+      return
     }
-    applyToProject(project.id, newApplicant)
-    setApplyModalOpen(false)
-    setApplyMessage('')
-    setApplyRole('')
-    setToast({ type: 'success', text: `Applied for ${applyRole} successfully!` })
+
+    const roleObj = Array.isArray(project.rawRoles)
+      ? project.rawRoles.find((r) => r.role === applyRole)
+      : null
+    const projectRoleId = roleObj?.id || null
+
+    try {
+      const { data: newApp, error: insertError } = await supabase
+        .from('applications')
+        .insert({
+          project_id: project.id,
+          project_role_id: projectRoleId,
+          applicant_id: activeUserId,
+          message: applyMessage.trim(),
+          status: 'PENDING',
+        })
+        .select('*, applicant:profiles(id, name, profile_photo_url), role:project_roles(role)')
+        .single()
+
+      if (insertError) {
+        if (insertError.code === '23505' || insertError.message?.includes('duplicate') || insertError.message?.includes('unique')) {
+          setToast({ type: 'info', text: 'You have already applied for this role.' })
+          setApplyModalOpen(false)
+          return
+        }
+        throw insertError
+      }
+
+      const mappedApp = {
+        id: newApp.id,
+        applicant_id: activeUserId,
+        project_role_id: projectRoleId,
+        name: user?.name || 'Applicant',
+        role: applyRole,
+        message: applyMessage.trim(),
+        status: 'pending',
+        avatar: user?.avatar || null,
+      }
+
+      setProject((prev) => prev ? {
+        ...prev,
+        applicants: [...(prev.applicants || []), mappedApp]
+      } : prev)
+
+      // Fire notification to the project creator
+      if (project.creator_id && project.creator_id !== activeUserId) {
+        supabase.from('notifications').insert({
+          user_id: project.creator_id,
+          project_id: project.id,
+          message: `${user?.name || 'Someone'} applied for "${applyRole}" on "${project.title}".`,
+        }).then(() => {}).catch(() => {})
+      }
+
+      setApplyModalOpen(false)
+      setApplyMessage('')
+      setApplyRole('')
+      setToast({ type: 'success', text: `Applied for ${applyRole} successfully!` })
+    } catch (err) {
+      console.error('Error submitting application:', err)
+      setToast({ type: 'error', text: err.message || 'Failed to submit application. Please try again.' })
+    }
   }
 
   const handleApplyGeneral = () => {
@@ -111,18 +279,48 @@ function ProjectDetailPage() {
       setToast({ type: 'info', text: 'You have already applied to this project' })
       return
     }
-    setApplyRole(project.roles[0] || 'General')
+    setApplyRole((Array.isArray(project.roles) && project.roles[0]) || 'General')
     setApplyModalOpen(true)
   }
 
-  const handleAccept = (applicantId) => {
-    updateApplicantStatus(project.id, applicantId, 'accepted')
-    setToast({ type: 'success', text: 'Applicant accepted!' })
+  const handleAccept = async (applicantId) => {
+    try {
+      const { error: updateError } = await supabase
+        .from('applications')
+        .update({ status: 'ACCEPTED' })
+        .eq('id', applicantId)
+
+      if (updateError) throw updateError
+
+      setProject((prev) => prev ? {
+        ...prev,
+        applicants: (prev.applicants || []).map((a) => a.id === applicantId ? { ...a, status: 'accepted' } : a)
+      } : prev)
+      setToast({ type: 'success', text: 'Applicant accepted!' })
+    } catch (err) {
+      console.error('Error accepting applicant:', err)
+      setToast({ type: 'error', text: err.message || 'Failed to accept applicant' })
+    }
   }
 
-  const handleReject = (applicantId) => {
-    updateApplicantStatus(project.id, applicantId, 'rejected')
-    setToast({ type: 'error', text: 'Applicant rejected' })
+  const handleReject = async (applicantId) => {
+    try {
+      const { error: updateError } = await supabase
+        .from('applications')
+        .update({ status: 'REJECTED' })
+        .eq('id', applicantId)
+
+      if (updateError) throw updateError
+
+      setProject((prev) => prev ? {
+        ...prev,
+        applicants: (prev.applicants || []).map((a) => a.id === applicantId ? { ...a, status: 'rejected' } : a)
+      } : prev)
+      setToast({ type: 'error', text: 'Applicant rejected' })
+    } catch (err) {
+      console.error('Error rejecting applicant:', err)
+      setToast({ type: 'error', text: err.message || 'Failed to reject applicant' })
+    }
   }
 
   return (
@@ -142,9 +340,23 @@ function ProjectDetailPage() {
 
         {/* ─── Top Section ─── */}
         <div className="mb-10 reveal">
-          <h1 className="font-[Montserrat] text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight mb-4">
-            {project.title}
-          </h1>
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
+            <h1 className="font-[Montserrat] text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight">
+              {project.title}
+            </h1>
+            {user?.id && project?.creator_id && user.id === project.creator_id && (
+              <button
+                id="edit-project-btn"
+                onClick={() => setEditModalOpen(true)}
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-purple/20 text-purple-light border border-purple/40 text-sm font-semibold rounded-xl transition-all duration-300 hover:bg-purple hover:text-white hover:shadow-[0_0_25px_rgba(139,92,246,0.35)] shrink-0 self-start sm:self-auto"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                </svg>
+                Edit Project
+              </button>
+            )}
+          </div>
           <p className="text-white/50 text-lg sm:text-xl max-w-3xl leading-relaxed mb-6">
             {project.logline}
           </p>
@@ -171,6 +383,19 @@ function ProjectDetailPage() {
               <span className={`w-2 h-2 rounded-full ${project.status === 'Open' ? 'bg-purple animate-pulse' : project.status === 'In Production' ? 'bg-amber-400' : 'bg-emerald-400'}`} />
               {project.status}
             </span>
+            {/* Budget */}
+            {project.budget != null && project.budget !== '' && (
+              <span className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-white/[0.04] border border-white/10 rounded-full text-white/70">
+                <span className="text-emerald-400">₹</span>
+                {Number(project.budget).toLocaleString('en-IN')} Budget
+              </span>
+            )}
+            {/* Timeline */}
+            {project.timeline && (
+              <span className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-white/[0.04] border border-white/10 rounded-full text-white/70">
+                🗓️ {project.timeline}
+              </span>
+            )}
           </div>
         </div>
 
@@ -180,27 +405,60 @@ function ProjectDetailPage() {
           {/* ═══ Left Column ═══ */}
           <div className="flex-1 min-w-0 space-y-8">
 
-            {/* Script Preview */}
-            <div className="reveal glass-card rounded-2xl overflow-hidden">
-              <div className="px-6 py-4 border-b border-white/5 flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-purple/15 flex items-center justify-center">
-                  <svg className="w-4 h-4 text-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-                  </svg>
+            {/* Script Preview — conditional on signedScriptUrl */}
+            {signedScriptUrl ? (
+              <div className="reveal glass-card rounded-2xl overflow-hidden">
+                <div className="px-6 py-4 border-b border-white/5 flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-purple/15 flex items-center justify-center">
+                    <svg className="w-4 h-4 text-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                    </svg>
+                  </div>
+                  <h2 className="font-[Montserrat] text-lg font-bold">Script Preview</h2>
+                  <a
+                    href={signedScriptUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ml-auto text-xs text-purple/70 hover:text-purple transition-colors flex items-center gap-1"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                    </svg>
+                    Open full screen
+                  </a>
                 </div>
-                <h2 className="font-[Montserrat] text-lg font-bold">Script Preview</h2>
+                <div className="relative bg-[#0a0a0a]" style={{ height: '600px' }}>
+                  <iframe
+                    src={signedScriptUrl}
+                    title="Script Preview"
+                    className="w-full h-full border-0"
+                    style={{ filter: 'invert(0.85) hue-rotate(180deg)', background: '#1a1a1a' }}
+                  />
+                  {/* Overlay gradient at bottom */}
+                  <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#0a0a0a] to-transparent pointer-events-none" />
+                </div>
               </div>
-              <div className="relative bg-[#0a0a0a]" style={{ height: '600px' }}>
-                <iframe
-                  src={project.scriptUrl}
-                  title="Script Preview"
-                  className="w-full h-full border-0"
-                  style={{ filter: 'invert(0.85) hue-rotate(180deg)', background: '#1a1a1a' }}
-                />
-                {/* Overlay gradient at bottom */}
-                <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#0a0a0a] to-transparent pointer-events-none" />
+            ) : (
+              <div className="reveal glass-card rounded-2xl overflow-hidden">
+                <div className="px-6 py-4 border-b border-white/5 flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-white/[0.04] flex items-center justify-center">
+                    <svg className="w-4 h-4 text-white/25" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                    </svg>
+                  </div>
+                  <h2 className="font-[Montserrat] text-lg font-bold text-white/50">Script Preview</h2>
+                </div>
+                <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+                  <div className="w-14 h-14 rounded-xl bg-white/[0.03] border border-white/5 flex items-center justify-center mb-4">
+                    <svg className="w-7 h-7 text-white/15" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                    </svg>
+                  </div>
+                  <p className="text-white/40 text-sm font-medium mb-1">No script uploaded for this project yet.</p>
+                  <p className="text-white/20 text-xs">The creator may share the script after reviewing your application.</p>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Required Roles */}
             <div className="reveal glass-card rounded-2xl p-6 sm:p-8">
@@ -211,50 +469,96 @@ function ProjectDetailPage() {
                   </svg>
                 </div>
                 <h2 className="font-[Montserrat] text-lg font-bold">Required Roles</h2>
-                <span className="ml-auto text-xs text-white/30">{project.roles.length} roles open</span>
+                <span className="ml-auto text-xs text-white/30">{(Array.isArray(project.roles) ? project.roles : []).length} roles open</span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {project.roles.map((role) => {
-                  const roleIcons = {
-                    'Actor': '🎭', 'Editor': '✂️', 'Sound Designer': '🎧', 'Cinematographer': '📷',
-                    'VFX Artist': '✨', 'Director': '🎬', 'Writer': '✍️', 'DOP': '📹',
-                    'Composer': '🎵', 'Stunt Coordinator': '🤸', 'Producer': '🎞️',
-                  }
-                  const alreadyAppliedForRole = Boolean(
-                    user &&
-                    project.applicants &&
-                    project.applicants.some((a) => ((user.id && a.id === user.id) || (user.name && a.name === user.name)) && a.role === role)
-                  )
-
-                  return (
-                    <div
-                      key={role}
-                      className="group flex items-center justify-between p-4 bg-white/[0.02] border border-white/5 rounded-xl transition-all duration-300 hover:border-purple/20 hover:bg-purple/[0.03]"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="text-xl">{roleIcons[role] || '🎬'}</span>
-                        <span className="text-sm font-medium text-white/80 group-hover:text-white transition-colors">{role}</span>
+              {Array.isArray(project.roles) && project.roles.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {project.roles.map((role) => {
+                    const roleIcons = {
+                      'Actor': '🎭', 'Editor': '✂️', 'Sound Designer': '🎧', 'Cinematographer': '📷',
+                      'VFX Artist': '✨', 'Director': '🎬', 'Writer': '✍️', 'DOP': '📹',
+                      'Composer': '🎵', 'Stunt Coordinator': '🤸', 'Producer': '🎞️',
+                    }
+                    const alreadyAppliedForRole = Boolean(
+                      user &&
+                      project.applicants &&
+                      project.applicants.some((a) => ((user.id && a.id === user.id) || (user.name && a.name === user.name)) && a.role === role)
+                    )
+                    return (
+                      <div
+                        key={role}
+                        className="group flex items-center justify-between p-4 bg-white/[0.02] border border-white/5 rounded-xl transition-all duration-300 hover:border-purple/20 hover:bg-purple/[0.03]"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-xl">{roleIcons[role] || '🎬'}</span>
+                          <span className="text-sm font-medium text-white/80 group-hover:text-white transition-colors">{role}</span>
+                        </div>
+                        {isCreatorOwner ? (
+                          <span className="text-xs text-white/30">Your project</span>
+                        ) : alreadyAppliedForRole ? (
+                          <span className="px-3 py-1.5 text-xs font-medium text-emerald-400 border border-emerald-500/20 rounded-lg bg-emerald-500/10">
+                            Applied
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => handleApplyRole(role)}
+                            className="px-4 py-1.5 text-xs font-semibold bg-purple text-white rounded-lg transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_15px_rgba(139,92,246,0.3)] hover:scale-105 active:scale-95"
+                          >
+                            Apply
+                          </button>
+                        )}
                       </div>
-                      {isCreatorOwner ? (
-                        <span className="text-xs text-white/30">Your project</span>
-                      ) : alreadyAppliedForRole ? (
-                        <span className="px-3 py-1.5 text-xs font-medium text-emerald-400 border border-emerald-500/20 rounded-lg bg-emerald-500/10">
-                          Applied
-                        </span>
-                      ) : (
-                        <button
-                          onClick={() => handleApplyRole(role)}
-                          className="px-4 py-1.5 text-xs font-semibold bg-purple text-white rounded-lg transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_15px_rgba(139,92,246,0.3)] hover:scale-105 active:scale-95"
-                        >
-                          Apply
-                        </button>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <p className="text-white/30 text-sm py-4 text-center">No roles specified for this project.</p>
+              )}
             </div>
+
+            {/* Team / Credits */}
+            {(() => {
+              const teamMembers = (project.applicants || []).filter((a) => a.status === 'accepted')
+              if (teamMembers.length === 0) return null
+              return (
+                <div className="reveal glass-card rounded-2xl p-6 sm:p-8">
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center">
+                      <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
+                      </svg>
+                    </div>
+                    <h2 className="font-[Montserrat] text-lg font-bold">Team & Credits</h2>
+                    <span className="ml-auto text-xs text-white/30">{teamMembers.length} {teamMembers.length === 1 ? 'member' : 'members'}</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {teamMembers.map((member) => (
+                      <div
+                        key={member.id}
+                        className="flex items-center gap-3.5 p-4 bg-white/[0.02] border border-white/5 rounded-xl transition-all duration-300 hover:border-emerald-500/20 hover:bg-emerald-500/[0.03]"
+                      >
+                        <div className="w-10 h-10 rounded-full bg-purple/10 border border-purple/20 flex items-center justify-center shrink-0 overflow-hidden">
+                          {member.avatar ? (
+                            <img src={member.avatar} alt={member.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-xs font-bold text-purple">{(member.name || 'U').charAt(0)}</span>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-white truncate">{member.name}</p>
+                          <p className="text-xs text-emerald-400/80">{member.role}</p>
+                        </div>
+                        <span className="shrink-0 px-2 py-0.5 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
+                          Hired
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
           </div>
 
           {/* ═══ Right Column (Sidebar) ═══ */}
@@ -389,6 +693,18 @@ function ProjectDetailPage() {
         </div>
       )}
 
+      {/* ─── Edit Project Modal ─── */}
+      <EditProjectModal
+        isOpen={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        project={project}
+        onSaveSuccess={() => {
+          setEditModalOpen(false)
+          setToast({ type: 'success', text: 'Project & roles updated successfully!' })
+          fetchProject(false)
+        }}
+      />
+
       {/* ─── Toast ─── */}
       {toast && (
         <div className={`fixed bottom-6 right-6 z-50 px-5 py-3.5 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.4)] border backdrop-blur-xl toast-enter flex items-center gap-3 ${
@@ -462,6 +778,330 @@ function ApplicantCard({ applicant, onAccept, onReject }) {
           </button>
         </div>
       )}
+    </div>
+  )
+}
+
+/* ─── Edit Project Modal Component ─── */
+function EditProjectModal({ isOpen, onClose, project, onSaveSuccess }) {
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [genre, setGenre] = useState('Drama')
+  const [location, setLocation] = useState('')
+  const [budget, setBudget] = useState('')
+  const [timeline, setTimeline] = useState('')
+  const [rolesList, setRolesList] = useState([])
+  const [rolesToDelete, setRolesToDelete] = useState([])
+  const [newRoleInput, setNewRoleInput] = useState('')
+  const [isSaving, setIsSaving] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
+
+  useEffect(() => {
+    if (project && isOpen) {
+      setTitle(project.title || '')
+      setDescription(project.description || project.logline || '')
+      setGenre(project.genre || 'Drama')
+      setLocation(project.location || '')
+      setBudget(project.budget || '')
+      setTimeline(project.timeline || '')
+
+      const raw = Array.isArray(project.rawRoles) ? project.rawRoles : []
+      setRolesList(raw.map((r) => ({
+        id: r.id,
+        role: r.role,
+        positions_needed: r.positions_needed || 1,
+        positions_filled: r.positions_filled || 0,
+        isNew: false
+      })))
+      setRolesToDelete([])
+      setNewRoleInput('')
+      setErrorMsg('')
+    }
+  }, [project, isOpen])
+
+  if (!isOpen || !project) return null
+
+  const handleAddRole = (e) => {
+    e.preventDefault()
+    const trimmed = newRoleInput.trim()
+    if (!trimmed) return
+    if (rolesList.some((r) => r.role.toLowerCase() === trimmed.toLowerCase())) {
+      setErrorMsg('Role already exists in list')
+      return
+    }
+    setErrorMsg('')
+    setRolesList((prev) => [
+      ...prev,
+      { role: trimmed, positions_needed: 1, positions_filled: 0, isNew: true }
+    ])
+    setNewRoleInput('')
+  }
+
+  const handleRemoveRole = (index, roleObj) => {
+    if ((roleObj.positions_filled || 0) > 0) {
+      setErrorMsg(`Cannot remove "${roleObj.role}" because positions have already been filled.`)
+      return
+    }
+    setErrorMsg('')
+    if (roleObj.id && !roleObj.isNew) {
+      setRolesToDelete((prev) => [...prev, roleObj.id])
+    }
+    setRolesList((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!title.trim() || !description.trim()) {
+      setErrorMsg('Title and Description are required.')
+      return
+    }
+
+    try {
+      setIsSaving(true)
+      setErrorMsg('')
+
+      // 1. UPDATE projects text fields
+      const { error: updateErr } = await supabase
+        .from('projects')
+        .update({
+          title: title.trim(),
+          description: description.trim(),
+          genre,
+          location: location.trim(),
+          budget: budget === '' || budget == null ? null : (isNaN(Number(budget)) ? budget.trim() : Number(budget)),
+          timeline: timeline.trim() || null,
+        })
+        .eq('id', project.id)
+        .eq('creator_id', project.creator_id)
+
+      if (updateErr) throw updateErr
+
+      // 2. DELETE removed existing roles
+      if (rolesToDelete.length > 0) {
+        const { error: delErr } = await supabase
+          .from('project_roles')
+          .delete()
+          .in('id', rolesToDelete)
+
+        if (delErr) throw delErr
+      }
+
+      // 3. INSERT new roles
+      const rolesToAdd = rolesList.filter((r) => r.isNew || !r.id)
+      if (rolesToAdd.length > 0) {
+        const payload = rolesToAdd.map((r) => ({
+          project_id: project.id,
+          role: r.role.trim(),
+          positions_needed: Number(r.positions_needed) || 1,
+          positions_filled: 0
+        }))
+
+        const { error: insErr } = await supabase
+          .from('project_roles')
+          .insert(payload)
+
+        if (insErr) throw insErr
+      }
+
+      onSaveSuccess()
+    } catch (err) {
+      console.error('Error updating project:', err)
+      setErrorMsg(err.message || 'Failed to update project.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+      <div className="relative w-full max-w-2xl bg-[#121212] border border-white/10 rounded-2xl p-6 sm:p-8 max-h-[90vh] overflow-y-auto shadow-2xl">
+        <div className="flex items-center justify-between pb-4 mb-6 border-b border-white/10">
+          <h2 className="font-[Montserrat] text-xl font-bold text-white flex items-center gap-2">
+            <svg className="w-5 h-5 text-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+            </svg>
+            Edit Project & Roles
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isSaving}
+            className="p-1 text-white/40 hover:text-white transition-colors"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {errorMsg && (
+          <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+            {errorMsg}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {/* Title */}
+          <div>
+            <label className="block text-xs font-semibold text-white/70 uppercase tracking-wider mb-2">Project Title</label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full px-4 py-3 bg-white/[0.04] border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-purple focus:ring-1 focus:ring-purple transition-all"
+              placeholder="e.g. Echoes of Silence"
+              required
+            />
+          </div>
+
+          {/* Logline / Description */}
+          <div>
+            <label className="block text-xs font-semibold text-white/70 uppercase tracking-wider mb-2">Description / Logline</label>
+            <textarea
+              rows={3}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="w-full px-4 py-3 bg-white/[0.04] border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-purple focus:ring-1 focus:ring-purple transition-all"
+              placeholder="Brief summary of your film project..."
+              required
+            />
+          </div>
+
+          {/* Grid 2-col for Genre, Location, Budget, Timeline */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-white/70 uppercase tracking-wider mb-2">Genre</label>
+              <select
+                value={genre}
+                onChange={(e) => setGenre(e.target.value)}
+                className="w-full px-4 py-3 bg-[#1a1a1a] border border-white/10 rounded-xl text-white focus:outline-none focus:border-purple transition-all"
+              >
+                {['Drama', 'Sci-Fi', 'Thriller', 'Horror', 'Documentary', 'Comedy', 'Action', 'Romance', 'Animation', 'Experimental'].map((g) => (
+                  <option key={g} value={g}>{g}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-white/70 uppercase tracking-wider mb-2">Location</label>
+              <input
+                type="text"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                className="w-full px-4 py-3 bg-white/[0.04] border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-purple transition-all"
+                placeholder="e.g. Mumbai / Remote"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-white/70 uppercase tracking-wider mb-2">Budget</label>
+              <input
+                type="text"
+                value={budget}
+                onChange={(e) => setBudget(e.target.value)}
+                className="w-full px-4 py-3 bg-white/[0.04] border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-purple transition-all"
+                placeholder="e.g. ₹5,00,000 / Indie"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-white/70 uppercase tracking-wider mb-2">Timeline</label>
+              <input
+                type="text"
+                value={timeline}
+                onChange={(e) => setTimeline(e.target.value)}
+                className="w-full px-4 py-3 bg-white/[0.04] border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-purple transition-all"
+                placeholder="e.g. Shooting Nov 2026"
+              />
+            </div>
+          </div>
+
+          {/* Manage Roles Section */}
+          <div className="pt-4 border-t border-white/10">
+            <label className="block text-xs font-semibold text-white/70 uppercase tracking-wider mb-3">Project Roles Management</label>
+
+            {/* Existing and Added Roles List */}
+            <div className="space-y-2 mb-4 max-h-48 overflow-y-auto pr-1">
+              {rolesList.length > 0 ? (
+                rolesList.map((r, idx) => (
+                  <div key={r.id || `new-${idx}`} className="flex items-center justify-between p-3 bg-white/[0.03] border border-white/5 rounded-xl">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-white">{r.role}</span>
+                      {r.isNew && (
+                        <span className="px-2 py-0.5 text-[10px] font-bold text-purple-light bg-purple/10 border border-purple/20 rounded-full">New</span>
+                      )}
+                      {(r.positions_filled || 0) > 0 && (
+                        <span className="px-2 py-0.5 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
+                          {r.positions_filled} Filled
+                        </span>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveRole(idx, r)}
+                      disabled={(r.positions_filled || 0) > 0}
+                      className={`text-xs font-medium px-2.5 py-1 rounded-lg transition-all ${
+                        (r.positions_filled || 0) > 0
+                          ? 'text-white/20 cursor-not-allowed'
+                          : 'text-red-400 hover:text-red-300 hover:bg-red-500/10'
+                      }`}
+                      title={(r.positions_filled || 0) > 0 ? 'Cannot remove filled role' : 'Remove role'}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <p className="text-white/30 text-xs py-2">No roles currently listed.</p>
+              )}
+            </div>
+
+            {/* Add Role Input */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newRoleInput}
+                onChange={(e) => setNewRoleInput(e.target.value)}
+                placeholder="e.g. Sound Designer"
+                className="flex-1 px-4 py-2.5 bg-white/[0.04] border border-white/10 rounded-xl text-sm text-white placeholder-white/30 focus:outline-none focus:border-purple"
+              />
+              <button
+                type="button"
+                onClick={handleAddRole}
+                className="px-4 py-2.5 bg-white/[0.08] hover:bg-purple text-white text-xs font-semibold rounded-xl border border-white/10 transition-all"
+              >
+                Add Role
+              </button>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex items-center justify-end gap-3 pt-6 border-t border-white/10">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isSaving}
+              className="px-5 py-2.5 text-sm font-medium text-white/60 hover:text-white transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSaving}
+              className="inline-flex items-center gap-2 px-6 py-2.5 bg-purple text-white text-sm font-semibold rounded-xl transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_20px_rgba(139,92,246,0.4)] disabled:opacity-50"
+            >
+              {isSaving && (
+                <svg className="w-4 h-4 text-white animate-spin" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
+                  <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" />
+                </svg>
+              )}
+              {isSaving ? 'Saving Changes...' : 'Save Changes'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   )
 }

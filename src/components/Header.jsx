@@ -1,15 +1,19 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/useAuth'
+import { supabase } from '../lib/supabaseClient'
 
 function Header() {
   const [scrolled, setScrolled] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [profileOpen, setProfileOpen] = useState(false)
+  const [notifOpen, setNotifOpen] = useState(false)
+  const [notifications, setNotifications] = useState([])
   const location = useLocation()
   const navigate = useNavigate()
   const { user, logout } = useAuth()
   const dropdownRef = useRef(null)
+  const notifRef = useRef(null)
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20)
@@ -20,6 +24,7 @@ function Header() {
   useEffect(() => {
     setMobileMenuOpen(false)
     setProfileOpen(false)
+    setNotifOpen(false)
   }, [location])
 
   useEffect(() => {
@@ -33,6 +38,44 @@ function Header() {
       return () => clearTimeout(timer)
     }
   }, [location])
+
+  // Fetch notifications
+  const fetchNotifications = useCallback(async () => {
+    if (!user?.id) return
+    try {
+      const { data } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(10)
+      setNotifications(data || [])
+    } catch (err) {
+      console.error('Error fetching notifications:', err)
+    }
+  }, [user?.id])
+
+  useEffect(() => {
+    fetchNotifications()
+    const interval = setInterval(fetchNotifications, 30000)
+    return () => clearInterval(interval)
+  }, [fetchNotifications])
+
+  const unreadCount = notifications.filter((n) => !n.is_read).length
+
+  const markAllRead = async () => {
+    if (unreadCount === 0) return
+    try {
+      await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('user_id', user.id)
+        .eq('is_read', false)
+      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
+    } catch (err) {
+      console.error('Error marking notifications as read:', err)
+    }
+  }
 
   const handleCreatorsClick = (e) => {
     e.preventDefault()
@@ -50,11 +93,14 @@ function Header() {
     }
   }
 
-  // Close dropdown on outside click
+  // Close dropdowns on outside click
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setProfileOpen(false)
+      }
+      if (notifRef.current && !notifRef.current.contains(e.target)) {
+        setNotifOpen(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -127,7 +173,87 @@ function Header() {
 
           {user ? (
             /* ─── Logged-in state ─── */
-            <div className="relative ml-2" ref={dropdownRef}>
+            <div className="flex items-center gap-2 ml-2">
+              {/* Notification Bell */}
+              <div className="relative" ref={notifRef}>
+                <button
+                  id="notif-bell-btn"
+                  onClick={() => { setNotifOpen(!notifOpen); setProfileOpen(false) }}
+                  className="relative p-2 rounded-full transition-all duration-300 hover:bg-white/5"
+                  aria-label="Notifications"
+                >
+                  <svg className="w-5 h-5 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+                  </svg>
+                  {unreadCount > 0 && (
+                    <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center ring-2 ring-black animate-pulse">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+
+                {/* Notification Dropdown */}
+                <div
+                  className={`absolute right-0 top-full mt-2 w-80 bg-[#111111] border border-white/10 rounded-xl shadow-[0_16px_48px_rgba(0,0,0,0.5)] overflow-hidden transition-all duration-300 origin-top-right ${
+                    notifOpen
+                      ? 'opacity-100 scale-100 translate-y-0'
+                      : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'
+                  }`}
+                >
+                  {/* Header */}
+                  <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between">
+                    <p className="text-sm font-semibold text-white">Notifications</p>
+                    {unreadCount > 0 && (
+                      <button
+                        onClick={markAllRead}
+                        className="text-[11px] font-medium text-purple-light hover:text-white transition-colors"
+                      >
+                        Mark all read
+                      </button>
+                    )}
+                  </div>
+
+                  {/* List */}
+                  <div className="max-h-72 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <div className="px-4 py-8 text-center">
+                        <svg className="w-8 h-8 text-white/10 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+                        </svg>
+                        <p className="text-xs text-white/25">No notifications yet</p>
+                      </div>
+                    ) : (
+                      notifications.map((n) => (
+                        <div
+                          key={n.id}
+                          className={`px-4 py-3 border-b border-white/[0.03] transition-colors duration-200 hover:bg-white/[0.03] ${
+                            !n.is_read ? 'bg-purple/[0.04]' : ''
+                          }`}
+                        >
+                          <div className="flex items-start gap-2.5">
+                            {!n.is_read && (
+                              <span className="w-2 h-2 rounded-full bg-purple shrink-0 mt-1.5" />
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <p className={`text-xs leading-relaxed ${!n.is_read ? 'text-white/80' : 'text-white/50'}`}>
+                                {n.message}
+                              </p>
+                              <p className="text-[10px] text-white/20 mt-1">
+                                {new Date(n.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                                {' · '}
+                                {new Date(n.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Profile Avatar */}
+              <div className="relative" ref={dropdownRef}>
               <button
                 id="profile-avatar-btn"
                 onClick={() => setProfileOpen(!profileOpen)}
@@ -196,6 +322,7 @@ function Header() {
                   </button>
                 </div>
               </div>
+            </div>
             </div>
           ) : (
             /* ─── Logged-out state ─── */

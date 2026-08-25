@@ -39,7 +39,9 @@ async function fetchUserProfile(userId) {
     console.error('Error fetching user skills:', skillsError)
   }
 
-  const skills = (userSkills || []).map((us) => us.skills?.name).filter(Boolean)
+  const skills = (Array.isArray(profile.skills) && profile.skills.length > 0)
+    ? profile.skills
+    : (userSkills || []).map((us) => us.skills?.name).filter(Boolean)
 
   // Get the auth user for email
   const { data: { user: authUser } } = await supabase.auth.getUser()
