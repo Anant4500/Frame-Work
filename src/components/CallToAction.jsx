@@ -27,7 +27,7 @@ function CallToAction() {
           <div className="h-px w-12 bg-gradient-to-l from-transparent to-purple/50" />
         </div>
 
-        <h2 className="font-[Montserrat] text-4xl sm:text-5xl md:text-6xl font-black tracking-tight mb-5">
+        <h2 className="font-['DM_Serif_Display'] text-4xl sm:text-5xl md:text-6xl font-normal tracking-tight mb-5">
           Ready to Make
           <br />
           <span className="gradient-text">Your Film?</span>
@@ -40,7 +40,7 @@ function CallToAction() {
         <Link
           to={user ? "/create-project" : "/register"}
           id="cta-button"
-          className="inline-flex items-center gap-2 px-10 py-5 bg-purple text-white font-bold text-lg rounded-full transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_60px_rgba(139,92,246,0.5)] hover:scale-105 active:scale-95 animate-pulse-glow"
+          className="inline-flex items-center gap-2 px-10 py-5 bg-purple text-white font-bold text-lg rounded-full transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_60px_rgba(98,57,191,0.5)] hover:scale-105 active:scale-95 animate-pulse-glow"
         >
           Start Your Project
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

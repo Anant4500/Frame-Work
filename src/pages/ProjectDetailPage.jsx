@@ -151,11 +151,11 @@ function ProjectDetailPage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m-3.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-1.5A1.125 1.125 0 0118 18.375" />
             </svg>
           </div>
-          <h2 className="font-[Montserrat] text-2xl font-bold mb-2">Project Not Found</h2>
+          <h2 className="text-2xl font-bold mb-2">Project Not Found</h2>
           <p className="text-white/40 mb-6">This project may have been removed or is not available yet.</p>
           <Link
             to="/explore"
-            className="px-6 py-3 bg-purple text-white text-sm font-semibold rounded-full transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_30px_rgba(139,92,246,0.4)]"
+            className="px-6 py-3 bg-purple text-white text-sm font-semibold rounded-full transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_30px_rgba(98,57,191,0.4)]"
           >
             Explore Projects
           </Link>
@@ -338,322 +338,353 @@ function ProjectDetailPage() {
           Back to Projects
         </Link>
 
-        {/* ─── Top Section ─── */}
-        <div className="mb-10 reveal">
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
-            <h1 className="font-[Montserrat] text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight">
-              {project.title}
-            </h1>
-            {user?.id && project?.creator_id && user.id === project.creator_id && (
-              <button
-                id="edit-project-btn"
-                onClick={() => setEditModalOpen(true)}
-                className="inline-flex items-center gap-2 px-5 py-2.5 bg-purple/20 text-purple-light border border-purple/40 text-sm font-semibold rounded-xl transition-all duration-300 hover:bg-purple hover:text-white hover:shadow-[0_0_25px_rgba(139,92,246,0.35)] shrink-0 self-start sm:self-auto"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
-                </svg>
-                Edit Project
-              </button>
-            )}
-          </div>
-          <p className="text-white/50 text-lg sm:text-xl max-w-3xl leading-relaxed mb-6">
-            {project.logline}
-          </p>
+        {/* ════════════════════════════════════════════════════
+            CINEMATIC HERO
+            ════════════════════════════════════════════════════ */}
+        <div className="relative rounded-2xl overflow-hidden mb-16 border border-white/[0.07]">
+          {/* Blurred poster background (hero only) */}
+          {project.thumbnail && (
+            <div
+              className="absolute inset-0 pointer-events-none"
+              aria-hidden="true"
+              style={{
+                backgroundImage: `url(${project.thumbnail})`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                filter: 'blur(60px)',
+                opacity: 0.12,
+                transform: 'scale(1.1)',
+              }}
+            />
+          )}
+          {/* Dark overlay */}
+          <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/80 to-black/70 pointer-events-none" />
 
-          {/* Metadata Row */}
-          <div className="flex flex-wrap items-center gap-3 sm:gap-4">
-            {/* Genre */}
-            <span className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-white/[0.04] border border-white/10 rounded-full text-white/70">
-              <svg className="w-4 h-4 text-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m-3.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-1.5A1.125 1.125 0 0118 18.375" />
-              </svg>
-              {project.genre}
-            </span>
-            {/* Location */}
-            <span className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-white/[0.04] border border-white/10 rounded-full text-white/70">
-              <svg className="w-4 h-4 text-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
-              </svg>
-              {project.location}
-            </span>
-            {/* Status */}
-            <span className={`inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium border rounded-full ${statusColors[project.status] || 'border-white/20 text-white/60'}`}>
-              <span className={`w-2 h-2 rounded-full ${project.status === 'Open' ? 'bg-purple animate-pulse' : project.status === 'In Production' ? 'bg-amber-400' : 'bg-emerald-400'}`} />
-              {project.status}
-            </span>
-            {/* Budget */}
-            {project.budget != null && project.budget !== '' && (
-              <span className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-white/[0.04] border border-white/10 rounded-full text-white/70">
-                <span className="text-emerald-400">₹</span>
-                {Number(project.budget).toLocaleString('en-IN')} Budget
-              </span>
-            )}
-            {/* Timeline */}
-            {project.timeline && (
-              <span className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-white/[0.04] border border-white/10 rounded-full text-white/70">
-                🗓️ {project.timeline}
-              </span>
-            )}
+          <div className="relative flex flex-col lg:flex-row gap-0">
+            {/* Poster */}
+            <div className="lg:w-[340px] lg:min-w-[340px] shrink-0">
+              <div className="relative h-64 sm:h-80 lg:h-full overflow-hidden">
+                <img
+                  src={project.thumbnail}
+                  alt={project.title}
+                  className="w-full h-full object-cover"
+                  onError={(e) => { e.target.src = '/images/hero-bg.png' }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-black/60 hidden lg:block" />
+                <div className="absolute bottom-0 inset-x-0 h-20 bg-gradient-to-t from-black/80 to-transparent lg:hidden" />
+              </div>
+            </div>
+
+            {/* Info panel */}
+            <div className="flex-1 flex flex-col justify-center px-8 py-10 lg:py-12">
+              {/* Status + Genre */}
+              <div className="flex flex-wrap items-center gap-2.5 mb-5">
+                <span className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold border rounded-full ${statusColors[project.status] || 'border-white/20 text-white/60'}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${project.status === 'Open' ? 'bg-purple animate-pulse' : project.status === 'In Production' ? 'bg-amber-400' : 'bg-emerald-400'}`} />
+                  {project.status}
+                </span>
+                {project.genre && (
+                  <span className="px-3 py-1 text-xs font-medium tracking-widest uppercase text-white/50 bg-white/[0.04] border border-white/10 rounded-full">
+                    {project.genre}
+                  </span>
+                )}
+              </div>
+
+              {/* Title */}
+              <h1 className="font-['DM_Serif_Display'] text-3xl sm:text-4xl lg:text-5xl font-normal tracking-tight leading-tight mb-4">
+                {project.title}
+              </h1>
+
+              {/* Logline */}
+              {project.logline && (
+                <p className="text-white/55 text-base leading-relaxed mb-6 max-w-xl">
+                  {project.logline}
+                </p>
+              )}
+
+              {/* Quick metadata */}
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-white/40 mb-7">
+                {project.location && (
+                  <span className="flex items-center gap-1.5">
+                    <svg className="w-3.5 h-3.5 text-white/25 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                    </svg>
+                    {project.location}
+                  </span>
+                )}
+                {project.budget != null && project.budget !== '' && (
+                  <span className="flex items-center gap-1">
+                    <span className="text-emerald-400">₹</span>
+                    {Number(project.budget).toLocaleString('en-IN')}
+                  </span>
+                )}
+                {project.timeline && <span>{project.timeline}</span>}
+              </div>
+
+              {/* Creator info */}
+              {project.creator && (
+                <div className="flex items-center gap-3 mb-8 pb-8 border-b border-white/[0.07]">
+                  <div className="w-9 h-9 rounded-full bg-purple/15 border border-purple/30 flex items-center justify-center overflow-hidden shrink-0">
+                    {project.creator.avatar ? (
+                      <img src={project.creator.avatar} alt={project.creator.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-sm font-bold text-purple">{(project.creator.name || 'C').charAt(0).toUpperCase()}</span>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs text-white/30 mb-0.5">Created by</p>
+                    <p className="text-sm font-semibold text-white leading-none">{project.creator.name || 'Unknown Creator'}</p>
+                    <p className="text-xs text-white/35 mt-0.5">{project.creator.role || 'Creator'}</p>
+                  </div>
+                  <button className="ml-auto text-xs text-white/30 hover:text-white border border-white/10 hover:border-white/25 px-3 py-1.5 rounded-lg transition-all duration-300">
+                    View Profile
+                  </button>
+                </div>
+              )}
+
+              {/* CTA row */}
+              <div className="flex flex-wrap gap-3">
+                {user?.id && project?.creator_id && user.id === project.creator_id && (
+                  <button
+                    id="edit-project-btn"
+                    onClick={() => setEditModalOpen(true)}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-purple/20 text-purple-light border border-purple/40 text-sm font-semibold rounded-xl transition-all duration-300 hover:bg-purple hover:text-white hover:shadow-[0_0_25px_rgba(98,57,191,0.35)]"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                    </svg>
+                    Edit Project
+                  </button>
+                )}
+                {!isCreatorOwner && (
+                  <a
+                    href="#roles-section"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-purple text-white text-sm font-semibold rounded-xl transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_25px_rgba(98,57,191,0.35)]"
+                  >
+                    View Open Roles
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </a>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* ─── Two Column Layout ─── */}
-        <div className="flex flex-col lg:flex-row gap-8">
+        {/* Sections wrapper */}
+        <div className="max-w-5xl mx-auto space-y-16">
 
-          {/* ═══ Left Column ═══ */}
-          <div className="flex-1 min-w-0 space-y-8">
+          {/* About the Project */}
+          {(project.description || project.logline) && (
+            <section>
+              <h2 className="font-['DM_Serif_Display'] text-2xl sm:text-3xl font-normal mb-5 text-white">
+                About the Project
+              </h2>
+              <div className="h-px bg-white/[0.06] mb-6" />
+              <p className="text-white/55 text-base leading-[1.85] max-w-3xl">
+                {project.description || project.logline}
+              </p>
+            </section>
+          )}
 
-            {/* Script Preview — conditional on signedScriptUrl */}
+          {/* Roles We're Looking For */}
+          <section id="roles-section">
+            <div className="flex items-baseline justify-between mb-5">
+              <h2 className="font-['DM_Serif_Display'] text-2xl sm:text-3xl font-normal text-white">
+                Roles We're Looking For
+              </h2>
+              <span className="text-xs text-white/30 font-medium">
+                {(Array.isArray(project.roles) ? project.roles : []).length} open
+              </span>
+            </div>
+            <div className="h-px bg-white/[0.06] mb-8" />
+            {Array.isArray(project.roles) && project.roles.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {project.roles.map((role) => {
+                  const roleIcons = {
+                    'Actor': '🎭', 'Editor': '✂️', 'Sound Designer': '🎧', 'Cinematographer': '📷',
+                    'VFX Artist': '✨', 'Director': '🎬', 'Writer': '✍️', 'DOP': '📹',
+                    'Composer': '🎵', 'Stunt Coordinator': '🤸', 'Producer': '🎞️',
+                  }
+                  const alreadyAppliedForRole = Boolean(
+                    user && project.applicants &&
+                    project.applicants.some((a) => ((user.id && a.id === user.id) || (user.name && a.name === user.name)) && a.role === role)
+                  )
+                  const rawRole = Array.isArray(project.rawRoles) ? project.rawRoles.find((r) => r.role === role) : null
+                  return (
+                    <div
+                      key={role}
+                      className="group flex flex-col gap-4 p-5 bg-white/[0.02] border border-white/[0.07] rounded-2xl transition-all duration-300 hover:border-purple/25 hover:bg-purple/[0.03]"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl" role="img" aria-label={role}>{roleIcons[role] || '🎬'}</span>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-white/90 group-hover:text-white transition-colors truncate">{role}</p>
+                          {rawRole && rawRole.positions_needed != null && (
+                            <p className="text-[11px] text-white/30 mt-0.5">
+                              {rawRole.positions_filled || 0} / {rawRole.positions_needed} filled
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      {isCreatorOwner ? (
+                        <span className="text-xs text-white/25 font-medium">Your project</span>
+                      ) : alreadyAppliedForRole ? (
+                        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-400">
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                          Applied
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => handleApplyRole(role)}
+                          className="self-start inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold bg-purple text-white rounded-lg transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_12px_rgba(98,57,191,0.3)] active:scale-95"
+                        >
+                          Apply for Role
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <p className="text-white/25 text-sm py-6">No roles specified for this project.</p>
+            )}
+          </section>
+
+          {/* Read the Script */}
+          <section>
+            <div className="flex items-baseline justify-between mb-5">
+              <h2 className="font-['DM_Serif_Display'] text-2xl sm:text-3xl font-normal text-white">
+                Read the Script
+              </h2>
+              {signedScriptUrl && (
+                <a
+                  href={signedScriptUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs text-purple/70 hover:text-purple transition-colors"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                  </svg>
+                  Open full screen
+                </a>
+              )}
+            </div>
+            <div className="h-px bg-white/[0.06] mb-6" />
             {signedScriptUrl ? (
-              <div className="reveal glass-card rounded-2xl overflow-hidden">
-                <div className="px-6 py-4 border-b border-white/5 flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-purple/15 flex items-center justify-center">
-                    <svg className="w-4 h-4 text-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-                    </svg>
-                  </div>
-                  <h2 className="font-[Montserrat] text-lg font-bold">Script Preview</h2>
-                  <a
-                    href={signedScriptUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="ml-auto text-xs text-purple/70 hover:text-purple transition-colors flex items-center gap-1"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-                    </svg>
-                    Open full screen
-                  </a>
-                </div>
-                <div className="relative bg-[#0a0a0a]" style={{ height: '600px' }}>
+              <div className="rounded-xl overflow-hidden border border-white/[0.07] bg-[#0a0a0a]">
+                <div className="relative" style={{ height: '640px' }}>
                   <iframe
                     src={signedScriptUrl}
                     title="Script Preview"
                     className="w-full h-full border-0"
                     style={{ filter: 'invert(0.85) hue-rotate(180deg)', background: '#1a1a1a' }}
                   />
-                  {/* Overlay gradient at bottom */}
                   <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#0a0a0a] to-transparent pointer-events-none" />
                 </div>
               </div>
             ) : (
-              <div className="reveal glass-card rounded-2xl overflow-hidden">
-                <div className="px-6 py-4 border-b border-white/5 flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-white/[0.04] flex items-center justify-center">
-                    <svg className="w-4 h-4 text-white/25" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-                    </svg>
-                  </div>
-                  <h2 className="font-[Montserrat] text-lg font-bold text-white/50">Script Preview</h2>
-                </div>
-                <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-                  <div className="w-14 h-14 rounded-xl bg-white/[0.03] border border-white/5 flex items-center justify-center mb-4">
-                    <svg className="w-7 h-7 text-white/15" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                    </svg>
-                  </div>
-                  <p className="text-white/40 text-sm font-medium mb-1">No script uploaded for this project yet.</p>
-                  <p className="text-white/20 text-xs">The creator may share the script after reviewing your application.</p>
-                </div>
-              </div>
-            )}
-
-            {/* Required Roles */}
-            <div className="reveal glass-card rounded-2xl p-6 sm:p-8">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-8 h-8 rounded-lg bg-purple/15 flex items-center justify-center">
-                  <svg className="w-4 h-4 text-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+              <div className="flex flex-col items-center justify-center py-20 text-center border border-white/[0.06] rounded-2xl bg-white/[0.01]">
+                <div className="w-12 h-12 rounded-xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mb-4">
+                  <svg className="w-6 h-6 text-white/15" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                   </svg>
                 </div>
-                <h2 className="font-[Montserrat] text-lg font-bold">Required Roles</h2>
-                <span className="ml-auto text-xs text-white/30">{(Array.isArray(project.roles) ? project.roles : []).length} roles open</span>
+                <p className="text-white/35 text-sm font-medium mb-1">No script uploaded for this project yet.</p>
+                <p className="text-white/20 text-xs">The creator may share the script after reviewing your application.</p>
               </div>
+            )}
+          </section>
 
-              {Array.isArray(project.roles) && project.roles.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {project.roles.map((role) => {
-                    const roleIcons = {
-                      'Actor': '🎭', 'Editor': '✂️', 'Sound Designer': '🎧', 'Cinematographer': '📷',
-                      'VFX Artist': '✨', 'Director': '🎬', 'Writer': '✍️', 'DOP': '📹',
-                      'Composer': '🎵', 'Stunt Coordinator': '🤸', 'Producer': '🎞️',
-                    }
-                    const alreadyAppliedForRole = Boolean(
-                      user &&
-                      project.applicants &&
-                      project.applicants.some((a) => ((user.id && a.id === user.id) || (user.name && a.name === user.name)) && a.role === role)
-                    )
-                    return (
-                      <div
-                        key={role}
-                        className="group flex items-center justify-between p-4 bg-white/[0.02] border border-white/5 rounded-xl transition-all duration-300 hover:border-purple/20 hover:bg-purple/[0.03]"
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className="text-xl">{roleIcons[role] || '🎬'}</span>
-                          <span className="text-sm font-medium text-white/80 group-hover:text-white transition-colors">{role}</span>
-                        </div>
-                        {isCreatorOwner ? (
-                          <span className="text-xs text-white/30">Your project</span>
-                        ) : alreadyAppliedForRole ? (
-                          <span className="px-3 py-1.5 text-xs font-medium text-emerald-400 border border-emerald-500/20 rounded-lg bg-emerald-500/10">
-                            Applied
-                          </span>
+          {/* ════════════════════════════════════════════════════
+              5. TEAM & CREDITS
+              ════════════════════════════════════════════════════ */}
+          {(() => {
+            const teamMembers = (project.applicants || []).filter((a) => a.status === 'accepted')
+            if (teamMembers.length === 0) return null
+            return (
+              <section>
+                <div className="flex items-baseline justify-between mb-5">
+                  <h2 className="font-['DM_Serif_Display'] text-2xl sm:text-3xl font-normal text-white">
+                    Team & Credits
+                  </h2>
+                  <span className="text-xs text-white/30 font-medium">
+                    {teamMembers.length} {teamMembers.length === 1 ? 'member' : 'members'}
+                  </span>
+                </div>
+                <div className="h-px bg-white/[0.06] mb-8" />
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {teamMembers.map((member) => (
+                    <div
+                      key={member.id}
+                      className="flex flex-col items-center text-center gap-3 p-5 bg-white/[0.02] border border-white/[0.07] rounded-2xl transition-all duration-300 hover:border-emerald-500/20 hover:bg-emerald-500/[0.02]"
+                    >
+                      <div className="w-14 h-14 rounded-full bg-purple/10 border border-purple/20 flex items-center justify-center overflow-hidden">
+                        {member.avatar ? (
+                          <img src={member.avatar} alt={member.name} className="w-full h-full object-cover" />
                         ) : (
-                          <button
-                            onClick={() => handleApplyRole(role)}
-                            className="px-4 py-1.5 text-xs font-semibold bg-purple text-white rounded-lg transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_15px_rgba(139,92,246,0.3)] hover:scale-105 active:scale-95"
-                          >
-                            Apply
-                          </button>
+                          <span className="text-lg font-bold text-purple">{(member.name || 'U').charAt(0)}</span>
                         )}
                       </div>
-                    )
-                  })}
-                </div>
-              ) : (
-                <p className="text-white/30 text-sm py-4 text-center">No roles specified for this project.</p>
-              )}
-            </div>
-
-            {/* Team / Credits */}
-            {(() => {
-              const teamMembers = (project.applicants || []).filter((a) => a.status === 'accepted')
-              if (teamMembers.length === 0) return null
-              return (
-                <div className="reveal glass-card rounded-2xl p-6 sm:p-8">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center">
-                      <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
-                      </svg>
-                    </div>
-                    <h2 className="font-[Montserrat] text-lg font-bold">Team & Credits</h2>
-                    <span className="ml-auto text-xs text-white/30">{teamMembers.length} {teamMembers.length === 1 ? 'member' : 'members'}</span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {teamMembers.map((member) => (
-                      <div
-                        key={member.id}
-                        className="flex items-center gap-3.5 p-4 bg-white/[0.02] border border-white/5 rounded-xl transition-all duration-300 hover:border-emerald-500/20 hover:bg-emerald-500/[0.03]"
-                      >
-                        <div className="w-10 h-10 rounded-full bg-purple/10 border border-purple/20 flex items-center justify-center shrink-0 overflow-hidden">
-                          {member.avatar ? (
-                            <img src={member.avatar} alt={member.name} className="w-full h-full object-cover" />
-                          ) : (
-                            <span className="text-xs font-bold text-purple">{(member.name || 'U').charAt(0)}</span>
-                          )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-semibold text-white truncate">{member.name}</p>
-                          <p className="text-xs text-emerald-400/80">{member.role}</p>
-                        </div>
-                        <span className="shrink-0 px-2 py-0.5 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
+                      <div className="min-w-0 w-full">
+                        <p className="text-sm font-semibold text-white truncate">{member.name}</p>
+                        <p className="text-xs text-emerald-400/80 mt-0.5">{member.role}</p>
+                        <span className="mt-2 inline-block px-2 py-0.5 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
                           Hired
                         </span>
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  ))}
                 </div>
-              )
-            })()}
-          </div>
+              </section>
+            )
+          })()}
 
-          {/* ═══ Right Column (Sidebar) ═══ */}
-          <div className="w-full lg:w-80 lg:min-w-[320px] shrink-0 space-y-6">
-
-            {/* About the Creator */}
-            <div className="reveal glass-card rounded-2xl p-6 sticky top-28">
-              <h3 className="text-xs font-semibold text-white/30 uppercase tracking-wider mb-5">About the Creator</h3>
-              <div className="flex items-center gap-4 mb-5">
-                <div className="w-14 h-14 rounded-full bg-purple/15 border-2 border-purple/30 flex items-center justify-center overflow-hidden shrink-0">
-                  {project.creator?.avatar ? (
-                    <img src={project.creator.avatar} alt={project.creator?.name || 'Unknown Creator'} className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-lg font-bold text-purple">
-                      {(project.creator?.name || 'Unknown Creator').charAt(0).toUpperCase()}
-                    </span>
-                  )}
-                </div>
-                <div>
-                  <p className="font-[Montserrat] font-bold text-white">{project.creator?.name || 'Unknown Creator'}</p>
-                  <p className="text-sm text-white/40">{project.creator?.role || 'Creator'}</p>
-                </div>
+          {/* ════════════════════════════════════════════════════
+              6. CREATOR-ONLY: APPLICATIONS
+              ════════════════════════════════════════════════════ */}
+          {isCreatorOwner && (
+            <section>
+              <div className="flex items-baseline justify-between mb-5">
+                <h2 className="font-['DM_Serif_Display'] text-2xl sm:text-3xl font-normal text-white">
+                  Applications
+                </h2>
+                <span className="px-2.5 py-0.5 bg-purple/15 text-purple-light text-xs font-bold rounded-full border border-purple/20">
+                  {project.applicants.length}
+                </span>
               </div>
-              <button className="w-full py-3 text-sm font-medium border border-white/10 rounded-xl text-white/60 transition-all duration-300 hover:border-purple/30 hover:text-white hover:bg-white/[0.03]">
-                View Profile
-              </button>
+              <div className="h-px bg-white/[0.06] mb-8" />
 
-              {/* Divider */}
-              <div className="h-px bg-white/5 my-6" />
-
-              {/* Apply Section */}
-              {!isCreatorOwner && (
-                <div>
-                  <h3 className="text-xs font-semibold text-white/30 uppercase tracking-wider mb-4">Join This Project</h3>
-                  <button
-                    id="apply-to-project-btn"
-                    onClick={handleApplyGeneral}
-                    disabled={hasApplied}
-                    className={`w-full py-4 text-sm font-bold rounded-xl transition-all duration-300 flex items-center justify-center gap-2 ${
-                      hasApplied
-                        ? 'bg-white/5 text-white/30 cursor-not-allowed border border-white/5'
-                        : 'bg-purple text-white hover:bg-purple-dark hover:scale-[1.02] hover:shadow-[0_0_40px_rgba(139,92,246,0.5)] active:scale-[0.98] animate-pulse-glow'
-                    }`}
-                  >
-                    {hasApplied ? (
-                      <>
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                        Already Applied
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                        </svg>
-                        Apply to Project
-                      </>
-                    )}
-                  </button>
+              {project.applicants.length === 0 ? (
+                <div className="text-center py-16 border border-white/[0.06] rounded-2xl bg-white/[0.01]">
+                  <p className="text-white/25 text-sm">No applications yet</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {project.applicants.map((applicant) => (
+                    <ApplicantCard
+                      key={applicant.id}
+                      applicant={applicant}
+                      onAccept={() => handleAccept(applicant.id)}
+                      onReject={() => handleReject(applicant.id)}
+                    />
+                  ))}
                 </div>
               )}
+            </section>
+          )}
 
-              {/* Creator-Only: Application List */}
-              {isCreatorOwner && (
-                <div>
-                  <h3 className="text-xs font-semibold text-white/30 uppercase tracking-wider mb-4">
-                    Applications
-                    <span className="ml-2 px-2 py-0.5 bg-purple/15 text-purple-light text-[10px] font-bold rounded-full">
-                      {project.applicants.length}
-                    </span>
-                  </h3>
-
-                  {project.applicants.length === 0 ? (
-                    <div className="text-center py-8">
-                      <p className="text-white/20 text-sm">No applications yet</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3 max-h-[480px] overflow-y-auto pr-1 custom-scroll">
-                      {project.applicants.map((applicant) => (
-                        <ApplicantCard
-                          key={applicant.id}
-                          applicant={applicant}
-                          onAccept={() => handleAccept(applicant.id)}
-                          onReject={() => handleReject(applicant.id)}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
+        </div>{/* end max-w-5xl wrapper */}
+      </div>{/* end max-w-7xl */}
 
       {/* ─── Apply Modal ─── */}
       {applyModalOpen && (
@@ -669,7 +700,7 @@ function ProjectDetailPage() {
               </svg>
             </button>
 
-            <h3 className="font-[Montserrat] text-xl font-bold mb-1">Apply as {applyRole}</h3>
+            <h3 className="text-xl font-bold mb-1">Apply as {applyRole}</h3>
             <p className="text-white/40 text-sm mb-6">for {project.title}</p>
 
             <label className="block text-sm font-medium text-white/60 mb-2">Your Message *</label>
@@ -679,13 +710,13 @@ function ProjectDetailPage() {
               placeholder="Tell the creator why you're a great fit for this role..."
               rows={4}
               maxLength={500}
-              className="w-full px-4 py-3.5 bg-[#1A1A1A] border border-white/10 rounded-xl text-sm text-white placeholder-white/25 outline-none transition-all duration-300 focus:border-purple/60 focus:shadow-[0_0_15px_rgba(139,92,246,0.1)] resize-none mb-1"
+              className="w-full px-4 py-3.5 bg-[#1A1A1A] border border-white/10 rounded-xl text-sm text-white placeholder-white/25 outline-none transition-all duration-300 focus:border-purple/60 focus:shadow-[0_0_15px_rgba(98,57,191,0.1)] resize-none mb-1"
             />
             <p className="text-white/20 text-xs text-right mb-6">{applyMessage.length}/500</p>
 
             <button
               onClick={handleApplySubmit}
-              className="w-full py-3.5 bg-purple text-white text-sm font-semibold rounded-xl transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_30px_rgba(139,92,246,0.4)] hover:scale-[1.02] active:scale-[0.98]"
+              className="w-full py-3.5 bg-purple text-white text-sm font-semibold rounded-xl transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_30px_rgba(98,57,191,0.4)] hover:scale-[1.02] active:scale-[0.98]"
             >
               Submit Application
             </button>
@@ -916,7 +947,7 @@ function EditProjectModal({ isOpen, onClose, project, onSaveSuccess }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
       <div className="relative w-full max-w-2xl bg-[#121212] border border-white/10 rounded-2xl p-6 sm:p-8 max-h-[90vh] overflow-y-auto shadow-2xl">
         <div className="flex items-center justify-between pb-4 mb-6 border-b border-white/10">
-          <h2 className="font-[Montserrat] text-xl font-bold text-white flex items-center gap-2">
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
             <svg className="w-5 h-5 text-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
             </svg>
@@ -1089,7 +1120,7 @@ function EditProjectModal({ isOpen, onClose, project, onSaveSuccess }) {
             <button
               type="submit"
               disabled={isSaving}
-              className="inline-flex items-center gap-2 px-6 py-2.5 bg-purple text-white text-sm font-semibold rounded-xl transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_20px_rgba(139,92,246,0.4)] disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-6 py-2.5 bg-purple text-white text-sm font-semibold rounded-xl transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_20px_rgba(98,57,191,0.4)] disabled:opacity-50"
             >
               {isSaving && (
                 <svg className="w-4 h-4 text-white animate-spin" viewBox="0 0 24 24" fill="none">

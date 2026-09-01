@@ -43,7 +43,7 @@ function HowItWorks() {
           <span className="inline-block text-purple text-sm font-semibold tracking-widest uppercase mb-4">
             How It Works
           </span>
-          <h2 className="font-[Montserrat] text-4xl sm:text-5xl font-bold tracking-tight">
+          <h2 className="font-['DM_Serif_Display'] text-4xl sm:text-5xl font-normal tracking-tight">
             Three Steps to Your Film
           </h2>
         </div>
@@ -56,19 +56,19 @@ function HowItWorks() {
               className={`reveal opacity-0 translate-y-8 transition-all duration-700 [&.is-visible]:opacity-100 [&.is-visible]:translate-y-0`}
               style={{ transitionDelay: `${index * 150}ms` }}
             >
-              <div className="group relative glass-card rounded-2xl p-8 h-full cursor-default transition-all duration-500 hover:scale-[1.03] hover:shadow-[0_0_40px_rgba(139,92,246,0.15)] hover:border-purple/20">
+              <div className="group relative glass-card rounded-2xl p-8 h-full cursor-default transition-all duration-500 hover:scale-[1.03] hover:shadow-[0_0_40px_rgba(98,57,191,0.15)] hover:border-purple/20">
                 {/* Step Number */}
-                <span className="absolute top-6 right-6 text-5xl font-black text-white/[0.03] font-[Montserrat]">
+                <span className="absolute top-6 right-6 text-5xl font-black text-white/[0.03]">
                   {step.number}
                 </span>
 
                 {/* Icon */}
-                <div className="w-14 h-14 rounded-xl bg-purple/10 flex items-center justify-center mb-6 text-purple transition-all duration-500 group-hover:bg-purple/20 group-hover:shadow-[0_0_20px_rgba(139,92,246,0.2)]">
+                <div className="w-14 h-14 rounded-xl bg-purple/10 flex items-center justify-center mb-6 text-purple transition-all duration-500 group-hover:bg-purple/20 group-hover:shadow-[0_0_20px_rgba(98,57,191,0.2)]">
                   {step.icon}
                 </div>
 
                 {/* Title */}
-                <h3 className="font-[Montserrat] text-xl font-bold mb-3 transition-colors duration-300 group-hover:text-purple-light">
+                <h3 className="text-xl font-bold mb-3 transition-colors duration-300 group-hover:text-purple-light">
                   {step.title}
                 </h3>
 

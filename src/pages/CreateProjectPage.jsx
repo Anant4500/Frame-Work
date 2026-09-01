@@ -50,14 +50,14 @@ function CreateProjectPage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
             </svg>
           </div>
-          <h2 className="font-[Montserrat] text-2xl font-bold mb-3">Sign In Required</h2>
+          <h2 className="text-2xl font-bold mb-3">Sign In Required</h2>
           <p className="text-white/40 text-sm leading-relaxed mb-6">
             You need to be logged in to create a project.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link
               to="/login"
-              className="px-6 py-3 bg-purple text-white text-sm font-semibold rounded-full transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_30px_rgba(139,92,246,0.4)] hover:scale-[1.02]"
+              className="px-6 py-3 bg-purple text-white text-sm font-semibold rounded-full transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_30px_rgba(98,57,191,0.4)] hover:scale-[1.02]"
             >
               Sign In
             </Link>
@@ -100,7 +100,7 @@ function CreateProjectPage() {
               </div>
 
               {/* Heading */}
-              <h2 className="font-[Montserrat] text-2xl font-bold text-center mb-3">
+              <h2 className="text-2xl font-bold text-center mb-3">
                 You're a Collaborator
               </h2>
 
@@ -117,7 +117,7 @@ function CreateProjectPage() {
                 <Link
                   to="/explore"
                   id="collab-explore-btn"
-                  className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-purple text-white text-sm font-semibold rounded-xl transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_30px_rgba(139,92,246,0.4)] hover:scale-[1.02] active:scale-95"
+                  className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-purple text-white text-sm font-semibold rounded-xl transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_30px_rgba(98,57,191,0.4)] hover:scale-[1.02] active:scale-95"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
@@ -344,7 +344,7 @@ function CreateProjectPage() {
             </svg>
             Back to Projects
           </Link>
-          <h1 className="font-[Montserrat] text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight mb-3">
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight mb-3">
             Create <span className="gradient-text">Project</span>
           </h1>
           <p className="text-white/40 text-lg">
@@ -368,7 +368,7 @@ function CreateProjectPage() {
               >
                 <span className={`w-7 h-7 rounded-full text-xs font-bold flex items-center justify-center transition-all duration-500 ${
                   currentStep === step.num
-                    ? 'bg-purple text-white shadow-[0_0_15px_rgba(139,92,246,0.4)]'
+                    ? 'bg-purple text-white shadow-[0_0_15px_rgba(98,57,191,0.4)]'
                     : currentStep > step.num
                     ? 'bg-purple/20 text-purple-light'
                     : 'bg-white/5 text-white/30'
@@ -404,7 +404,7 @@ function CreateProjectPage() {
                   onChange={handleChange}
                   placeholder="e.g. Echoes of Amber"
                   maxLength={100}
-                  className="w-full px-4 py-3.5 bg-[#0d0d0d] border border-white/10 rounded-xl text-sm text-white placeholder-white/25 outline-none transition-all duration-300 focus:border-purple/60 focus:shadow-[0_0_15px_rgba(139,92,246,0.1)]"
+                  className="w-full px-4 py-3.5 bg-[#0d0d0d] border border-white/10 rounded-xl text-sm text-white placeholder-white/25 outline-none transition-all duration-300 focus:border-purple/60 focus:shadow-[0_0_15px_rgba(98,57,191,0.1)]"
                 />
               </div>
 
@@ -418,7 +418,7 @@ function CreateProjectPage() {
                   placeholder="A short, compelling description of your project..."
                   rows={3}
                   maxLength={300}
-                  className="w-full px-4 py-3.5 bg-[#0d0d0d] border border-white/10 rounded-xl text-sm text-white placeholder-white/25 outline-none transition-all duration-300 focus:border-purple/60 focus:shadow-[0_0_15px_rgba(139,92,246,0.1)] resize-none"
+                  className="w-full px-4 py-3.5 bg-[#0d0d0d] border border-white/10 rounded-xl text-sm text-white placeholder-white/25 outline-none transition-all duration-300 focus:border-purple/60 focus:shadow-[0_0_15px_rgba(98,57,191,0.1)] resize-none"
                 />
                 <p className="text-white/20 text-xs text-right mt-1">{form.logline.length}/300</p>
               </div>
@@ -478,7 +478,7 @@ function CreateProjectPage() {
                     onChange={handleChange}
                     placeholder="e.g. 500000"
                     min="0"
-                    className="w-full px-4 py-3.5 bg-[#0d0d0d] border border-white/10 rounded-xl text-sm text-white placeholder-white/25 outline-none transition-all duration-300 focus:border-purple/60 focus:shadow-[0_0_15px_rgba(139,92,246,0.1)]"
+                    className="w-full px-4 py-3.5 bg-[#0d0d0d] border border-white/10 rounded-xl text-sm text-white placeholder-white/25 outline-none transition-all duration-300 focus:border-purple/60 focus:shadow-[0_0_15px_rgba(98,57,191,0.1)]"
                   />
                 </div>
 
@@ -491,7 +491,7 @@ function CreateProjectPage() {
                     value={form.timeline}
                     onChange={handleChange}
                     placeholder="e.g. Shooting Nov 2026 / 3 Months"
-                    className="w-full px-4 py-3.5 bg-[#0d0d0d] border border-white/10 rounded-xl text-sm text-white placeholder-white/25 outline-none transition-all duration-300 focus:border-purple/60 focus:shadow-[0_0_15px_rgba(139,92,246,0.1)]"
+                    className="w-full px-4 py-3.5 bg-[#0d0d0d] border border-white/10 rounded-xl text-sm text-white placeholder-white/25 outline-none transition-all duration-300 focus:border-purple/60 focus:shadow-[0_0_15px_rgba(98,57,191,0.1)]"
                   />
                 </div>
               </div>
@@ -514,7 +514,7 @@ function CreateProjectPage() {
                         onClick={() => toggleRole(role)}
                         className={`px-4 py-3 text-sm font-medium rounded-xl border transition-all duration-300 text-left ${
                           active
-                            ? 'bg-purple/15 border-purple/40 text-purple-light shadow-[0_0_15px_rgba(139,92,246,0.15)]'
+                            ? 'bg-purple/15 border-purple/40 text-purple-light shadow-[0_0_15px_rgba(98,57,191,0.15)]'
                             : 'border-white/8 text-white/40 hover:border-purple/20 hover:text-white/60 hover:bg-white/[0.02]'
                         }`}
                       >
@@ -623,7 +623,7 @@ function CreateProjectPage() {
             {currentStep < 3 ? (
               <button
                 onClick={nextStep}
-                className="flex items-center gap-2 px-6 py-3 bg-purple text-white text-sm font-semibold rounded-xl transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_20px_rgba(139,92,246,0.3)] hover:scale-[1.02] active:scale-[0.98]"
+                className="flex items-center gap-2 px-6 py-3 bg-purple text-white text-sm font-semibold rounded-xl transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_20px_rgba(98,57,191,0.3)] hover:scale-[1.02] active:scale-[0.98]"
               >
                 Next Step
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
@@ -634,7 +634,7 @@ function CreateProjectPage() {
               <button
                 onClick={handlePublish}
                 disabled={loading}
-                className="flex items-center gap-2 px-8 py-3.5 bg-purple text-white text-sm font-bold rounded-xl transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_30px_rgba(139,92,246,0.5)] hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 px-8 py-3.5 bg-purple text-white text-sm font-bold rounded-xl transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_30px_rgba(98,57,191,0.5)] hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {loading ? (
                   <>

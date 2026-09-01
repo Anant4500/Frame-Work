@@ -136,7 +136,7 @@ function ExploreProjects() {
         {/* Page Title */}
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between mb-10 gap-4">
           <div>
-            <h1 className="font-[Montserrat] text-4xl sm:text-5xl font-black tracking-tight mb-3">
+            <h1 className="font-['DM_Serif_Display'] text-4xl sm:text-5xl font-normal tracking-tight mb-3">
               Explore <span className="gradient-text">Projects</span>
             </h1>
             <p className="text-white/50 text-lg max-w-xl">
@@ -146,7 +146,7 @@ function ExploreProjects() {
           {user && user.role === 'creator' && (
             <Link
               to="/create-project"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-purple text-white text-sm font-semibold rounded-full transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_30px_rgba(139,92,246,0.4)] hover:scale-[1.02] active:scale-95 shrink-0"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-purple text-white text-sm font-semibold rounded-full transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_30px_rgba(98,57,191,0.4)] hover:scale-[1.02] active:scale-95 shrink-0"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -195,7 +195,7 @@ function ExploreProjects() {
             <div className="glass-card rounded-2xl p-6 sticky top-28">
               {/* Sidebar Header */}
               <div className="flex items-center justify-between mb-6">
-                <h2 className="font-[Montserrat] text-lg font-bold flex items-center gap-2">
+                <h2 className="text-lg font-bold flex items-center gap-2">
                   <svg className="w-5 h-5 text-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                   </svg>
@@ -256,7 +256,7 @@ function ExploreProjects() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search by role, genre, or location..."
-                  className="w-full pl-12 pr-4 py-3.5 bg-white/[0.04] border border-white/10 rounded-xl text-sm text-white placeholder-white/30 outline-none transition-all duration-300 focus:border-purple/50 focus:bg-white/[0.06] focus:shadow-[0_0_20px_rgba(139,92,246,0.1)]"
+                  className="w-full pl-12 pr-4 py-3.5 bg-white/[0.04] border border-white/10 rounded-xl text-sm text-white placeholder-white/30 outline-none transition-all duration-300 focus:border-purple/50 focus:bg-white/[0.06] focus:shadow-[0_0_20px_rgba(98,57,191,0.1)]"
                 />
                 {search && (
                   <button
@@ -343,11 +343,11 @@ function ExploreProjects() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m-3.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-1.5A1.125 1.125 0 0118 18.375" />
                   </svg>
                 </div>
-                <h3 className="font-[Montserrat] text-xl font-bold text-white/70 mb-2">No Projects Yet</h3>
+                <h3 className="text-xl font-bold text-white/70 mb-2">No Projects Yet</h3>
                 <p className="text-white/30 text-sm mb-6 max-w-sm mx-auto">Be the first to bring a film idea to FrameWork.</p>
                 <Link
                   to="/create-project"
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-purple text-white text-sm font-semibold rounded-full transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_30px_rgba(139,92,246,0.4)] hover:scale-[1.02] active:scale-95"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-purple text-white text-sm font-semibold rounded-full transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_30px_rgba(98,57,191,0.4)] hover:scale-[1.02] active:scale-95"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -426,7 +426,7 @@ function FilterGroup({ title, items, selected, onToggle }) {
                 <span
                   className={`w-4.5 h-4.5 rounded border-[1.5px] flex items-center justify-center transition-all duration-200 ${
                     checked
-                      ? 'bg-purple border-purple shadow-[0_0_8px_rgba(139,92,246,0.3)]'
+                      ? 'bg-purple border-purple shadow-[0_0_8px_rgba(98,57,191,0.3)]'
                       : 'border-white/20 group-hover/item:border-white/40'
                   }`}
                 >
@@ -454,72 +454,164 @@ function FilterGroup({ title, items, selected, onToggle }) {
   )
 }
 
-/* ─── Project Card Component ─── */
+/* ─── Relative date formatter (no external deps) ─── */
+function formatRelativeDate(isoString) {
+  if (!isoString) return null
+  const diff = Date.now() - new Date(isoString).getTime()
+  const mins = Math.floor(diff / 60000)
+  const hours = Math.floor(mins / 60)
+  const days = Math.floor(hours / 24)
+  const weeks = Math.floor(days / 7)
+  if (mins < 60) return 'Just now'
+  if (hours < 24) return `${hours}h ago`
+  if (days === 1) return '1d ago'
+  if (days < 7) return `${days}d ago`
+  if (weeks === 1) return '1w ago'
+  if (weeks < 5) return `${weeks}w ago`
+  return new Date(isoString).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
+}
+
+/* ─── Project Card Component (Explore-specific cinematic redesign) ─── */
 function ProjectCard({ project }) {
-  const roles = Array.isArray(project.roles) ? project.roles : []
+  const allRoles = Array.isArray(project.roles) ? project.roles : []
+  const visibleRoles = allRoles.slice(0, 3)
+  const extraRoles = allRoles.length - visibleRoles.length
   const thumbnail = project.thumbnail || '/images/hero-bg.png'
+  const relDate = formatRelativeDate(project.created_at)
+  const creator = project.creator || null
 
   return (
     <Link
       to={`/project/${project.id}`}
-      className="group glass-card rounded-2xl overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:shadow-[0_8px_40px_rgba(139,92,246,0.15)] hover:border-purple/20 block"
+      className="group flex flex-col bg-[#090909] border border-white/[0.07] rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:border-purple/30 hover:shadow-[0_12px_40px_rgba(98,57,191,0.12)] block"
     >
-      {/* Thumbnail */}
-      <div className="relative h-48 overflow-hidden bg-white/5">
+      {/* ── POSTER ── */}
+      <div className="relative overflow-hidden" style={{ paddingTop: '58%' }}>
+        {/* Film grain overlay */}
+        <div
+          className="absolute inset-0 z-10 pointer-events-none opacity-[0.035] mix-blend-overlay"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
+            backgroundSize: '180px 180px',
+          }}
+        />
         <img
           src={thumbnail}
           alt={project.title || 'Film Project'}
-          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+          className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+        {/* Cinematic gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-[#090909] via-black/30 to-transparent z-20" />
+        {/* Subtle vignette */}
+        <div className="absolute inset-0 z-20 pointer-events-none" style={{ boxShadow: 'inset 0 0 60px rgba(0,0,0,0.5)' }} />
+
+        {/* Genre pill — top left */}
         {project.genre && (
-          <span className="absolute top-3 left-3 px-3 py-1 text-xs font-medium bg-purple/80 backdrop-blur-sm rounded-full">
+          <span className="absolute top-3 left-3 z-30 px-2.5 py-1 text-[10px] font-semibold tracking-widest uppercase text-white/90 bg-black/60 backdrop-blur-md border border-white/10 rounded-full">
             {project.genre}
           </span>
         )}
+
+        {/* Status indicator — top right */}
         {project.status && (
-          <span className={`absolute top-3 right-3 px-2.5 py-1 text-[10px] font-bold backdrop-blur-sm rounded-full border ${
-            project.status === 'Open' ? 'border-purple/40 text-purple-light bg-purple/20' :
-            project.status === 'In Production' ? 'border-amber-500/40 text-amber-400 bg-amber-500/20' :
-            'border-emerald-500/40 text-emerald-400 bg-emerald-500/20'
+          <span className={`absolute top-3 right-3 z-30 inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase backdrop-blur-md rounded-full border ${
+            project.status === 'Open'
+              ? 'border-purple/35 text-purple-light bg-purple/15'
+              : project.status === 'In Production'
+              ? 'border-amber-500/35 text-amber-400 bg-amber-500/15'
+              : 'border-emerald-500/35 text-emerald-400 bg-emerald-500/15'
           }`}>
+            {project.status === 'Open' && (
+              <span className="w-1.5 h-1.5 rounded-full bg-purple animate-pulse" />
+            )}
             {project.status}
           </span>
         )}
       </div>
 
-      {/* Content */}
-      <div className="p-5">
-        <h3 className="font-[Montserrat] text-lg font-bold mb-1 group-hover:text-purple-light transition-colors duration-300">
+      {/* ── CONTENT ── */}
+      <div className="flex flex-col flex-1 px-5 pt-4 pb-5 gap-3">
+
+        {/* Title */}
+        <h3 className="font-['DM_Serif_Display'] text-[1.2rem] leading-snug font-normal text-white line-clamp-2 group-hover:text-purple-light transition-colors duration-300">
           {project.title || 'Untitled Project'}
         </h3>
-        {project.location && (
-          <p className="text-white/40 text-sm mb-4 flex items-center gap-1">
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            {project.location}
+
+        {/* Location + Posted date */}
+        <div className="flex items-center gap-2 text-[11px] text-white/35 font-medium tracking-wide">
+          {project.location && (
+            <>
+              <svg className="w-3 h-3 shrink-0 text-white/25" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              <span>{project.location}</span>
+            </>
+          )}
+          {project.location && relDate && (
+            <span className="text-white/15">•</span>
+          )}
+          {relDate && <span>{relDate}</span>}
+        </div>
+
+        {/* Logline / description */}
+        {(project.logline || project.description) && (
+          <p className="text-[12.5px] text-white/45 leading-relaxed line-clamp-2">
+            {project.logline || project.description}
           </p>
         )}
 
-        {/* Roles */}
-        {roles.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-5">
-            {roles.map((role) => (
-              <span
-                key={role}
-                className="px-2.5 py-1 text-xs font-medium text-purple-light border border-purple/20 rounded-full transition-all duration-300 group-hover:bg-purple/10 group-hover:border-purple/40 cursor-default"
-              >
-                {role}
-              </span>
-            ))}
+        {/* Roles needed */}
+        {allRoles.length > 0 && (
+          <div>
+            <p className="text-[9.5px] font-semibold tracking-[0.14em] uppercase text-white/25 mb-2">Roles Needed</p>
+            <div className="flex flex-wrap gap-1.5">
+              {visibleRoles.map((role) => (
+                <span
+                  key={role}
+                  className="px-2.5 py-[3px] text-[11px] font-medium text-white/60 border border-white/[0.1] rounded-md bg-white/[0.03] transition-all duration-300 group-hover:border-purple/30 group-hover:text-purple-light"
+                >
+                  {role}
+                </span>
+              ))}
+              {extraRoles > 0 && (
+                <span className="px-2.5 py-[3px] text-[11px] font-medium text-white/35 border border-white/[0.07] rounded-md bg-white/[0.02]">
+                  +{extraRoles}
+                </span>
+              )}
+            </div>
           </div>
         )}
 
-        {/* View Project Button */}
-        <span className="block w-full py-3 text-sm font-semibold bg-purple text-white rounded-xl transition-all duration-300 group-hover:bg-purple-dark group-hover:shadow-[0_0_20px_rgba(139,92,246,0.3)] text-center">
+        {/* Creator row */}
+        {creator && creator.name && (
+          <div className="flex items-center gap-2 mt-1">
+            <div className="w-5 h-5 rounded-full overflow-hidden bg-purple/20 border border-purple/25 shrink-0 flex items-center justify-center">
+              {creator.avatar ? (
+                <img src={creator.avatar} alt={creator.name} className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-[9px] font-bold text-purple-light">{creator.name.charAt(0).toUpperCase()}</span>
+              )}
+            </div>
+            <span className="text-[11px] text-white/35">by <span className="text-white/50">{creator.name}</span></span>
+          </div>
+        )}
+
+        {/* Spacer pushes CTA to bottom */}
+        <div className="flex-1" />
+
+        {/* View Project CTA */}
+        <span className="mt-1 flex items-center justify-center gap-2 w-full py-2.5 text-[13px] font-semibold text-white bg-purple rounded-xl transition-all duration-300 group-hover:bg-purple-dark group-hover:shadow-[0_0_20px_rgba(98,57,191,0.3)]">
           View Project
+          <svg
+            className="w-3.5 h-3.5 transition-transform duration-300 group-hover:translate-x-1"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            strokeWidth={2.5}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
         </span>
       </div>
     </Link>

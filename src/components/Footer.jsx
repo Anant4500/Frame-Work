@@ -11,7 +11,7 @@ function Footer() {
                 <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
               </svg>
             </div>
-            <span className="text-lg font-bold tracking-tight font-[Montserrat]">
+            <span className="text-lg font-bold tracking-tight">
               Frame<span className="text-purple">Work</span>
             </span>
           </div>

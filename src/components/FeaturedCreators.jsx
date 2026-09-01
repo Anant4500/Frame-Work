@@ -14,7 +14,7 @@ function FeaturedCreators() {
           <span className="inline-block text-purple text-sm font-semibold tracking-widest uppercase mb-4">
             Featured Creators
           </span>
-          <h2 className="font-[Montserrat] text-4xl sm:text-5xl font-bold tracking-tight">
+          <h2 className="font-['DM_Serif_Display'] text-4xl sm:text-5xl font-normal tracking-tight">
             Meet the Talent
           </h2>
         </div>
@@ -32,7 +32,7 @@ function FeaturedCreators() {
                   {/* Avatar */}
                   <div className="relative w-32 h-32 mx-auto mb-5">
                     <div className="absolute inset-0 rounded-full bg-gradient-to-br from-purple to-purple-dark opacity-0 transition-opacity duration-500 group-hover:opacity-100 blur-xl" />
-                    <div className="relative w-full h-full rounded-full overflow-hidden border-2 border-white/10 transition-all duration-500 group-hover:border-purple/50 group-hover:shadow-[0_0_30px_rgba(139,92,246,0.3)]">
+                    <div className="relative w-full h-full rounded-full overflow-hidden border-2 border-white/10 transition-all duration-500 group-hover:border-purple/50 group-hover:shadow-[0_0_30px_rgba(98,57,191,0.3)]">
                       <img
                         src={creator.avatar}
                         alt={creator.name}
@@ -42,7 +42,7 @@ function FeaturedCreators() {
                   </div>
 
                   {/* Info */}
-                  <h3 className="font-[Montserrat] text-lg font-bold mb-1 transition-colors duration-300 group-hover:text-purple-light">
+                  <h3 className="font-['DM_Serif_Display'] text-lg font-normal mb-1 transition-colors duration-300 group-hover:text-purple-light">
                     {creator.name}
                   </h3>
                   <p className="text-white/40 text-sm mb-3">{creator.role}</p>
@@ -64,11 +64,11 @@ function FeaturedCreators() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
                 </svg>
               </div>
-              <h3 className="font-[Montserrat] text-xl font-bold text-white/70 mb-2">No featured creators yet.</h3>
+              <h3 className="text-xl font-bold text-white/70 mb-2">No featured creators yet.</h3>
               <p className="text-white/30 text-sm mb-8 max-w-md mx-auto">Join FrameWork and be among the first filmmakers to build your profile.</p>
               <Link
                 to="/register"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-purple text-white text-sm font-semibold rounded-full transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_30px_rgba(139,92,246,0.4)] hover:scale-[1.02] active:scale-95"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-purple text-white text-sm font-semibold rounded-full transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_30px_rgba(98,57,191,0.4)] hover:scale-[1.02] active:scale-95"
               >
                 Join FrameWork
               </Link>

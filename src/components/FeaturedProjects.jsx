@@ -28,7 +28,7 @@ function FeaturedProjects() {
             <span className="inline-block text-purple text-sm font-semibold tracking-widest uppercase mb-4">
               Featured Projects
             </span>
-            <h2 className="font-[Montserrat] text-4xl sm:text-5xl font-bold tracking-tight">
+            <h2 className="font-['DM_Serif_Display'] text-4xl sm:text-5xl font-normal tracking-tight">
               Stories Seeking Creators
             </h2>
           </div>
@@ -54,7 +54,7 @@ function FeaturedProjects() {
               >
                 <Link
                   to={`/project/${project.id}`}
-                  className="group glass-card rounded-2xl overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:shadow-[0_8px_40px_rgba(139,92,246,0.15)] hover:border-purple/20 block"
+                  className="group glass-card rounded-2xl overflow-hidden transition-all duration-500 hover:scale-[1.02] hover:shadow-[0_8px_40px_rgba(98,57,191,0.15)] hover:border-purple/20 block"
                 >
                   {/* Thumbnail */}
                   <div className="relative h-48 overflow-hidden">
@@ -72,7 +72,7 @@ function FeaturedProjects() {
 
                   {/* Content */}
                   <div className="p-5">
-                    <h3 className="font-[Montserrat] text-lg font-bold mb-1 group-hover:text-purple-light transition-colors duration-300">
+                    <h3 className="font-['DM_Serif_Display'] text-lg font-normal mb-1 group-hover:text-purple-light transition-colors duration-300">
                       {project.title || 'Untitled Project'}
                     </h3>
                     <p className="text-white/40 text-sm mb-4 flex items-center gap-1">
@@ -112,11 +112,11 @@ function FeaturedProjects() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m-3.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-1.5A1.125 1.125 0 0118 18.375" />
                 </svg>
               </div>
-              <h3 className="font-[Montserrat] text-xl font-bold text-white/70 mb-2">No projects have been published yet.</h3>
+              <h3 className="text-xl font-bold text-white/70 mb-2">No projects have been published yet.</h3>
               <p className="text-white/30 text-sm mb-8 max-w-md mx-auto">Be the first to bring a film idea to FrameWork and find your crew.</p>
               <Link
                 to="/create-project"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-purple text-white text-sm font-semibold rounded-full transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_30px_rgba(139,92,246,0.4)] hover:scale-[1.02] active:scale-95"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-purple text-white text-sm font-semibold rounded-full transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_30px_rgba(98,57,191,0.4)] hover:scale-[1.02] active:scale-95"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />

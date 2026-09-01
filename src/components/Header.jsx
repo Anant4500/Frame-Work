@@ -128,13 +128,13 @@ function Header() {
       <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2 group">
-          <div className="w-8 h-8 bg-purple rounded-lg flex items-center justify-center transition-all duration-300 group-hover:shadow-[0_0_20px_rgba(139,92,246,0.5)]">
+          <div className="w-8 h-8 bg-purple rounded-lg flex items-center justify-center transition-all duration-300 group-hover:shadow-[0_0_20px_rgba(98,57,191,0.5)]">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polygon points="23 7 16 12 23 17 23 7" />
               <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
             </svg>
           </div>
-          <span className="text-xl font-bold tracking-tight font-[Montserrat]">
+          <span className="text-xl font-bold tracking-tight">
             Frame<span className="text-purple">Work</span>
           </span>
         </Link>
@@ -262,7 +262,7 @@ function Header() {
                 <span className="text-sm font-medium text-white/80 max-w-[100px] truncate">
                   {user.name}
                 </span>
-                <div className="w-9 h-9 rounded-full bg-purple/20 border-2 border-purple/40 flex items-center justify-center overflow-hidden transition-all duration-300 hover:border-purple hover:shadow-[0_0_15px_rgba(139,92,246,0.3)]">
+                <div className="w-9 h-9 rounded-full bg-purple/20 border-2 border-purple/40 flex items-center justify-center overflow-hidden transition-all duration-300 hover:border-purple hover:shadow-[0_0_15px_rgba(98,57,191,0.3)]">
                   {user.avatar ? (
                     <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
                   ) : (
@@ -337,7 +337,7 @@ function Header() {
               </Link>
               <Link
                 to="/register"
-                className={`px-5 py-2.5 bg-purple text-white text-sm font-semibold rounded-full transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_30px_rgba(139,92,246,0.4)] hover:scale-[1.03] active:scale-95 ${
+                className={`px-5 py-2.5 bg-purple text-white text-sm font-semibold rounded-full transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_30px_rgba(98,57,191,0.4)] hover:scale-[1.03] active:scale-95 ${
                   isAuth ? 'hidden' : ''
                 }`}
               >

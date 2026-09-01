@@ -1,0 +1,1 @@
+{"nodes": [{"id": "public_images_avatar", "label": "Asset: avatar.png", "file_type": "image", "source_file": "public/images/profile/avatar.png", "source_location": null, "source_url": null, "captured_at": null, "author": null, "contributor": null, "rationale": "Static asset avatar.png for UI branding, avatar, or background."}], "edges": [], "hyperedges": []}

@@ -258,7 +258,7 @@ function ProfilePage() {
                 <svg className="w-5 h-5 text-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                 </svg>
-                <h3 className="font-[Montserrat] text-base font-bold text-white">Resume / CV Preview</h3>
+                <h3 className="text-base font-bold text-white">Resume / CV Preview</h3>
               </div>
               <button
                 onClick={() => {
@@ -333,7 +333,7 @@ function CollaboratorProfileLayout({ p, isOwn, userRole, onEditProfile, onViewRe
         {p.skills.length > 0 ? (
           <div className="flex flex-wrap gap-3">
             {p.skills.map(s => (
-              <span key={s} className="px-4 py-2 text-sm font-medium text-white bg-white/[0.04] border border-white/10 rounded-full transition-all duration-300 hover:border-purple/50 hover:shadow-[0_0_12px_rgba(139,92,246,0.15)] cursor-default">
+              <span key={s} className="px-4 py-2 text-sm font-medium text-white bg-white/[0.04] border border-white/10 rounded-full transition-all duration-300 hover:border-purple/50 hover:shadow-[0_0_12px_rgba(98,57,191,0.15)] cursor-default">
                 {s}
               </span>
             ))}
@@ -391,7 +391,7 @@ function CreatorProfileLayout({ p, isOwn, userRole, onEditProfile, onViewResume 
 
       {/* Featured Work */}
       <div className="reveal glass-card rounded-2xl p-6 sm:p-8 mb-6">
-        <h2 className="font-[Montserrat] text-xl font-bold mb-1">Featured Work</h2>
+        <h2 className="text-xl font-bold mb-1">Featured Work</h2>
         <p className="text-white/40 text-sm mb-6">Cinematic highlights from my filmography</p>
         {p.featuredWork.length > 0 ? (
           <div className="space-y-6">
@@ -404,7 +404,7 @@ function CreatorProfileLayout({ p, isOwn, userRole, onEditProfile, onViewResume 
 
       {/* Active Projects */}
       <div className="reveal glass-card rounded-2xl p-6 sm:p-8 mb-6">
-        <h2 className="font-[Montserrat] text-xl font-bold mb-1">Active Projects</h2>
+        <h2 className="text-xl font-bold mb-1">Active Projects</h2>
         <p className="text-white/40 text-sm mb-6">Projects currently looking for collaborators</p>
         {p.activeProjects.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
@@ -418,7 +418,7 @@ function CreatorProfileLayout({ p, isOwn, userRole, onEditProfile, onViewResume 
       {/* Projects Created */}
       <div className="reveal glass-card rounded-2xl p-6 sm:p-8 mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 gap-3">
-          <h2 className="font-[Montserrat] text-xl font-bold">Projects Created</h2>
+          <h2 className="text-xl font-bold">Projects Created</h2>
           <div className="flex gap-2">
             {['Active', 'Completed'].map(t => (
               <button key={t} onClick={() => setProjectTab(t)} className={`px-4 py-1.5 text-sm font-medium rounded-full transition-all duration-300 ${projectTab === t ? 'bg-purple text-white' : 'bg-white/[0.04] text-white/50 border border-white/10 hover:text-white'}`}>{t}</button>
@@ -436,7 +436,7 @@ function CreatorProfileLayout({ p, isOwn, userRole, onEditProfile, onViewResume 
 
       {/* Current Collaborations */}
       <div className="reveal glass-card rounded-2xl p-6 sm:p-8 mb-6">
-        <h2 className="font-[Montserrat] text-xl font-bold mb-6">Current Collaborations</h2>
+        <h2 className="text-xl font-bold mb-6">Current Collaborations</h2>
         {p.teams.length > 0 ? (
           <div className="space-y-5">
             {p.teams.map(team => <TeamCard key={team.project} team={team} />)}
@@ -456,7 +456,7 @@ function CreatorProfileLayout({ p, isOwn, userRole, onEditProfile, onViewResume 
                 <div key={i} className="relative">
                   <div className="absolute -left-6 sm:-left-8 top-1 w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full bg-purple/20 border-2 border-purple flex items-center justify-center"><div className="w-1.5 h-1.5 rounded-full bg-purple" /></div>
                   <span className="text-xs font-semibold text-purple-light bg-purple/10 px-2 py-0.5 rounded">{f.year}</span>
-                  <h3 className="font-[Montserrat] font-bold text-base mt-1 cursor-pointer hover:text-purple-light transition-colors">{f.project}</h3>
+                  <h3 className="font-['DM_Serif_Display'] font-normal text-base mt-1 cursor-pointer hover:text-purple-light transition-colors">{f.project}</h3>
                   <p className="text-sm text-white/50">{f.role}</p>
                   <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-full"><span className="w-1 h-1 rounded-full bg-emerald-400" />{f.status}</span>
                 </div>
@@ -470,7 +470,7 @@ function CreatorProfileLayout({ p, isOwn, userRole, onEditProfile, onViewResume 
 
       {/* Completed Films */}
       <div className="reveal glass-card rounded-2xl p-6 sm:p-8 mb-6">
-        <h2 className="font-[Montserrat] text-xl font-bold mb-6">Completed Films</h2>
+        <h2 className="text-xl font-bold mb-6">Completed Films</h2>
         {p.completedFilms.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {p.completedFilms.map(cf => <CompletedFilmCard key={cf.id} item={cf} />)}
@@ -485,7 +485,7 @@ function CreatorProfileLayout({ p, isOwn, userRole, onEditProfile, onViewResume 
         {p.skills.length > 0 ? (
           <div className="flex flex-wrap gap-3">
             {p.skills.map(s => (
-              <span key={s} className="px-4 py-2 text-sm font-medium text-white bg-white/[0.04] border border-white/10 rounded-full transition-all duration-300 hover:border-purple/50 hover:shadow-[0_0_12px_rgba(139,92,246,0.15)] cursor-default">{s}</span>
+              <span key={s} className="px-4 py-2 text-sm font-medium text-white bg-white/[0.04] border border-white/10 rounded-full transition-all duration-300 hover:border-purple/50 hover:shadow-[0_0_12px_rgba(98,57,191,0.15)] cursor-default">{s}</span>
             ))}
           </div>
         ) : (
@@ -495,7 +495,7 @@ function CreatorProfileLayout({ p, isOwn, userRole, onEditProfile, onViewResume 
 
       {/* Currently Looking For */}
       <div className="reveal glass-card rounded-2xl p-6 sm:p-8 mb-6">
-        <h2 className="font-[Montserrat] text-xl font-bold mb-6">Currently Looking For</h2>
+        <h2 className="text-xl font-bold mb-6">Currently Looking For</h2>
         {lookingForRoles.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
             {lookingForRoles.map(r => (
@@ -513,7 +513,7 @@ function CreatorProfileLayout({ p, isOwn, userRole, onEditProfile, onViewResume 
             <div key={l}><p className="text-xs text-white/30 uppercase tracking-wider mb-1">{l}</p><p className="text-sm text-white/70 font-medium">{v || 'Not added yet'}</p></div>
           ))}
         </div>
-        <button className="px-6 py-3 bg-purple text-white text-sm font-semibold rounded-xl transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_25px_rgba(139,92,246,0.35)] hover:scale-[1.02] active:scale-95">View Open Roles</button>
+        <button className="px-6 py-3 bg-purple text-white text-sm font-semibold rounded-xl transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_25px_rgba(98,57,191,0.35)] hover:scale-[1.02] active:scale-95">View Open Roles</button>
       </div>
 
       {/* Credits */}
@@ -548,7 +548,7 @@ function CreatorProfileLayout({ p, isOwn, userRole, onEditProfile, onViewResume 
 function SectionCard({ title, subtitle, children, id }) {
   return (
     <div id={id} className="reveal glass-card rounded-2xl p-6 sm:p-8 mb-6">
-      <h2 className="font-[Montserrat] text-xl font-bold mb-1">{title}</h2>
+      <h2 className="text-xl font-bold mb-1">{title}</h2>
       {subtitle && <p className="text-white/40 text-sm mb-5">{subtitle}</p>}
       {!subtitle && <div className="mb-5" />}
       {children}
@@ -566,7 +566,7 @@ function ProfileHero({ profile, isOwn, userRole, onEditProfile, onViewResume }) 
         <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 flex-1">
           {/* Avatar */}
           <div className="relative shrink-0">
-            <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-full overflow-hidden border-[3px] border-purple/40 shadow-[0_0_30px_rgba(139,92,246,0.15)]">
+            <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-full overflow-hidden border-[3px] border-purple/40 shadow-[0_0_30px_rgba(98,57,191,0.15)]">
               <img src={profile.avatar} alt={profile.name} className="w-full h-full object-cover" />
             </div>
             {profile.available && (
@@ -576,12 +576,12 @@ function ProfileHero({ profile, isOwn, userRole, onEditProfile, onViewResume }) 
 
           {/* Info */}
           <div className="text-center sm:text-left">
-            <h1 className="font-[Montserrat] text-2xl sm:text-3xl font-bold tracking-tight mb-1">{profile.name}</h1>
+            <h1 className="font-['DM_Serif_Display'] text-2xl sm:text-3xl font-normal tracking-tight mb-1">{profile.name}</h1>
 
             {/* ── ROLE BADGE ── */}
             <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mb-3">
               {isCreator ? (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-purple-light bg-purple/15 border border-purple/40 rounded-full shadow-[0_0_10px_rgba(139,92,246,0.15)]">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold text-purple-light bg-purple/15 border border-purple/40 rounded-full shadow-[0_0_10px_rgba(98,57,191,0.15)]">
                   <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                   </svg>
@@ -637,7 +637,7 @@ function ProfileHero({ profile, isOwn, userRole, onEditProfile, onViewResume }) 
               <button
                 id="edit-profile-hero-btn"
                 onClick={onEditProfile}
-                className="px-6 py-3 bg-purple text-white text-sm font-semibold rounded-xl transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_25px_rgba(139,92,246,0.35)] hover:scale-[1.02] active:scale-95"
+                className="px-6 py-3 bg-purple text-white text-sm font-semibold rounded-xl transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_25px_rgba(98,57,191,0.35)] hover:scale-[1.02] active:scale-95"
               >
                 Edit Profile
               </button>
@@ -677,7 +677,7 @@ function ProfileHero({ profile, isOwn, userRole, onEditProfile, onViewResume }) 
                   View Resume
                 </button>
               )}
-              <button className="px-6 py-3 bg-purple text-white text-sm font-semibold rounded-xl transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_25px_rgba(139,92,246,0.35)] hover:scale-[1.02] active:scale-95">
+              <button className="px-6 py-3 bg-purple text-white text-sm font-semibold rounded-xl transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_25px_rgba(98,57,191,0.35)] hover:scale-[1.02] active:scale-95">
                 Invite to Project
               </button>
               <button className="px-6 py-3 bg-white/[0.04] border border-white/10 text-white/70 text-sm font-medium rounded-xl transition-all duration-300 hover:border-white/20 hover:text-white hover:scale-[1.02] active:scale-95">
@@ -703,7 +703,7 @@ function StatsBarCollaborator({ stats }) {
     <div className="reveal grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
       {items.map(i => (
         <div key={i.label} className="glass-card rounded-2xl p-5 text-center">
-          <p className="font-[Montserrat] text-2xl sm:text-3xl font-bold text-white mb-1">{i.value}</p>
+          <p className="text-2xl sm:text-3xl font-bold text-white mb-1">{i.value}</p>
           <p className="text-white/40 text-xs sm:text-sm">{i.label}</p>
         </div>
       ))}
@@ -722,7 +722,7 @@ function StatsBarCreator({ stats }) {
     <div className="reveal grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
       {items.map(i => (
         <div key={i.label} className="glass-card rounded-2xl p-5 text-center">
-          <p className="font-[Montserrat] text-2xl sm:text-3xl font-bold text-white mb-1">{i.value}</p>
+          <p className="text-2xl sm:text-3xl font-bold text-white mb-1">{i.value}</p>
           <p className="text-white/40 text-xs sm:text-sm">{i.label}</p>
         </div>
       ))}
@@ -734,12 +734,12 @@ function StatsBarCreator({ stats }) {
 function PortfolioSection({ items, title = 'Portfolio' }) {
   return (
     <div id="profile-portfolio" className="reveal glass-card rounded-2xl p-6 sm:p-8 mb-6">
-      <h2 className="font-[Montserrat] text-xl font-bold mb-1">{title}</h2>
+      <h2 className="text-xl font-bold mb-1">{title}</h2>
       <p className="text-white/40 text-sm mb-6">Selected work and previous projects</p>
       {items.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {items.map(item => (
-            <div key={item.id} className="group rounded-xl overflow-hidden border border-white/[0.06] bg-white/[0.02] transition-all duration-500 hover:border-purple/30 hover:shadow-[0_8px_32px_rgba(139,92,246,0.12)] hover:-translate-y-1">
+            <div key={item.id} className="group rounded-xl overflow-hidden border border-white/[0.06] bg-white/[0.02] transition-all duration-500 hover:border-purple/30 hover:shadow-[0_8px_32px_rgba(98,57,191,0.12)] hover:-translate-y-1">
               {/* Thumbnail */}
               <div className="relative h-44 overflow-hidden">
                 <img src={item.thumbnail} alt={item.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
@@ -750,9 +750,9 @@ function PortfolioSection({ items, title = 'Portfolio' }) {
               </div>
               {/* Content */}
               <div className="p-4">
-                <h3 className="font-[Montserrat] font-bold text-base mb-1.5 group-hover:text-purple-light transition-colors duration-300">{item.title}</h3>
+                <h3 className="font-['DM_Serif_Display'] font-normal text-base mb-1.5 group-hover:text-purple-light transition-colors duration-300">{item.title}</h3>
                 <p className="text-white/40 text-sm leading-relaxed mb-4 line-clamp-2">{item.description}</p>
-                <button className="w-full py-2.5 text-sm font-semibold text-purple-light border border-purple/25 rounded-lg transition-all duration-300 group-hover:bg-purple group-hover:text-white group-hover:border-purple group-hover:shadow-[0_0_16px_rgba(139,92,246,0.25)]">
+                <button className="w-full py-2.5 text-sm font-semibold text-purple-light border border-purple/25 rounded-lg transition-all duration-300 group-hover:bg-purple group-hover:text-white group-hover:border-purple group-hover:shadow-[0_0_16px_rgba(98,57,191,0.25)]">
                   Watch Film
                 </button>
               </div>
@@ -789,7 +789,7 @@ function ExperienceTimeline({ items, title = 'Experience' }) {
                     <span className="text-xs font-semibold text-purple-light bg-purple/10 px-2 py-0.5 rounded">{item.year}</span>
                     <span className="text-xs text-white/30">{item.location}</span>
                   </div>
-                  <h3 className="font-[Montserrat] font-bold text-base mb-0.5">{item.project}</h3>
+                  <h3 className="font-['DM_Serif_Display'] font-normal text-base mb-0.5">{item.project}</h3>
                   <p className="text-sm text-white/50 mb-1">{item.role}</p>
                   <p className="text-sm text-white/40 leading-relaxed">{item.description}</p>
                 </div>
@@ -810,12 +810,12 @@ function ExperienceTimeline({ items, title = 'Experience' }) {
 function ProjectsJoinedSection({ items, title = 'Projects Joined' }) {
   return (
     <div id="profile-projects" className="reveal glass-card rounded-2xl p-6 sm:p-8 mb-6">
-      <h2 className="font-[Montserrat] text-xl font-bold mb-1">{title}</h2>
+      <h2 className="text-xl font-bold mb-1">{title}</h2>
       <p className="text-white/40 text-sm mb-6">Films and projects I've contributed to</p>
       {items.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {items.map(item => (
-            <div key={item.id} className="group rounded-xl overflow-hidden border border-white/[0.06] bg-white/[0.02] transition-all duration-500 hover:border-purple/30 hover:shadow-[0_8px_32px_rgba(139,92,246,0.12)] hover:-translate-y-1">
+            <div key={item.id} className="group rounded-xl overflow-hidden border border-white/[0.06] bg-white/[0.02] transition-all duration-500 hover:border-purple/30 hover:shadow-[0_8px_32px_rgba(98,57,191,0.12)] hover:-translate-y-1">
               <div className="relative h-36 overflow-hidden">
                 <img src={item.thumbnail} alt={item.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
@@ -823,13 +823,13 @@ function ProjectsJoinedSection({ items, title = 'Projects Joined' }) {
                 <span className="absolute top-2.5 right-2.5 px-2 py-0.5 text-[10px] font-bold border border-emerald-500/40 text-emerald-400 bg-emerald-500/20 backdrop-blur-sm rounded-full">{item.status}</span>
               </div>
               <div className="p-4">
-                <h3 className="font-[Montserrat] font-bold text-sm mb-1 group-hover:text-purple-light transition-colors duration-300">{item.title}</h3>
+                <h3 className="font-['DM_Serif_Display'] font-normal text-sm mb-1 group-hover:text-purple-light transition-colors duration-300">{item.title}</h3>
                 <p className="text-white/40 text-xs mb-1 flex items-center gap-1">
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                   {item.location}
                 </p>
                 <p className="text-xs text-purple-light mb-3">Role: {item.role}</p>
-                <Link to={`/project/${item.id}`} className="block w-full py-2 text-xs font-semibold text-center bg-purple text-white rounded-lg transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_16px_rgba(139,92,246,0.25)]">
+                <Link to={`/project/${item.id}`} className="block w-full py-2 text-xs font-semibold text-center bg-purple text-white rounded-lg transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_16px_rgba(98,57,191,0.25)]">
                   View Project
                 </Link>
               </div>
@@ -929,16 +929,16 @@ function AvailabilitySection({ data, available }) {
 /* ─── FEATURED CARD ─── */
 function FeaturedCard({ item }) {
   return (
-    <div className="group rounded-2xl overflow-hidden border border-white/[0.06] bg-white/[0.02] transition-all duration-500 hover:border-purple/30 hover:shadow-[0_12px_40px_rgba(139,92,246,0.12)]">
+    <div className="group rounded-2xl overflow-hidden border border-white/[0.06] bg-white/[0.02] transition-all duration-500 hover:border-purple/30 hover:shadow-[0_12px_40px_rgba(98,57,191,0.12)]">
       <div className="relative h-64 sm:h-80 overflow-hidden">
         <img src={item.thumbnail} alt={item.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
         <div className="absolute bottom-6 left-6 right-6">
           <span className="px-3 py-1 text-xs font-semibold bg-purple text-white rounded-full mb-3 inline-block">{item.role}</span>
-          <h3 className="font-[Montserrat] font-bold text-2xl text-white mb-2">{item.title}</h3>
+          <h3 className="font-['DM_Serif_Display'] font-normal text-2xl text-white mb-2">{item.title}</h3>
           <p className="text-white/60 text-sm max-w-xl line-clamp-2 mb-4">{item.description}</p>
           <div className="flex items-center gap-3">
-            <button className="px-5 py-2.5 bg-purple text-white text-sm font-semibold rounded-lg transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_20px_rgba(139,92,246,0.3)]">Watch Film</button>
+            <button className="px-5 py-2.5 bg-purple text-white text-sm font-semibold rounded-lg transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_20px_rgba(98,57,191,0.3)]">Watch Film</button>
             <Link to={`/project/${item.id}`} className="px-5 py-2.5 bg-white/[0.06] border border-white/10 text-white/70 text-sm font-medium rounded-lg transition-all duration-300 hover:text-white hover:border-white/20">View Project</Link>
           </div>
         </div>
@@ -956,7 +956,7 @@ function ActiveProjectCard({ item, isOwn }) {
   const teamCount = item.teamMembersCount != null ? Number(item.teamMembersCount) : 0
 
   return (
-    <div className="group rounded-xl overflow-hidden border border-white/[0.06] bg-white/[0.02] transition-all duration-500 hover:border-purple/30 hover:shadow-[0_8px_32px_rgba(139,92,246,0.12)] hover:-translate-y-1 flex flex-col justify-between">
+    <div className="group rounded-xl overflow-hidden border border-white/[0.06] bg-white/[0.02] transition-all duration-500 hover:border-purple/30 hover:shadow-[0_8px_32px_rgba(98,57,191,0.12)] hover:-translate-y-1 flex flex-col justify-between">
       <div>
         <div className="relative h-40 overflow-hidden">
           <img src={item.thumbnail || '/images/hero-bg.png'} alt={item.title || 'Project'} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
@@ -965,7 +965,7 @@ function ActiveProjectCard({ item, isOwn }) {
           <span className="absolute top-2.5 right-2.5 px-2.5 py-0.5 text-[10px] font-bold border border-amber-500/40 text-amber-400 bg-amber-500/20 backdrop-blur-sm rounded-full">{item.status || 'Open'}</span>
         </div>
         <div className="p-4 pb-2">
-          <h3 className="font-[Montserrat] font-bold text-base mb-1 group-hover:text-purple-light transition-colors">{item.title || 'Untitled Project'}</h3>
+          <h3 className="font-['DM_Serif_Display'] font-normal text-base mb-1 group-hover:text-purple-light transition-colors">{item.title || 'Untitled Project'}</h3>
           <p className="text-white/40 text-xs mb-2 flex items-center gap-1">
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
             {item.location || 'Remote'}
@@ -1020,7 +1020,7 @@ function ProjectCreatedCard({ item }) {
           <span className={`absolute top-2.5 right-2.5 px-2.5 py-0.5 text-[10px] font-bold backdrop-blur-sm rounded-full border ${item.status === 'Completed' ? 'border-emerald-500/40 text-emerald-400 bg-emerald-500/20' : 'border-amber-500/40 text-amber-400 bg-amber-500/20'}`}>{item.status || 'Open'}</span>
         </div>
         <div className="p-4 pb-2">
-          <h3 className="font-[Montserrat] font-bold text-sm mb-0.5 group-hover:text-purple-light transition-colors">{item.title || 'Untitled Project'}</h3>
+          <h3 className="font-['DM_Serif_Display'] font-normal text-sm mb-0.5 group-hover:text-purple-light transition-colors">{item.title || 'Untitled Project'}</h3>
           <p className="text-white/40 text-xs mb-1">{item.language || 'English'} • {item.location || 'Remote'} • {item.year || '2026'}</p>
           <p className="text-xs text-purple-light mb-2">{item.role || 'Creator'}</p>
         </div>
@@ -1042,7 +1042,7 @@ function TeamCard({ team }) {
   const members = Array.isArray(team.members) ? team.members : []
   return (
     <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
-      <h3 className="font-[Montserrat] font-bold text-base mb-4 uppercase tracking-wide text-white/80">{team.project}</h3>
+      <h3 className="font-['DM_Serif_Display'] font-normal text-base mb-4 uppercase tracking-wide text-white/80">{team.project}</h3>
       {members.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
           {members.map(m => (
@@ -1069,10 +1069,10 @@ function CompletedFilmCard({ item }) {
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
       </div>
       <div className="p-4">
-        <h3 className="font-[Montserrat] font-bold text-base mb-1 group-hover:text-purple-light transition-colors">{item.title}</h3>
+        <h3 className="font-['DM_Serif_Display'] font-normal text-base mb-1 group-hover:text-purple-light transition-colors">{item.title}</h3>
         <p className="text-white/40 text-xs mb-1">{item.genre} • {item.runtime} • {item.language || 'English'} • {item.year}</p>
         <p className="text-xs text-purple-light mb-3">{item.role}</p>
-        <button className={`w-full py-2.5 text-xs font-semibold rounded-lg transition-all duration-300 ${item.hasVideo ? 'bg-purple text-white hover:bg-purple-dark hover:shadow-[0_0_16px_rgba(139,92,246,0.25)]' : 'bg-white/[0.04] border border-white/10 text-white/40 cursor-default'}`}>
+        <button className={`w-full py-2.5 text-xs font-semibold rounded-lg transition-all duration-300 ${item.hasVideo ? 'bg-purple text-white hover:bg-purple-dark hover:shadow-[0_0_16px_rgba(98,57,191,0.25)]' : 'bg-white/[0.04] border border-white/10 text-white/40 cursor-default'}`}>
           {item.hasVideo ? 'Watch Film' : 'Film Coming Soon'}
         </button>
       </div>
@@ -1086,7 +1086,7 @@ function SectionEmpty({ text, btnLabel, btnLink }) {
     <div className="col-span-full py-10 text-center border border-white/10 border-dashed rounded-xl bg-white/[0.02]">
       <p className="text-white/40 text-sm">{text}</p>
       {btnLabel && btnLink && (
-        <Link to={btnLink} className="inline-flex items-center gap-2 mt-4 px-5 py-2.5 bg-purple text-white text-sm font-semibold rounded-full transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_20px_rgba(139,92,246,0.3)] hover:scale-[1.02] active:scale-95">
+        <Link to={btnLink} className="inline-flex items-center gap-2 mt-4 px-5 py-2.5 bg-purple text-white text-sm font-semibold rounded-full transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_20px_rgba(98,57,191,0.3)] hover:scale-[1.02] active:scale-95">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
           {btnLabel}
         </Link>
@@ -1102,7 +1102,7 @@ function ProfileActions({ isOwn, userRole, onEditProfile, onViewResume, resumeUr
     <div className="reveal flex flex-col sm:flex-row items-center justify-center gap-3 mt-4 mb-8">
       {isOwn ? (
         <>
-          <button onClick={onEditProfile} className="w-full sm:w-auto px-8 py-3 bg-purple text-white text-sm font-semibold rounded-xl transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_25px_rgba(139,92,246,0.35)] hover:scale-[1.02] active:scale-95">Edit Profile</button>
+          <button onClick={onEditProfile} className="w-full sm:w-auto px-8 py-3 bg-purple text-white text-sm font-semibold rounded-xl transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_25px_rgba(98,57,191,0.35)] hover:scale-[1.02] active:scale-95">Edit Profile</button>
           {resumeUrl && (
             <button
               onClick={() => onViewResume && onViewResume(resumeUrl)}
@@ -1141,7 +1141,7 @@ function ProfileActions({ isOwn, userRole, onEditProfile, onViewResume, resumeUr
               View Resume
             </button>
           )}
-          <button className="w-full sm:w-auto px-8 py-3 bg-purple text-white text-sm font-semibold rounded-xl transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_25px_rgba(139,92,246,0.35)] hover:scale-[1.02] active:scale-95">Invite to Project</button>
+          <button className="w-full sm:w-auto px-8 py-3 bg-purple text-white text-sm font-semibold rounded-xl transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_25px_rgba(98,57,191,0.35)] hover:scale-[1.02] active:scale-95">Invite to Project</button>
           <button className="w-full sm:w-auto px-8 py-3 bg-white/[0.04] border border-white/10 text-white/70 text-sm font-medium rounded-xl transition-all duration-300 hover:border-white/20 hover:text-white hover:scale-[1.02] active:scale-95">View Portfolio</button>
           <button className="w-full sm:w-auto px-8 py-3 bg-white/[0.04] border border-white/10 text-white/70 text-sm font-medium rounded-xl transition-all duration-300 hover:border-white/20 hover:text-white hover:scale-[1.02] active:scale-95">Share Profile</button>
         </>
@@ -1289,7 +1289,7 @@ function EditProfileModal({ isOpen, onClose, user, onSaveSuccess }) {
       <div className="relative w-full max-w-2xl bg-[#121212] border border-white/10 rounded-2xl p-6 sm:p-8 max-h-[90vh] overflow-y-auto shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between pb-4 mb-6 border-b border-white/10">
-          <h2 className="font-[Montserrat] text-xl font-bold text-white flex items-center gap-2">
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
             <svg className="w-5 h-5 text-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
             </svg>
@@ -1317,7 +1317,7 @@ function EditProfileModal({ isOpen, onClose, user, onSaveSuccess }) {
           {/* Avatar Upload */}
           <div className="flex flex-col sm:flex-row items-center gap-5">
             <div className="relative shrink-0">
-              <div className="w-24 h-24 rounded-full overflow-hidden border-[3px] border-purple/40 shadow-[0_0_30px_rgba(139,92,246,0.15)] bg-white/[0.03]">
+              <div className="w-24 h-24 rounded-full overflow-hidden border-[3px] border-purple/40 shadow-[0_0_30px_rgba(98,57,191,0.15)] bg-white/[0.03]">
                 {avatarPreview ? (
                   <img src={avatarPreview} alt="Avatar preview" className="w-full h-full object-cover" />
                 ) : (
@@ -1425,7 +1425,7 @@ function EditProfileModal({ isOpen, onClose, user, onSaveSuccess }) {
             <button
               type="submit"
               disabled={isSaving}
-              className="inline-flex items-center gap-2 px-6 py-2.5 bg-purple text-white text-sm font-semibold rounded-xl transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_20px_rgba(139,92,246,0.4)] disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-6 py-2.5 bg-purple text-white text-sm font-semibold rounded-xl transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_20px_rgba(98,57,191,0.4)] disabled:opacity-50"
             >
               {isSaving && (
                 <svg className="w-4 h-4 text-white animate-spin" viewBox="0 0 24 24" fill="none">

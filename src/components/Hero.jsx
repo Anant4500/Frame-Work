@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import ShimmerButton from './ui/ShimmerButton'
 
 function Hero() {
   const [loaded, setLoaded] = useState(false)
+  const navigate = useNavigate()
 
   useEffect(() => {
     setLoaded(true)
@@ -41,7 +44,7 @@ function Hero() {
 
         {/* Headline */}
         <h1
-          className={`font-[Montserrat] text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black leading-[0.95] tracking-tight mb-6 transition-all duration-1000 delay-200 ${
+          className={`font-['DM_Serif_Display'] text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-normal leading-[0.95] tracking-tight mb-6 transition-all duration-1000 delay-200 ${
             loaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
           }`}
         >
@@ -65,25 +68,29 @@ function Hero() {
             loaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
           }`}
         >
-          <a
+          <ShimmerButton
             href="#cta"
             id="hero-cta-primary"
-            className="group px-8 py-4 bg-purple text-white font-semibold rounded-full transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_40px_rgba(139,92,246,0.5)] hover:scale-105 active:scale-95 animate-pulse-glow"
+            background="#6239BF"
+            shimmerColor="#FFFFFF"
+            borderRadius="9999px"
+            className="px-8 py-4 text-base font-semibold"
           >
-            <span className="flex items-center gap-2">
-              Start Your Project
-              <svg className="w-5 h-5 transition-transform duration-300 group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-              </svg>
-            </span>
-          </a>
-          <a
-            href="#projects"
+            Start Your Project
+            <svg className="w-5 h-5 transition-transform duration-300 group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+            </svg>
+          </ShimmerButton>
+          <ShimmerButton
             id="hero-cta-secondary"
-            className="px-8 py-4 border border-white/20 text-white font-semibold rounded-full transition-all duration-300 hover:border-white/40 hover:bg-white/5 hover:scale-105 active:scale-95"
+            onClick={() => navigate('/explore')}
+            shimmerColor="#6239BF"
+            background="rgba(10, 10, 10, 0.9)"
+            borderRadius="9999px"
+            className="px-8 py-4 text-base font-semibold"
           >
             Explore Projects
-          </a>
+          </ShimmerButton>
         </div>
 
         {/* Scroll indicator */}
