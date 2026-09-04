@@ -1,20 +1,53 @@
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { useProjects } from '../context/useProjects'
+import { supabase } from '../lib/supabaseClient'
 
 function FeaturedProjects() {
-  const { projects } = useProjects()
-  const featured = (Array.isArray(projects) ? projects : [])
-    .filter((p) => p && typeof p === 'object' && p.id)
-    .sort((a, b) => {
-      const valA = a.created_at || a.date;
-      const valB = b.created_at || b.date;
-      const timeA = valA ? new Date(valA).getTime() : 0;
-      const timeB = valB ? new Date(valB).getTime() : 0;
-      const cleanA = isNaN(timeA) ? 0 : timeA;
-      const cleanB = isNaN(timeB) ? 0 : timeB;
-      return cleanB - cleanA;
-    })
-    .slice(0, 4)
+  const [projects, setProjects] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let isMounted = true
+
+    const fetchFeaturedProjects = async () => {
+      try {
+        setLoading(true)
+        const { data, error } = await supabase
+          .from('projects')
+          .select('id, title, genre, location, poster_url, created_at, roles:project_roles(role)')
+          .eq('status', 'OPEN')
+          .order('created_at', { ascending: false })
+          .limit(4)
+
+        if (error) {
+          console.error('Error fetching featured projects:', error)
+          return
+        }
+
+        if (isMounted && data) {
+          const mapped = data.map((p) => ({
+            id: p.id,
+            title: p.title || 'Untitled Project',
+            genre: p.genre || 'Film',
+            location: p.location || 'Remote',
+            thumbnail: p.poster_url || '/images/hero-bg.png',
+            roles: Array.isArray(p.roles) ? p.roles.map((r) => r.role) : [],
+          }))
+          setProjects(mapped)
+        }
+      } catch (err) {
+        console.error('Error fetching featured projects:', err)
+      } finally {
+        if (isMounted) setLoading(false)
+      }
+    }
+
+    fetchFeaturedProjects()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   return (
     <section id="projects" className="relative py-28 px-6">
@@ -44,12 +77,12 @@ function FeaturedProjects() {
         </div>
 
         {/* Project Grid or Empty State */}
-        {featured.length > 0 ? (
+        {!loading && projects.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {featured.map((project, index) => (
+            {projects.map((project, index) => (
               <div
                 key={project.id}
-                className={`reveal opacity-0 translate-y-8 transition-all duration-700 [&.is-visible]:opacity-100 [&.is-visible]:translate-y-0`}
+                className="reveal opacity-0 translate-y-8 transition-all duration-700 [&.is-visible]:opacity-100 [&.is-visible]:translate-y-0"
                 style={{ transitionDelay: `${index * 100}ms` }}
               >
                 <Link
@@ -59,33 +92,33 @@ function FeaturedProjects() {
                   {/* Thumbnail */}
                   <div className="relative h-48 overflow-hidden">
                     <img
-                      src={project.thumbnail || ''}
+                      src={project.thumbnail}
                       alt={project.title || 'Project'}
                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                     {/* Genre badge */}
                     <span className="absolute top-3 left-3 px-3 py-1 text-xs font-medium bg-purple/80 backdrop-blur-sm rounded-full">
-                      {project.genre || 'Film'}
+                      {project.genre}
                     </span>
                   </div>
 
                   {/* Content */}
                   <div className="p-5">
                     <h3 className="font-['DM_Serif_Display'] text-lg font-normal mb-1 group-hover:text-purple-light transition-colors duration-300">
-                      {project.title || 'Untitled Project'}
+                      {project.title}
                     </h3>
                     <p className="text-white/40 text-sm mb-4 flex items-center gap-1">
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                       </svg>
-                      {project.location || 'Remote'}
+                      {project.location}
                     </p>
 
                     {/* Roles */}
                     <div className="flex flex-wrap gap-2 mb-4">
-                      {(Array.isArray(project.roles) ? project.roles : []).map((role) => (
+                      {project.roles.map((role) => (
                         <span
                           key={role}
                           className="px-2.5 py-1 text-xs font-medium text-white/60 bg-white/5 border border-white/10 rounded-full transition-all duration-300 hover:border-purple/30 hover:text-purple-light"
@@ -104,7 +137,7 @@ function FeaturedProjects() {
               </div>
             ))}
           </div>
-        ) : (
+        ) : !loading ? (
           <div className="reveal opacity-0 translate-y-8 transition-all duration-700 [&.is-visible]:opacity-100 [&.is-visible]:translate-y-0">
             <div className="glass-card rounded-2xl p-12 sm:p-16 text-center">
               <div className="w-16 h-16 rounded-full bg-white/[0.04] border border-white/10 flex items-center justify-center mx-auto mb-6">
@@ -125,7 +158,7 @@ function FeaturedProjects() {
               </Link>
             </div>
           </div>
-        )}
+        ) : null}
       </div>
     </section>
   )

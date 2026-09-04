@@ -177,7 +177,7 @@ function MyProjectsPage() {
     return () => {
       isMounted = false
     }
-  }, [user?.id, isCreator])
+  }, [user?.id, user?.name, user?.avatar, isCreator])
 
   const joinedProjectsList = useMemo(() => {
     if (isCreator) {

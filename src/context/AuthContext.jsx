@@ -39,9 +39,7 @@ async function fetchUserProfile(userId) {
     console.error('Error fetching user skills:', skillsError)
   }
 
-  const skills = (Array.isArray(profile.skills) && profile.skills.length > 0)
-    ? profile.skills
-    : (userSkills || []).map((us) => us.skills?.name).filter(Boolean)
+  const skills = (userSkills || []).map((us) => us.skills?.name).filter(Boolean)
 
   // Get the auth user for email
   const { data: { user: authUser } } = await supabase.auth.getUser()
@@ -240,12 +238,13 @@ export function AuthProvider({ children }) {
   }, [])
 
   // ── Register ──
-  const register = useCallback(async (email, password, profileData, selectedSkills) => {
+  const register = useCallback(async (email, password, profileData, selectedSkills, files = {}) => {
     const dbRole = mapRoleToDb(profileData.role)
 
     // 1. Sign up with Supabase Auth
     //    Profile is created automatically by the handle_new_user trigger
     //    We pass profile data as user metadata so the trigger can read it
+    //    Note: Never pass temporary local blob URLs into auth metadata
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
@@ -258,8 +257,8 @@ export function AuthProvider({ children }) {
           location: profileData.location || null,
           experience_level: profileData.experience_level || null,
           availability: profileData.availability || null,
-          profile_photo_url: profileData.profile_photo_url || null,
-          resume_url: profileData.resume_url || null,
+          profile_photo_url: null,
+          resume_url: null,
           // Store pending skills in metadata for insertion after email confirmation
           pending_skills: selectedSkills || [],
         },
@@ -275,15 +274,81 @@ export function AuthProvider({ children }) {
       throw new Error('Registration failed: no user returned')
     }
 
-    // 2. Check if email confirmation is required
+    // 2. Check if email confirmation is required (no session returned)
     const needsEmailConfirmation = !authData.session
 
     if (needsEmailConfirmation) {
-      // Skills will be inserted on first login after email confirmation
+      // If email confirmation is enabled, there is no active session yet.
+      // Storage RLS requires an authenticated user (auth.uid()), so we cannot
+      // perform uploads prior to email confirmation.
+      // The user can upload their avatar/resume after login from Edit Profile.
       return { needsEmailConfirmation: true, email }
     }
 
-    // 3. If no confirmation needed, we have a session — insert skills now
+    // 3. If session is active immediately, upload selected files to Storage
+    let uploadedAvatarUrl = null
+    let uploadedResumePath = null
+    const { photoFile, resumeFile } = files
+
+    if (photoFile) {
+      try {
+        const avatarPath = `${authUser.id}/${Date.now()}_avatar`
+        const { error: uploadErr } = await supabase.storage
+          .from('avatars')
+          .upload(avatarPath, photoFile, { upsert: true })
+
+        if (!uploadErr) {
+          const { data: urlData } = supabase.storage
+            .from('avatars')
+            .getPublicUrl(avatarPath)
+          uploadedAvatarUrl = urlData?.publicUrl || null
+        } else {
+          console.error('Avatar upload error during registration:', uploadErr)
+        }
+      } catch (uploadErr) {
+        console.error('Avatar upload failed during registration:', uploadErr)
+      }
+    }
+
+    if (resumeFile) {
+      try {
+        const ext = resumeFile.name?.split('.').pop() || 'pdf'
+        const resumePath = `${authUser.id}/${Date.now()}_resume.${ext.toLowerCase()}`
+        const { error: uploadErr } = await supabase.storage
+          .from('resumes')
+          .upload(resumePath, resumeFile, { upsert: true })
+
+        if (!uploadErr) {
+          uploadedResumePath = resumePath
+        } else {
+          console.error('Resume upload error during registration:', uploadErr)
+        }
+      } catch (uploadErr) {
+        console.error('Resume upload failed during registration:', uploadErr)
+      }
+    }
+
+    // Update profile record with uploaded file references if any succeeded
+    if (uploadedAvatarUrl || uploadedResumePath) {
+      try {
+        const updatePayload = {}
+        if (uploadedAvatarUrl) updatePayload.profile_photo_url = uploadedAvatarUrl
+        if (uploadedResumePath) updatePayload.resume_url = uploadedResumePath
+
+        const { error: profileUpdateErr } = await supabase
+          .from('profiles')
+          .update(updatePayload)
+          .eq('id', authUser.id)
+
+        if (profileUpdateErr) {
+          console.error('Error updating profile with files:', profileUpdateErr)
+        }
+      } catch (updateErr) {
+        console.error('Error in profile update after file upload:', updateErr)
+      }
+    }
+
+    // 4. Insert skills now that we have an active session
     if (selectedSkills && selectedSkills.length > 0) {
       await insertUserSkills(authUser.id, selectedSkills)
       // Clear pending skills from metadata since we've inserted them
@@ -292,7 +357,7 @@ export function AuthProvider({ children }) {
       })
     }
 
-    // 4. Build user object immediately
+    // 5. Build user object immediately
     const skills = selectedSkills || []
     setUser({
       id: authUser.id,
@@ -300,10 +365,11 @@ export function AuthProvider({ children }) {
       email,
       phone: profileData.phone || '',
       role: profileData.role === 'creator' ? 'creator' : 'collaborator',
-      avatar: profileData.profile_photo_url || null,
+      avatar: uploadedAvatarUrl || null,
       bio: profileData.bio || '',
       location: profileData.location || '',
       experienceLevel: profileData.experience_level || '',
+      resumeUrl: uploadedResumePath || '',
       skills,
     })
 

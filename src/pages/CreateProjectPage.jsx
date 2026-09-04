@@ -21,7 +21,6 @@ function CreateProjectPage() {
     location: '',
     budget: '',
     timeline: '',
-    status: 'Open',
     roles: [],
     scriptFile: null,
     scriptFileName: '',

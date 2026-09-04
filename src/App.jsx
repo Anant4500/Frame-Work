@@ -1,7 +1,6 @@
 import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
-import { ProjectsProvider } from './context/ProjectsContext'
 import { useAuth } from './context/useAuth'
 import Header from './components/Header'
 import Footer from './components/Footer'
@@ -12,6 +11,7 @@ import RegisterPage from './pages/RegisterPage'
 import ProjectDetailPage from './pages/ProjectDetailPage'
 import CreateProjectPage from './pages/CreateProjectPage'
 import ProfilePage from './pages/ProfilePage'
+import PublicProfilePage from './pages/PublicProfilePage'
 import MyProjectsPage from './pages/MyProjectsPage'
 
 function ScrollToTop() {
@@ -81,6 +81,7 @@ function AppContent() {
           <Route path="/project/:id" element={<ProjectDetailPage />} />
           <Route path="/create-project" element={<CreateProjectPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/profile/:id" element={<PublicProfilePage />} />
           <Route path="/my-projects" element={<MyProjectsPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
@@ -95,9 +96,7 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <ProjectsProvider>
-          <AppContent />
-        </ProjectsProvider>
+        <AppContent />
       </AuthProvider>
     </BrowserRouter>
   )

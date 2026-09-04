@@ -1,10 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/useAuth'
 import { supabase } from '../lib/supabaseClient'
-
-const generateApplicantId = () => `a${Date.now()}`
-
 function ProjectDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -12,7 +9,6 @@ function ProjectDetailPage() {
   const [project, setProject] = useState(null)
   const [signedScriptUrl, setSignedScriptUrl] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
   const [toast, setToast] = useState(null)
   const [applyModalOpen, setApplyModalOpen] = useState(false)
   const [editModalOpen, setEditModalOpen] = useState(false)
@@ -23,10 +19,9 @@ function ProjectDetailPage() {
     window.scrollTo(0, 0)
   }, [id])
 
-  const fetchProject = async (showLoading = true) => {
+  const fetchProject = useCallback(async (showLoading = true) => {
     try {
       if (showLoading) setLoading(true)
-      setError(null)
       setSignedScriptUrl(null)
 
       const { data, error: fetchError } = await supabase
@@ -108,18 +103,17 @@ function ProjectDetailPage() {
       }
     } catch (err) {
       console.error('Error fetching project detail:', err)
-      setError(err.message)
       setProject(null)
     } finally {
       if (showLoading) setLoading(false)
     }
-  }
+  }, [id])
 
   useEffect(() => {
     if (id) {
       fetchProject(true)
     }
-  }, [id])
+  }, [id, fetchProject])
 
   useEffect(() => {
     if (toast) {
@@ -172,11 +166,6 @@ function ProjectDetailPage() {
       (user.id && (user.id === project.creator?.id || user.id === project.creator_id)) ||
       (user.name && (user.name === project.creator?.name))
     )
-  )
-  const hasApplied = Boolean(
-    user &&
-    project.applicants &&
-    project.applicants.some((a) => (user.id && (a.applicant_id === user.id || a.id === user.id)) || (user.name && a.name === user.name))
   )
 
   const statusColors = {
@@ -268,19 +257,6 @@ function ProjectDetailPage() {
       console.error('Error submitting application:', err)
       setToast({ type: 'error', text: err.message || 'Failed to submit application. Please try again.' })
     }
-  }
-
-  const handleApplyGeneral = () => {
-    if (!user) {
-      navigate('/login')
-      return
-    }
-    if (hasApplied) {
-      setToast({ type: 'info', text: 'You have already applied to this project' })
-      return
-    }
-    setApplyRole((Array.isArray(project.roles) && project.roles[0]) || 'General')
-    setApplyModalOpen(true)
   }
 
   const handleAccept = async (applicantId) => {
@@ -437,9 +413,12 @@ function ProjectDetailPage() {
                     <p className="text-sm font-semibold text-white leading-none">{project.creator.name || 'Unknown Creator'}</p>
                     <p className="text-xs text-white/35 mt-0.5">{project.creator.role || 'Creator'}</p>
                   </div>
-                  <button className="ml-auto text-xs text-white/30 hover:text-white border border-white/10 hover:border-white/25 px-3 py-1.5 rounded-lg transition-all duration-300">
+                  <Link
+                    to={`/profile/${project.creator.id || project.creator_id}`}
+                    className="ml-auto text-xs text-white/30 hover:text-white border border-white/10 hover:border-white/25 px-3 py-1.5 rounded-lg transition-all duration-300"
+                  >
                     View Profile
-                  </button>
+                  </Link>
                 </div>
               )}
 

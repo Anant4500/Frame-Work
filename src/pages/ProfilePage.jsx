@@ -17,6 +17,11 @@ function ProfilePage() {
   const [refreshKey, setRefreshKey] = useState(0)
   const [resumeViewerUrl, setResumeViewerUrl] = useState(null)
   const [isResumeModalOpen, setIsResumeModalOpen] = useState(false)
+  const [profileOverrides, setProfileOverrides] = useState(null)
+
+  useEffect(() => {
+    setProfileOverrides(null)
+  }, [user?.id])
 
   useEffect(() => {
     window.scrollTo(0, 0)
@@ -137,68 +142,70 @@ function ProfilePage() {
     }
   }, [user?.id, user?.role, refreshKey])
 
-  if (!user) return null
+  const effectiveUser = user ? { ...user, ...profileOverrides } : null
 
-  const primaryRole = user.role === 'creator' ? 'Creator / Filmmaker' : 'Collaborator / Crew'
-  const userSkills = Array.isArray(user.skills) ? user.skills : []
+  if (!effectiveUser) return null
+
+  const primaryRole = effectiveUser.role === 'creator' ? 'Creator / Filmmaker' : 'Collaborator / Crew'
+  const userSkills = Array.isArray(effectiveUser.skills) ? effectiveUser.skills : []
   const secondaryRoles = userSkills
   const allRoles = userSkills.length > 0 ? userSkills : [primaryRole]
 
   const activeProjectsList = creatorProjects.filter((p) => p.status === 'Open' || p.status === 'In Production')
 
   const p = {
-    name: user.name || 'Unknown User',
+    name: effectiveUser.name || 'Unknown User',
     primaryRole,
     secondaryRoles,
     allRoles,
-    location: user.location || '',
-    experienceLevel: user.experienceLevel || '',
-    available: user.available !== undefined ? user.available : true,
-    availabilityText: user.availabilityText || 'Available for collaboration',
-    avatar: user.avatar || '/images/profile/avatar.png',
-    bio: user.bio || 'Not added yet',
-    bioSecondary: user.bioSecondary || '',
+    location: effectiveUser.location || '',
+    experienceLevel: effectiveUser.experienceLevel || '',
+    available: effectiveUser.available !== undefined ? effectiveUser.available : true,
+    availabilityText: effectiveUser.availabilityText || 'Available for collaboration',
+    avatar: effectiveUser.avatar || '/images/profile/avatar.png',
+    bio: effectiveUser.bio || 'Not added yet',
+    bioSecondary: effectiveUser.bioSecondary || '',
     stats: {
       projectsJoined: joinedProjectsList.length,
-      filmsCompleted: user.stats?.filmsCompleted || 0,
-      rolesPerformed: user.stats?.rolesPerformed || joinedProjectsList.length,
-      credits: user.stats?.credits || joinedProjectsList.length,
+      filmsCompleted: effectiveUser.stats?.filmsCompleted || 0,
+      rolesPerformed: effectiveUser.stats?.rolesPerformed || joinedProjectsList.length,
+      credits: effectiveUser.stats?.credits || joinedProjectsList.length,
       projectsCreated: creatorProjects.length,
       activeProjects: activeProjectsList.length,
-      teamMembers: user.stats?.teamMembers || 0,
+      teamMembers: effectiveUser.stats?.teamMembers || 0,
     },
     skills: userSkills,
-    portfolio: Array.isArray(user.portfolio) ? user.portfolio : [],
-    experience: Array.isArray(user.experience) ? user.experience : [],
+    portfolio: Array.isArray(effectiveUser.portfolio) ? effectiveUser.portfolio : [],
+    experience: Array.isArray(effectiveUser.experience) ? effectiveUser.experience : [],
     projectsJoinedList: joinedProjectsList,
-    filmCredits: Array.isArray(user.filmCredits) ? user.filmCredits : [],
-    availability: user.availability || {
+    filmCredits: Array.isArray(effectiveUser.filmCredits) ? effectiveUser.filmCredits : [],
+    availability: effectiveUser.availability || {
       collaborationTypes: [],
       preferredRoles: [],
       preferredLocations: [],
     },
     // Creator specific properties
-    featuredWork: Array.isArray(user.featuredWork) ? user.featuredWork : [],
+    featuredWork: Array.isArray(effectiveUser.featuredWork) ? effectiveUser.featuredWork : [],
     activeProjects: activeProjectsList,
     projectsCreatedList: creatorProjects,
-    teams: Array.isArray(user.teams) ? user.teams : [],
-    filmography: Array.isArray(user.filmography) ? user.filmography : [],
-    completedFilms: Array.isArray(user.completedFilms) ? user.completedFilms : [],
-    lookingFor: user.lookingFor || {
+    teams: Array.isArray(effectiveUser.teams) ? effectiveUser.teams : [],
+    filmography: Array.isArray(effectiveUser.filmography) ? effectiveUser.filmography : [],
+    completedFilms: Array.isArray(effectiveUser.completedFilms) ? effectiveUser.completedFilms : [],
+    lookingFor: effectiveUser.lookingFor || {
       roles: [],
       location: 'Not added yet',
       projectType: 'Not added yet',
       budget: 'Not added yet',
       timeline: 'Not added yet',
     },
-    resume_url: user.resumeUrl || user.resume_url || null,
-    credits: Array.isArray(user.credits) ? user.credits : []
+    resume_url: effectiveUser.resumeUrl || effectiveUser.resume_url || null,
+    credits: Array.isArray(effectiveUser.credits) ? effectiveUser.credits : []
   }
 
   const handleEditProfile = () => setEditProfileOpen(true)
 
   const handleViewResume = async (resumePath) => {
-    const rawPath = resumePath || user.resumeUrl || user.resume_url
+    const rawPath = resumePath || effectiveUser.resumeUrl || effectiveUser.resume_url
     if (!rawPath) {
       setProfileToast({ type: 'info', text: 'No resume uploaded yet.' })
       return
@@ -230,18 +237,21 @@ function ProfilePage() {
 
   return (
     <section className="min-h-screen pt-24 pb-20 px-4 sm:px-6">
-      {user.role === 'creator' ? (
-        <CreatorProfileLayout p={p} isOwn={isOwnProfile} userRole={user.role} onEditProfile={handleEditProfile} onViewResume={handleViewResume} />
+      {effectiveUser.role === 'creator' ? (
+        <CreatorProfileLayout p={p} isOwn={isOwnProfile} userRole={effectiveUser.role} onEditProfile={handleEditProfile} onViewResume={handleViewResume} />
       ) : (
-        <CollaboratorProfileLayout p={p} isOwn={isOwnProfile} userRole={user.role} onEditProfile={handleEditProfile} onViewResume={handleViewResume} />
+        <CollaboratorProfileLayout p={p} isOwn={isOwnProfile} userRole={effectiveUser.role} onEditProfile={handleEditProfile} onViewResume={handleViewResume} />
       )}
 
       {/* ─── Edit Profile Modal ─── */}
       <EditProfileModal
         isOpen={editProfileOpen}
         onClose={() => setEditProfileOpen(false)}
-        user={user}
-        onSaveSuccess={() => {
+        user={effectiveUser}
+        onSaveSuccess={(updated) => {
+          if (updated) {
+            setProfileOverrides((prev) => ({ ...prev, ...updated }))
+          }
           setEditProfileOpen(false)
           setProfileToast({ type: 'success', text: 'Profile updated successfully!' })
           setRefreshKey((k) => k + 1)
@@ -1157,7 +1167,8 @@ function EditProfileModal({ isOpen, onClose, user, onSaveSuccess }) {
   const [name, setName] = useState('')
   const [location, setLocation] = useState('')
   const [bio, setBio] = useState('')
-  const [skills, setSkills] = useState('')
+  const [availableSkills, setAvailableSkills] = useState([])
+  const [selectedSkills, setSelectedSkills] = useState([])
   const [avatarFile, setAvatarFile] = useState(null)
   const [avatarPreview, setAvatarPreview] = useState('')
   const [resumeFile, setResumeFile] = useState(null)
@@ -1165,13 +1176,42 @@ function EditProfileModal({ isOpen, onClose, user, onSaveSuccess }) {
   const [isSaving, setIsSaving] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
 
+  // Fetch canonical skills from public.skills
+  useEffect(() => {
+    if (!isOpen) return
+    let isMounted = true
+
+    const fetchSkills = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('skills')
+          .select('id, name')
+          .order('id', { ascending: true })
+
+        if (!error && data && isMounted) {
+          setAvailableSkills(data)
+        }
+      } catch (err) {
+        console.error('Error fetching skills:', err)
+      }
+    }
+
+    fetchSkills()
+
+    return () => {
+      isMounted = false
+    }
+  }, [isOpen])
+
   useEffect(() => {
     if (user && isOpen) {
       setName(user.name || '')
       setLocation(user.location || '')
       setBio(user.bio || '')
-      const userSkills = Array.isArray(user.skills) ? user.skills.join(', ') : (user.skills || '')
-      setSkills(userSkills)
+      const initialSkills = Array.isArray(user.skills)
+        ? user.skills
+        : (typeof user.skills === 'string' ? user.skills.split(',').map((s) => s.trim()).filter(Boolean) : [])
+      setSelectedSkills(initialSkills)
       setAvatarFile(null)
       setAvatarPreview(user.avatar || user.profile_photo_url || '')
       setResumeFile(null)
@@ -1181,6 +1221,17 @@ function EditProfileModal({ isOpen, onClose, user, onSaveSuccess }) {
   }, [user, isOpen])
 
   if (!isOpen || !user) return null
+
+  const toggleSkill = (skillName) => {
+    setSelectedSkills((prev) => {
+      const exists = prev.some((s) => s.toLowerCase() === skillName.toLowerCase())
+      if (exists) {
+        return prev.filter((s) => s.toLowerCase() !== skillName.toLowerCase())
+      } else {
+        return [...prev, skillName]
+      }
+    })
+  }
 
   const handleAvatarChange = (e) => {
     const file = e.target.files?.[0]
@@ -1248,17 +1299,11 @@ function EditProfileModal({ isOpen, onClose, user, onSaveSuccess }) {
         newResumeUrl = resumePath
       }
 
-      // 3. Update profile
-      const skillsArray = skills
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean)
-
+      // 3. Update profile text fields (NO skills in profiles.update payload!)
       const updatePayload = {
         name: name.trim(),
         location: location.trim(),
         bio: bio.trim(),
-        skills: skillsArray,
       }
 
       if (newAvatarUrl) {
@@ -1275,7 +1320,46 @@ function EditProfileModal({ isOpen, onClose, user, onSaveSuccess }) {
 
       if (updateErr) throw updateErr
 
-      onSaveSuccess()
+      // 4. Update public.user_skills relationally
+      // Resolve selected skills to canonical IDs
+      const skillRows = selectedSkills
+        .map((skillName) => {
+          const matched = availableSkills.find(
+            (s) => s.name.toLowerCase() === skillName.toLowerCase()
+          )
+          return matched ? { user_id: user.id, skill_id: matched.id } : null
+        })
+        .filter(Boolean)
+
+      // Delete existing user_skills for current user
+      const { error: deleteErr } = await supabase
+        .from('user_skills')
+        .delete()
+        .eq('user_id', user.id)
+
+      if (deleteErr) {
+        throw new Error('Failed to update skills: ' + deleteErr.message)
+      }
+
+      // Insert selected relational skills
+      if (skillRows.length > 0) {
+        const { error: insertErr } = await supabase
+          .from('user_skills')
+          .insert(skillRows)
+
+        if (insertErr) {
+          throw new Error('Failed to save skills: ' + insertErr.message)
+        }
+      }
+
+      onSaveSuccess({
+        name: name.trim(),
+        location: location.trim(),
+        bio: bio.trim(),
+        skills: selectedSkills,
+        avatar: newAvatarUrl || avatarPreview,
+        resumeUrl: newResumeUrl || user.resumeUrl,
+      })
     } catch (err) {
       console.error('Error updating profile:', err)
       setErrorMsg(err.message || 'Failed to update profile.')
@@ -1381,15 +1465,35 @@ function EditProfileModal({ isOpen, onClose, user, onSaveSuccess }) {
 
           {/* Skills */}
           <div>
-            <label className="block text-xs font-semibold text-white/70 uppercase tracking-wider mb-2">Skills</label>
-            <input
-              type="text"
-              value={skills}
-              onChange={(e) => setSkills(e.target.value)}
-              className="w-full px-4 py-3 bg-white/[0.04] border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-purple focus:ring-1 focus:ring-purple transition-all"
-              placeholder="e.g. Cinematography, Sound Design, Editing"
-            />
-            <p className="text-[11px] text-white/30 mt-1.5">Separate skills with commas</p>
+            <label className="block text-xs font-semibold text-white/70 uppercase tracking-wider mb-2">
+              Skills & Disciplines
+            </label>
+            {availableSkills.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {availableSkills.map((skill) => {
+                  const isSelected = selectedSkills.some(
+                    (s) => s.toLowerCase() === skill.name.toLowerCase()
+                  )
+                  return (
+                    <button
+                      key={skill.id}
+                      type="button"
+                      onClick={() => toggleSkill(skill.name)}
+                      className={`px-3.5 py-1.5 text-xs font-medium rounded-full border transition-all duration-300 ${
+                        isSelected
+                          ? 'bg-purple/20 border-purple text-purple-light shadow-[0_0_12px_rgba(98,57,191,0.2)]'
+                          : 'bg-white/[0.04] border-white/10 text-white/50 hover:border-purple/30 hover:text-white/70'
+                      }`}
+                    >
+                      {skill.name}
+                    </button>
+                  )
+                })}
+              </div>
+            ) : (
+              <p className="text-white/30 text-xs">Loading available skills...</p>
+            )}
+            <p className="text-[11px] text-white/30 mt-2">Click to select or deselect your skills</p>
           </div>
 
           {/* Resume Upload */}

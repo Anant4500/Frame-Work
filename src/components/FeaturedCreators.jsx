@@ -1,8 +1,53 @@
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-
-const creators = []
+import { supabase } from '../lib/supabaseClient'
 
 function FeaturedCreators() {
+  const [creators, setCreators] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let isMounted = true
+
+    const fetchCreators = async () => {
+      try {
+        setLoading(true)
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, name, role, bio, location, experience_level, profile_photo_url, created_at')
+          .eq('role', 'CREATOR')
+          .order('created_at', { ascending: false })
+          .limit(4)
+
+        if (error) {
+          console.error('Error fetching featured creators:', error)
+          return
+        }
+
+        if (isMounted && data) {
+          const mapped = data.map((p) => ({
+            id: p.id,
+            name: p.name || 'Creator',
+            role: p.experience_level || 'Filmmaker',
+            location: p.location || '',
+            avatar: p.profile_photo_url || '/images/profile/avatar.png',
+          }))
+          setCreators(mapped)
+        }
+      } catch (err) {
+        console.error('Error fetching featured creators:', err)
+      } finally {
+        if (isMounted) setLoading(false)
+      }
+    }
+
+    fetchCreators()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
   return (
     <section id="creators" className="relative py-28 px-6">
       {/* Subtle top divider */}
@@ -20,12 +65,12 @@ function FeaturedCreators() {
         </div>
 
         {/* Creators Grid or Empty State */}
-        {creators.length > 0 ? (
+        {!loading && creators.length > 0 ? (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {creators.map((creator, index) => (
               <div
                 key={creator.id}
-                className={`reveal opacity-0 translate-y-8 transition-all duration-700 [&.is-visible]:opacity-100 [&.is-visible]:translate-y-0`}
+                className="reveal opacity-0 translate-y-8 transition-all duration-700 [&.is-visible]:opacity-100 [&.is-visible]:translate-y-0"
                 style={{ transitionDelay: `${index * 120}ms` }}
               >
                 <div className="group text-center cursor-pointer">
@@ -37,6 +82,9 @@ function FeaturedCreators() {
                         src={creator.avatar}
                         alt={creator.name}
                         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                        onError={(e) => {
+                          e.target.src = '/images/profile/avatar.png'
+                        }}
                       />
                     </div>
                   </div>
@@ -45,18 +93,23 @@ function FeaturedCreators() {
                   <h3 className="font-['DM_Serif_Display'] text-lg font-normal mb-1 transition-colors duration-300 group-hover:text-purple-light">
                     {creator.name}
                   </h3>
-                  <p className="text-white/40 text-sm mb-3">{creator.role}</p>
-                  <p className="text-white/20 text-xs">{creator.projects} Projects</p>
+                  <p className="text-white/40 text-sm mb-1">{creator.role}</p>
+                  {creator.location && (
+                    <p className="text-white/20 text-xs">{creator.location}</p>
+                  )}
 
                   {/* View Profile Button */}
-                  <button className="mt-4 px-5 py-2 text-xs font-medium text-white/40 border border-white/10 rounded-full opacity-0 translate-y-2 transition-all duration-300 group-hover:opacity-100 group-hover:translate-y-0 hover:border-purple/40 hover:text-purple-light">
+                  <Link
+                    to={`/profile/${creator.id}`}
+                    className="inline-block mt-4 px-5 py-2 text-xs font-medium text-white/40 border border-white/10 rounded-full opacity-0 translate-y-2 transition-all duration-300 group-hover:opacity-100 group-hover:translate-y-0 hover:border-purple/40 hover:text-purple-light"
+                  >
                     View Profile
-                  </button>
+                  </Link>
                 </div>
               </div>
             ))}
           </div>
-        ) : (
+        ) : !loading ? (
           <div className="reveal opacity-0 translate-y-8 transition-all duration-700 [&.is-visible]:opacity-100 [&.is-visible]:translate-y-0">
             <div className="glass-card rounded-2xl p-12 sm:p-16 text-center">
               <div className="w-16 h-16 rounded-full bg-white/[0.04] border border-white/10 flex items-center justify-center mx-auto mb-6">
@@ -74,7 +127,7 @@ function FeaturedCreators() {
               </Link>
             </div>
           </div>
-        )}
+        ) : null}
       </div>
     </section>
   )

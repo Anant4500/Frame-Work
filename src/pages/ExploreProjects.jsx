@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/useAuth'
 import { supabase } from '../lib/supabaseClient'
+import InteractiveHoverButton from '../components/ui/InteractiveHoverButton'
 
 const locations = ['Mumbai', 'Pune', 'Delhi', 'Bangalore', 'Hyderabad', 'Chennai', 'Kolkata']
 const genres = ['Drama', 'Thriller', 'Comedy', 'Sci-Fi', 'Action', 'Horror', 'Romance', 'Mystery', 'Documentary']
@@ -601,18 +602,9 @@ function ProjectCard({ project }) {
         <div className="flex-1" />
 
         {/* View Project CTA */}
-        <span className="mt-1 flex items-center justify-center gap-2 w-full py-2.5 text-[13px] font-semibold text-white bg-purple rounded-xl transition-all duration-300 group-hover:bg-purple-dark group-hover:shadow-[0_0_20px_rgba(98,57,191,0.3)]">
-          View Project
-          <svg
-            className="w-3.5 h-3.5 transition-transform duration-300 group-hover:translate-x-1"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            strokeWidth={2.5}
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-          </svg>
-        </span>
+        <div className="mt-1">
+          <InteractiveHoverButton text="View Project" />
+        </div>
       </div>
     </Link>
   )

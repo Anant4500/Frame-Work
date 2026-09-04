@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/useAuth'
 
@@ -29,6 +29,18 @@ function RegisterPage() {
     photoPreview: null,
   })
 
+  const photoPreviewRef = useRef(null)
+  photoPreviewRef.current = form.photoPreview
+
+  // Clean up blob URL on component unmount
+  useEffect(() => {
+    return () => {
+      if (photoPreviewRef.current) {
+        URL.revokeObjectURL(photoPreviewRef.current)
+      }
+    }
+  }, [])
+
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value })
     setError('')
@@ -42,13 +54,31 @@ function RegisterPage() {
   }
 
   const handleFileChange = (e) => {
-    const file = e.target.files[0]
+    const file = e.target.files?.[0]
     if (!file) return
     if (e.target.name === 'photo') {
+      if (!file.type.startsWith('image/')) {
+        setError('Please select a valid image file (JPG, PNG, WebP).')
+        return
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        setError('Image file size must be less than 5MB.')
+        return
+      }
+      // Revoke prior preview URL to free browser memory
+      if (form.photoPreview) {
+        URL.revokeObjectURL(form.photoPreview)
+      }
       const url = URL.createObjectURL(file)
       setForm((f) => ({ ...f, photo: file, photoPreview: url }))
+      setError('')
     } else {
+      if (file.size > 10 * 1024 * 1024) {
+        setError('Resume file size must be less than 10MB.')
+        return
+      }
       setForm((f) => ({ ...f, resume: file }))
+      setError('')
     }
   }
 
@@ -81,16 +111,19 @@ function RegisterPage() {
 
     try {
       const profileData = {
-        name: form.name,
-        phone: form.phone,
+        name: form.name.trim(),
+        phone: form.phone.trim(),
         role: role, // 'user' or 'creator' — AuthContext maps to DB format
-        bio: form.bio || null,
+        bio: form.bio ? form.bio.trim() : null,
         experience_level: form.experience || null,
-        profile_photo_url: form.photoPreview || null,
-        resume_url: null, // File upload handled separately in future
       }
 
-      const result = await register(form.email, form.password, profileData, form.skills)
+      const files = {
+        photoFile: form.photo,
+        resumeFile: form.resume,
+      }
+
+      const result = await register(form.email.trim(), form.password, profileData, form.skills, files)
 
       if (result.needsEmailConfirmation) {
         setSuccessMessage(

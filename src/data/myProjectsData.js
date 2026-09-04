@@ -1,9 +1,4 @@
-// Mock data for the My Projects dashboard
-// Joined projects — projects where the creator is a team member (not the owner)
-export const joinedProjects = []
-
-// Applications — applications submitted by the current creator to other projects
-export const myApplications = []
+// Helper function for the My Projects dashboard
 
 // Compute dashboard stats
 export function getDashboardStats(createdProjects, joinedList) {
