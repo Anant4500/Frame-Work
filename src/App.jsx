@@ -13,6 +13,7 @@ import CreateProjectPage from './pages/CreateProjectPage'
 import ProfilePage from './pages/ProfilePage'
 import PublicProfilePage from './pages/PublicProfilePage'
 import MyProjectsPage from './pages/MyProjectsPage'
+import NotificationsPage from './pages/NotificationsPage'
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -83,6 +84,7 @@ function AppContent() {
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/profile/:id" element={<PublicProfilePage />} />
           <Route path="/my-projects" element={<MyProjectsPage />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
         </Routes>

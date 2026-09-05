@@ -45,7 +45,7 @@ function ExploreProjects() {
           const mapped = (data || []).map((p) => ({
             id: p.id,
             title: p.title || 'Untitled Project',
-            logline: p.description || '',
+            logline: p.logline || '',
             description: p.description || '',
             genre: p.genre || 'Drama',
             location: p.location || 'Remote',
@@ -137,7 +137,7 @@ function ExploreProjects() {
         {/* Page Title */}
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between mb-10 gap-4">
           <div>
-            <h1 className="font-['DM_Serif_Display'] text-4xl sm:text-5xl font-normal tracking-tight mb-3">
+            <h1 className="font-['Fraunces',_serif] text-4xl sm:text-5xl font-semibold tracking-[-0.02em] leading-[1.15] mb-3">
               Explore <span className="gradient-text">Projects</span>
             </h1>
             <p className="text-white/50 text-lg max-w-xl">
@@ -472,137 +472,163 @@ function formatRelativeDate(isoString) {
   return new Date(isoString).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
 }
 
-/* ─── Project Card Component (Explore-specific cinematic redesign) ─── */
+/* ─── Project Card Component (Cinematic 2:3 portrait poster redesign) ─── */
 function ProjectCard({ project }) {
   const allRoles = Array.isArray(project.roles) ? project.roles : []
-  const visibleRoles = allRoles.slice(0, 3)
+  const visibleRoles = allRoles.slice(0, 2)
   const extraRoles = allRoles.length - visibleRoles.length
-  const thumbnail = project.thumbnail || '/images/hero-bg.png'
+  const posterSrc = project.poster_url || project.thumbnail || '/images/hero-bg.png'
   const relDate = formatRelativeDate(project.created_at)
   const creator = project.creator || null
 
   return (
     <Link
       to={`/project/${project.id}`}
-      className="group flex flex-col bg-[#090909] border border-white/[0.07] rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:border-purple/30 hover:shadow-[0_12px_40px_rgba(98,57,191,0.12)] block"
+      className="group relative flex flex-col w-full h-full bg-[#0A0A0F] border border-white/[0.08] hover:border-[rgba(98,57,191,0.30)] rounded-[20px] overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_40px_rgba(98,57,191,0.15)]"
     >
-      {/* ── POSTER ── */}
-      <div className="relative overflow-hidden" style={{ paddingTop: '58%' }}>
+      {/* ── LAYER 1: POSTER IMAGE (Isolated GPU layer with overscan) ── */}
+      <div className="absolute top-0 left-0 right-0 w-full h-[400px] sm:h-[420px] overflow-hidden pointer-events-none z-0">
+        <img
+          src={posterSrc}
+          alt={`${project.title || 'Project'} poster`}
+          loading="lazy"
+          onError={(e) => {
+            if (e.currentTarget.src !== '/images/hero-bg.png') {
+              e.currentTarget.src = '/images/hero-bg.png'
+            }
+          }}
+          className="absolute -inset-px w-[calc(100%+2px)] h-[calc(100%+2px)] object-cover object-top transform-gpu will-change-transform transition-transform duration-500 ease-out group-hover:scale-[1.03]"
+          style={{
+            backfaceVisibility: 'hidden',
+            WebkitBackfaceVisibility: 'hidden',
+          }}
+        />
+      </div>
+
+      {/* ── LAYER 2: DARK OVERLAY & FILM GRAIN ── */}
+      <div className="absolute top-0 left-0 right-0 w-full h-[400px] sm:h-[420px] overflow-hidden pointer-events-none z-10">
         {/* Film grain overlay */}
         <div
-          className="absolute inset-0 z-10 pointer-events-none opacity-[0.035] mix-blend-overlay"
+          className="absolute inset-0 pointer-events-none opacity-[0.035] mix-blend-overlay"
           style={{
             backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
             backgroundSize: '180px 180px',
           }}
         />
-        <img
-          src={thumbnail}
-          alt={project.title || 'Film Project'}
-          className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-        />
-        {/* Cinematic gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#090909] via-black/30 to-transparent z-20" />
-        {/* Subtle vignette */}
-        <div className="absolute inset-0 z-20 pointer-events-none" style={{ boxShadow: 'inset 0 0 60px rgba(0,0,0,0.5)' }} />
-
-        {/* Genre pill — top left */}
-        {project.genre && (
-          <span className="absolute top-3 left-3 z-30 px-2.5 py-1 text-[10px] font-semibold tracking-widest uppercase text-white/90 bg-black/60 backdrop-blur-md border border-white/10 rounded-full">
-            {project.genre}
-          </span>
-        )}
-
-        {/* Status indicator — top right */}
-        {project.status && (
-          <span className={`absolute top-3 right-3 z-30 inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase backdrop-blur-md rounded-full border ${
-            project.status === 'Open'
-              ? 'border-purple/35 text-purple-light bg-purple/15'
-              : project.status === 'In Production'
-              ? 'border-amber-500/35 text-amber-400 bg-amber-500/15'
-              : 'border-emerald-500/35 text-emerald-400 bg-emerald-500/15'
-          }`}>
-            {project.status === 'Open' && (
-              <span className="w-1.5 h-1.5 rounded-full bg-purple animate-pulse" />
-            )}
-            {project.status}
-          </span>
-        )}
+        {/* General subtle dark tint */}
+        <div className="absolute inset-0 bg-black/15" />
       </div>
 
-      {/* ── CONTENT ── */}
-      <div className="flex flex-col flex-1 px-5 pt-4 pb-5 gap-3">
+      {/* ── LAYER 3: STABILIZED GRADIENT FADE (Extends past poster boundary) ── */}
+      <div
+        className="absolute top-0 left-0 right-0 w-full h-[470px] sm:h-[490px] overflow-hidden pointer-events-none z-20"
+        style={{
+          background: 'linear-gradient(to bottom, rgba(10,10,15,0) 0%, rgba(10,10,15,0.06) 18%, rgba(10,10,15,0.35) 40%, rgba(10,10,15,0.72) 60%, rgba(10,10,15,0.95) 78%, #0A0A0F 88%, #0A0A0F 100%)',
+        }}
+      />
 
-        {/* Title */}
-        <h3 className="font-['DM_Serif_Display'] text-[1.2rem] leading-snug font-normal text-white line-clamp-2 group-hover:text-purple-light transition-colors duration-300">
-          {project.title || 'Untitled Project'}
-        </h3>
+      {/* ── LAYER 4: CARD CONTENT (Floats seamlessly over poster & gradient) ── */}
+      <div className="relative z-30 flex flex-col flex-1 p-5">
+        {/* Top Floating Badges: Genre (left) & Status (right) */}
+        <div className="flex items-center justify-between gap-2 mb-36 sm:mb-40">
+          {project.genre ? (
+            <span className="px-2.5 py-1 text-[10px] font-semibold tracking-widest uppercase text-white/90 bg-black/60 backdrop-blur-md border border-white/10 rounded-full">
+              {project.genre}
+            </span>
+          ) : <div />}
+
+          {project.status && (
+            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase backdrop-blur-md rounded-full border ${
+              project.status === 'Open'
+                ? 'border-purple/35 text-purple-light bg-purple/15'
+                : project.status === 'In Production'
+                ? 'border-amber-500/35 text-amber-400 bg-amber-500/15'
+                : 'border-emerald-500/35 text-emerald-400 bg-emerald-500/15'
+            }`}>
+              {project.status === 'Open' && (
+                <span className="w-1.5 h-1.5 rounded-full bg-purple animate-pulse" />
+              )}
+              {project.status}
+            </span>
+          )}
+        </div>
+
+        {/* Title — Fixed 2-line height area, bottom-aligned */}
+        <div className="h-[58px] sm:h-[66px] flex items-end w-full">
+          <h3 className="font-['Fraunces',_serif] text-[22px] sm:text-[24px] font-semibold text-white leading-snug line-clamp-2 w-full group-hover:text-purple-light transition-colors duration-300">
+            {project.title || 'Untitled Project'}
+          </h3>
+        </div>
 
         {/* Location + Posted date */}
-        <div className="flex items-center gap-2 text-[11px] text-white/35 font-medium tracking-wide">
+        <div className="flex items-center gap-2 mt-2 text-[11px] text-white/40 font-medium tracking-wide h-4">
           {project.location && (
             <>
-              <svg className="w-3 h-3 shrink-0 text-white/25" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <svg className="w-3 h-3 shrink-0 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
-              <span>{project.location}</span>
+              <span className="truncate">{project.location}</span>
             </>
           )}
           {project.location && relDate && (
-            <span className="text-white/15">•</span>
+            <span className="text-white/20 shrink-0">•</span>
           )}
-          {relDate && <span>{relDate}</span>}
+          {relDate && <span className="shrink-0">{relDate}</span>}
         </div>
 
-        {/* Logline / description */}
-        {(project.logline || project.description) && (
-          <p className="text-[12.5px] text-white/45 leading-relaxed line-clamp-2">
-            {project.logline || project.description}
-          </p>
-        )}
+        {/* Logline — Fixed 2-line height area */}
+        <p className="mt-2.5 text-[12.5px] text-white/50 leading-relaxed line-clamp-2 h-[40px]">
+          {project.logline || ''}
+        </p>
 
-        {/* Roles needed */}
-        {allRoles.length > 0 && (
-          <div>
-            <p className="text-[9.5px] font-semibold tracking-[0.14em] uppercase text-white/25 mb-2">Roles Needed</p>
-            <div className="flex flex-wrap gap-1.5">
-              {visibleRoles.map((role) => (
+        {/* Roles needed — strictly one row */}
+        <div className="mt-4 min-h-[48px]">
+          <p className="text-[9.5px] font-semibold tracking-[0.14em] uppercase text-white/30 mb-2">Roles Needed</p>
+          {allRoles.length > 0 ? (
+            <div className="flex items-center gap-1.5 overflow-hidden flex-nowrap w-full">
+              {visibleRoles.map((role, idx) => (
                 <span
                   key={role}
-                  className="px-2.5 py-[3px] text-[11px] font-medium text-white/60 border border-white/[0.1] rounded-md bg-white/[0.03] transition-all duration-300 group-hover:border-purple/30 group-hover:text-purple-light"
+                  title={role}
+                  className={`px-2.5 py-[3px] text-[11px] font-medium text-white/65 border border-white/[0.1] rounded-md bg-white/[0.03] transition-all duration-300 group-hover:border-purple/30 group-hover:text-purple-light whitespace-nowrap truncate min-w-0 ${
+                    idx === 0 ? 'max-w-[130px] sm:max-w-[150px]' : 'max-w-[160px] sm:max-w-[180px]'
+                  }`}
                 >
                   {role}
                 </span>
               ))}
               {extraRoles > 0 && (
-                <span className="px-2.5 py-[3px] text-[11px] font-medium text-white/35 border border-white/[0.07] rounded-md bg-white/[0.02]">
+                <span className="shrink-0 px-2 py-[3px] text-[11px] font-medium text-white/35 border border-white/[0.07] rounded-md bg-white/[0.02] whitespace-nowrap">
                   +{extraRoles}
                 </span>
               )}
             </div>
-          </div>
-        )}
+          ) : (
+            <p className="text-[11px] text-white/20 italic py-[3px]">No open roles</p>
+          )}
+        </div>
 
         {/* Creator row */}
-        {creator && creator.name && (
-          <div className="flex items-center gap-2 mt-1">
-            <div className="w-5 h-5 rounded-full overflow-hidden bg-purple/20 border border-purple/25 shrink-0 flex items-center justify-center">
-              {creator.avatar ? (
-                <img src={creator.avatar} alt={creator.name} className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-[9px] font-bold text-purple-light">{creator.name.charAt(0).toUpperCase()}</span>
-              )}
-            </div>
-            <span className="text-[11px] text-white/35">by <span className="text-white/50">{creator.name}</span></span>
-          </div>
-        )}
-
-        {/* Spacer pushes CTA to bottom */}
-        <div className="flex-1" />
+        <div className="flex items-center gap-2 mt-4 min-h-[20px]">
+          {creator && creator.name ? (
+            <>
+              <div className="w-5 h-5 rounded-full overflow-hidden bg-purple/20 border border-purple/25 shrink-0 flex items-center justify-center">
+                {creator.avatar ? (
+                  <img src={creator.avatar} alt={creator.name} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-[9px] font-bold text-purple-light">{creator.name.charAt(0).toUpperCase()}</span>
+                )}
+              </div>
+              <span className="text-[11px] text-white/35 truncate">by <span className="text-white/50">{creator.name}</span></span>
+            </>
+          ) : (
+            <div className="h-5" />
+          )}
+        </div>
 
         {/* View Project CTA */}
-        <div className="mt-1">
+        <div className="mt-auto pt-5">
           <InteractiveHoverButton text="View Project" />
         </div>
       </div>

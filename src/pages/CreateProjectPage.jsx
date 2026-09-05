@@ -2,10 +2,27 @@ import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/useAuth'
 import { supabase } from '../lib/supabaseClient'
+import RolePickerModal from '../components/project/RolePickerModal'
 
 const genreOptions = ['Drama', 'Thriller', 'Comedy', 'Sci-Fi', 'Action', 'Horror', 'Romance', 'Mystery', 'Documentary']
 const locationOptions = ['Mumbai', 'Pune', 'Delhi', 'Bangalore', 'Hyderabad', 'Chennai', 'Kolkata']
-const roleOptions = ['Actor', 'Editor', 'Sound Designer', 'Cinematographer', 'VFX Artist', 'Director', 'Writer', 'DOP', 'Composer', 'Stunt Coordinator', 'Producer', 'Art Director', 'Costume Designer']
+
+function clampToMaxNonWhitespace(text, maxNonWhitespace = 1000) {
+  if (!text) return ''
+  let count = 0
+  let result = ''
+  for (const char of text) {
+    if (/\s/.test(char)) {
+      result += char
+    } else {
+      if (count < maxNonWhitespace) {
+        count++
+        result += char
+      }
+    }
+  }
+  return result
+}
 
 function CreateProjectPage() {
   const { user } = useAuth()
@@ -13,10 +30,12 @@ function CreateProjectPage() {
   const [toast, setToast] = useState(null)
   const [loading, setLoading] = useState(false)
   const [currentStep, setCurrentStep] = useState(1)
+  const [isRolePickerOpen, setIsRolePickerOpen] = useState(false)
 
   const [form, setForm] = useState({
     title: '',
     logline: '',
+    description: '',
     genre: '',
     location: '',
     budget: '',
@@ -24,6 +43,7 @@ function CreateProjectPage() {
     roles: [],
     scriptFile: null,
     scriptFileName: '',
+    scriptVisibility: 'ACCEPTED_TEAM',
     thumbnailFile: null,
     thumbnailPreview: null,
   })
@@ -153,10 +173,47 @@ function CreateProjectPage() {
     setForm({ ...form, [e.target.name]: e.target.value })
   }
 
-  const toggleRole = (role) => {
+  const handleDescriptionChange = (e) => {
+    const clamped = clampToMaxNonWhitespace(e.target.value, 1000)
+    setForm((f) => ({ ...f, description: clamped }))
+  }
+
+  const handleAddRole = (roleName) => {
+    if (form.roles.some((r) => (typeof r === 'string' ? r : r.role).toLowerCase() === roleName.toLowerCase())) {
+      return
+    }
     setForm((f) => ({
       ...f,
-      roles: f.roles.includes(role) ? f.roles.filter((r) => r !== role) : [...f.roles, role],
+      roles: [...f.roles, { role: roleName, count: 1, experience: 'Intermediate' }],
+    }))
+  }
+
+  const handleRemoveRole = (index) => {
+    setForm((f) => ({
+      ...f,
+      roles: f.roles.filter((_, i) => i !== index),
+    }))
+  }
+
+  const handleRoleCountChange = (index, delta) => {
+    setForm((f) => ({
+      ...f,
+      roles: f.roles.map((r, i) => {
+        if (i !== index) return r
+        const current = typeof r === 'object' ? r.count || 1 : 1
+        const newCount = Math.max(1, current + delta)
+        return typeof r === 'object' ? { ...r, count: newCount } : { role: r, count: newCount, experience: 'Intermediate' }
+      }),
+    }))
+  }
+
+  const handleRoleExperienceChange = (index, newExp) => {
+    setForm((f) => ({
+      ...f,
+      roles: f.roles.map((r, i) => {
+        if (i !== index) return r
+        return typeof r === 'object' ? { ...r, experience: newExp } : { role: r, count: 1, experience: newExp }
+      }),
     }))
   }
 
@@ -170,6 +227,10 @@ function CreateProjectPage() {
   const handleScriptChange = (e) => {
     const file = e.target.files[0]
     if (!file) return
+    if (file.size > 25 * 1024 * 1024) {
+      setToast({ type: 'error', text: 'Script file size must be 25MB or less' })
+      return
+    }
     setForm((f) => ({ ...f, scriptFile: file, scriptFileName: file.name }))
   }
 
@@ -177,6 +238,9 @@ function CreateProjectPage() {
     if (step === 1) {
       if (!form.title.trim()) { setToast({ type: 'error', text: 'Project title is required' }); return false }
       if (!form.logline.trim()) { setToast({ type: 'error', text: 'Logline is required' }); return false }
+      if (form.logline.length > 90) { setToast({ type: 'error', text: 'Logline must be 90 characters or less' }); return false }
+      if (!form.description.trim()) { setToast({ type: 'error', text: 'Description is required' }); return false }
+      if (form.description.replace(/\s/g, '').length > 1000) { setToast({ type: 'error', text: 'Description must be 1000 characters or less, excluding spaces' }); return false }
       if (!form.genre) { setToast({ type: 'error', text: 'Please select a genre' }); return false }
       if (!form.location) { setToast({ type: 'error', text: 'Please select a location' }); return false }
     }
@@ -266,13 +330,15 @@ function CreateProjectPage() {
       const projectData = {
         creator_id: activeUserId,
         title: form.title.trim(),
-        description: form.logline.trim(),
+        logline: form.logline.trim(),
+        description: form.description.trim(),
         genre: form.genre,
         location: form.location,
         budget: form.budget === '' || form.budget == null ? null : Number(form.budget),
         timeline: form.timeline.trim() || null,
         poster_url: posterUrl,
         script_url: scriptPath,
+        script_visibility: form.scriptVisibility || 'ACCEPTED_TEAM',
         status: 'OPEN',
       }
 
@@ -292,12 +358,16 @@ function CreateProjectPage() {
 
       // Step 3: Insert roles into public.project_roles
       if (form.roles && form.roles.length > 0) {
-        const rolesToInsert = form.roles.map((roleName) => ({
-          project_id: createdProject.id,
-          role: roleName,
-          positions_needed: 1,
-          positions_filled: 0,
-        }))
+        const rolesToInsert = form.roles.map((item) => {
+          const roleName = typeof item === 'string' ? item : item.role
+          const count = typeof item === 'object' && item.count ? Math.max(1, Number(item.count)) : 1
+          return {
+            project_id: createdProject.id,
+            role: roleName,
+            positions_needed: count,
+            positions_filled: 0,
+          }
+        })
 
         const { error: rolesError } = await supabase
           .from('project_roles')
@@ -329,8 +399,18 @@ function CreateProjectPage() {
   ]
 
   return (
-    <section className="min-h-screen pt-28 pb-20 px-4 sm:px-6">
-      <div className="max-w-3xl mx-auto">
+    <section className="relative min-h-screen pt-28 pb-20 px-4 sm:px-6 bg-[#08080D] overflow-hidden">
+      {/* Subtle purple radial atmosphere behind card */}
+      <div
+        className="absolute top-[42%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] sm:w-[900px] h-[500px] sm:h-[650px] pointer-events-none -z-0"
+        style={{
+          background: 'radial-gradient(ellipse at center, rgba(98,57,191,0.07) 0%, rgba(98,57,191,0.02) 50%, transparent 70%)',
+          filter: 'blur(80px)',
+        }}
+        aria-hidden="true"
+      />
+
+      <div className="relative z-10 max-w-3xl mx-auto">
 
         {/* Header */}
         <div className="mb-10 reveal">
@@ -343,7 +423,7 @@ function CreateProjectPage() {
             </svg>
             Back to Projects
           </Link>
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight mb-3">
+          <h1 className="font-['Fraunces',_serif] text-3xl sm:text-4xl lg:text-5xl font-semibold tracking-[-0.02em] leading-[1.15] mb-3">
             Create <span className="gradient-text">Project</span>
           </h1>
           <p className="text-white/40 text-lg">
@@ -388,7 +468,12 @@ function CreateProjectPage() {
         </div>
 
         {/* Form Card */}
-        <div className="glass-card rounded-2xl p-6 sm:p-8 lg:p-10">
+        <div
+          className="rounded-2xl p-6 sm:p-8 lg:p-10 bg-[#111118] border border-white/[0.08] border-t-white/[0.12]"
+          style={{
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.4), 0 0 40px rgba(98, 57, 191, 0.05)',
+          }}
+        >
 
           {/* Step 1: Project Details */}
           {currentStep === 1 && (
@@ -403,7 +488,7 @@ function CreateProjectPage() {
                   onChange={handleChange}
                   placeholder="e.g. Echoes of Amber"
                   maxLength={100}
-                  className="w-full px-4 py-3.5 bg-[#0d0d0d] border border-white/10 rounded-xl text-sm text-white placeholder-white/25 outline-none transition-all duration-300 focus:border-purple/60 focus:shadow-[0_0_15px_rgba(98,57,191,0.1)]"
+                  className="w-full px-4 py-3.5 bg-[#0C0C11] border border-white/[0.11] rounded-xl text-sm text-white placeholder-white/30 outline-none transition-all duration-300 focus:border-purple focus:ring-1 focus:ring-purple/20 focus:shadow-[0_0_15px_rgba(98,57,191,0.12)]"
                 />
               </div>
 
@@ -414,12 +499,26 @@ function CreateProjectPage() {
                   name="logline"
                   value={form.logline}
                   onChange={handleChange}
-                  placeholder="A short, compelling description of your project..."
-                  rows={3}
-                  maxLength={300}
-                  className="w-full px-4 py-3.5 bg-[#0d0d0d] border border-white/10 rounded-xl text-sm text-white placeholder-white/25 outline-none transition-all duration-300 focus:border-purple/60 focus:shadow-[0_0_15px_rgba(98,57,191,0.1)] resize-none"
+                  placeholder="A short, compelling pitch for your project..."
+                  rows={2}
+                  maxLength={90}
+                  className="w-full px-4 py-3 bg-[#0C0C11] border border-white/[0.11] rounded-xl text-sm text-white placeholder-white/30 outline-none transition-all duration-300 focus:border-purple focus:ring-1 focus:ring-purple/20 focus:shadow-[0_0_15px_rgba(98,57,191,0.12)] resize-none"
                 />
-                <p className="text-white/20 text-xs text-right mt-1">{form.logline.length}/300</p>
+                <p className="text-white/20 text-xs text-right mt-1">{form.logline.length}/90</p>
+              </div>
+
+              <div>
+                <label htmlFor="create-description" className="block text-sm font-medium text-white/60 mb-2">Description *</label>
+                <textarea
+                  id="create-description"
+                  name="description"
+                  value={form.description}
+                  onChange={handleDescriptionChange}
+                  placeholder="Describe your project, story, vision, or what collaborators should know..."
+                  rows={6}
+                  className="w-full px-4 py-3.5 bg-[#0C0C11] border border-white/[0.11] rounded-xl text-sm text-white placeholder-white/30 outline-none transition-all duration-300 focus:border-purple focus:ring-1 focus:ring-purple/20 focus:shadow-[0_0_15px_rgba(98,57,191,0.12)] resize-none"
+                />
+                <p className="text-white/20 text-xs text-right mt-1">{form.description.replace(/\s/g, '').length}/1000</p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
@@ -431,11 +530,11 @@ function CreateProjectPage() {
                       name="genre"
                       value={form.genre}
                       onChange={handleChange}
-                      className="w-full appearance-none px-4 py-3.5 pr-10 bg-[#0d0d0d] border border-white/10 rounded-xl text-sm text-white outline-none transition-all duration-300 focus:border-purple/60 cursor-pointer"
+                      className="w-full appearance-none px-4 py-3.5 pr-10 bg-[#0C0C11] border border-white/[0.11] rounded-xl text-sm text-white outline-none transition-all duration-300 focus:border-purple focus:ring-1 focus:ring-purple/20 focus:shadow-[0_0_15px_rgba(98,57,191,0.12)] cursor-pointer"
                     >
-                      <option value="" className="bg-[#111]">Select genre</option>
+                      <option value="" className="bg-[#0C0C11]">Select genre</option>
                       {genreOptions.map((g) => (
-                        <option key={g} value={g} className="bg-[#111]">{g}</option>
+                        <option key={g} value={g} className="bg-[#0C0C11]">{g}</option>
                       ))}
                     </select>
                     <svg className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
@@ -452,11 +551,11 @@ function CreateProjectPage() {
                       name="location"
                       value={form.location}
                       onChange={handleChange}
-                      className="w-full appearance-none px-4 py-3.5 pr-10 bg-[#0d0d0d] border border-white/10 rounded-xl text-sm text-white outline-none transition-all duration-300 focus:border-purple/60 cursor-pointer"
+                      className="w-full appearance-none px-4 py-3.5 pr-10 bg-[#0C0C11] border border-white/[0.11] rounded-xl text-sm text-white outline-none transition-all duration-300 focus:border-purple focus:ring-1 focus:ring-purple/20 focus:shadow-[0_0_15px_rgba(98,57,191,0.12)] cursor-pointer"
                     >
-                      <option value="" className="bg-[#111]">Select location</option>
+                      <option value="" className="bg-[#0C0C11]">Select location</option>
                       {locationOptions.map((l) => (
-                        <option key={l} value={l} className="bg-[#111]">{l}</option>
+                        <option key={l} value={l} className="bg-[#0C0C11]">{l}</option>
                       ))}
                     </select>
                     <svg className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
@@ -477,7 +576,7 @@ function CreateProjectPage() {
                     onChange={handleChange}
                     placeholder="e.g. 500000"
                     min="0"
-                    className="w-full px-4 py-3.5 bg-[#0d0d0d] border border-white/10 rounded-xl text-sm text-white placeholder-white/25 outline-none transition-all duration-300 focus:border-purple/60 focus:shadow-[0_0_15px_rgba(98,57,191,0.1)]"
+                    className="w-full px-4 py-3.5 bg-[#0C0C11] border border-white/[0.11] rounded-xl text-sm text-white placeholder-white/30 outline-none transition-all duration-300 focus:border-purple focus:ring-1 focus:ring-purple/20 focus:shadow-[0_0_15px_rgba(98,57,191,0.12)]"
                   />
                 </div>
 
@@ -490,7 +589,7 @@ function CreateProjectPage() {
                     value={form.timeline}
                     onChange={handleChange}
                     placeholder="e.g. Shooting Nov 2026 / 3 Months"
-                    className="w-full px-4 py-3.5 bg-[#0d0d0d] border border-white/10 rounded-xl text-sm text-white placeholder-white/25 outline-none transition-all duration-300 focus:border-purple/60 focus:shadow-[0_0_15px_rgba(98,57,191,0.1)]"
+                    className="w-full px-4 py-3.5 bg-[#0C0C11] border border-white/[0.11] rounded-xl text-sm text-white placeholder-white/30 outline-none transition-all duration-300 focus:border-purple focus:ring-1 focus:ring-purple/20 focus:shadow-[0_0_15px_rgba(98,57,191,0.12)]"
                   />
                 </div>
               </div>
@@ -501,43 +600,120 @@ function CreateProjectPage() {
           {currentStep === 2 && (
             <div className="space-y-6 animate-fade-in">
               <div>
-                <label className="block text-sm font-medium text-white/60 mb-3">Required Roles *</label>
-                <p className="text-white/25 text-xs mb-4">Select the roles you need for your project</p>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {roleOptions.map((role) => {
-                    const active = form.roles.includes(role)
-                    return (
-                      <button
-                        key={role}
-                        type="button"
-                        onClick={() => toggleRole(role)}
-                        className={`px-4 py-3 text-sm font-medium rounded-xl border transition-all duration-300 text-left ${
-                          active
-                            ? 'bg-purple/15 border-purple/40 text-purple-light shadow-[0_0_15px_rgba(98,57,191,0.15)]'
-                            : 'border-white/8 text-white/40 hover:border-purple/20 hover:text-white/60 hover:bg-white/[0.02]'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className={`w-4 h-4 rounded border-[1.5px] flex items-center justify-center transition-all duration-200 ${
-                            active ? 'bg-purple border-purple' : 'border-white/20'
-                          }`}>
-                            {active && (
-                              <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                              </svg>
-                            )}
-                          </span>
-                          {role}
-                        </div>
-                      </button>
-                    )
-                  })}
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-white/60">
+                    Roles Required *
+                  </label>
+                  {form.roles.length > 0 && (
+                    <span className="text-xs text-purple-light font-medium">
+                      {form.roles.length} {form.roles.length === 1 ? 'role' : 'roles'} added
+                    </span>
+                  )}
                 </div>
+                <p className="text-white/25 text-xs mb-5">
+                  Choose the creative and technical talent needed for your production.
+                </p>
+
+                {/* List of Added Roles */}
                 {form.roles.length > 0 && (
-                  <p className="text-xs text-purple-light mt-4">
-                    {form.roles.length} role{form.roles.length !== 1 ? 's' : ''} selected
-                  </p>
+                  <div className="space-y-3 mb-5">
+                    {form.roles.map((item, index) => {
+                      const roleName = typeof item === 'string' ? item : item.role
+                      const count = typeof item === 'object' && item.count ? item.count : 1
+                      const experience = typeof item === 'object' && item.experience ? item.experience : 'Intermediate'
+
+                      return (
+                        <div
+                          key={`${roleName}-${index}`}
+                          className="p-4 sm:p-5 bg-[#0C0C11] border border-white/[0.11] rounded-2xl transition-all duration-300 hover:border-white/[0.18]"
+                        >
+                          <div className="flex items-start justify-between gap-3 mb-4">
+                            <div className="flex items-center gap-2.5">
+                              <span className="w-2 h-2 rounded-full bg-purple" />
+                              <h4 className="text-sm sm:text-base font-semibold text-white leading-snug">
+                                {roleName}
+                              </h4>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveRole(index)}
+                              className="text-xs text-red-400/70 hover:text-red-300 transition-colors px-2 py-1 rounded hover:bg-red-500/10 shrink-0"
+                            >
+                              Remove
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-white/[0.06]">
+                            {/* Count Control */}
+                            <div>
+                              <span className="block text-xs font-medium text-white/40 mb-2 uppercase tracking-wider">
+                                Count
+                              </span>
+                              <div className="inline-flex items-center bg-[#111118] border border-white/[0.10] rounded-xl overflow-hidden">
+                                <button
+                                  type="button"
+                                  onClick={() => handleRoleCountChange(index, -1)}
+                                  disabled={count <= 1}
+                                  className="w-10 h-10 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/[0.05] disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-base font-medium"
+                                  aria-label="Decrease count"
+                                >
+                                  −
+                                </button>
+                                <span className="w-12 text-center text-sm font-semibold text-white">
+                                  {count}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRoleCountChange(index, 1)}
+                                  className="w-10 h-10 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/[0.05] transition-colors text-base font-medium"
+                                  aria-label="Increase count"
+                                >
+                                  +
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Experience Level Selector */}
+                            <div>
+                              <span className="block text-xs font-medium text-white/40 mb-2 uppercase tracking-wider">
+                                Experience Level
+                              </span>
+                              <div className="relative">
+                                <select
+                                  value={experience}
+                                  onChange={(e) => handleRoleExperienceChange(index, e.target.value)}
+                                  className="w-full appearance-none px-3.5 py-2.5 bg-[#111118] border border-white/[0.10] rounded-xl text-sm text-white outline-none transition-all focus:border-purple cursor-pointer pr-9"
+                                >
+                                  {['Beginner', 'Student', 'Intermediate', 'Professional'].map((lvl) => (
+                                    <option key={lvl} value={lvl} className="bg-[#111118]">
+                                      {lvl}
+                                    </option>
+                                  ))}
+                                </select>
+                                <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                                </svg>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
                 )}
+
+                {/* Add Role / Add Another Role Trigger Button */}
+                <button
+                  type="button"
+                  onClick={() => setIsRolePickerOpen(true)}
+                  className="w-full py-4 px-5 bg-[#0C0C11] hover:bg-[#0E0E14] border border-dashed border-white/[0.15] hover:border-purple/50 rounded-2xl text-sm font-medium text-white/70 hover:text-white transition-all duration-300 flex items-center justify-center gap-2 group shadow-sm"
+                >
+                  <span className="w-6 h-6 rounded-full bg-purple/20 text-purple-light group-hover:bg-purple group-hover:text-white flex items-center justify-center transition-all duration-200 text-base">
+                    +
+                  </span>
+                  <span>{form.roles.length === 0 ? 'Add Role' : 'Add Another Role'}</span>
+                </button>
               </div>
             </div>
           )}
@@ -545,13 +721,13 @@ function CreateProjectPage() {
           {/* Step 3: Media */}
           {currentStep === 3 && (
             <div className="space-y-6 animate-fade-in">
-              {/* Thumbnail */}
+              {/* Poster */}
               <div>
-                <label className="block text-sm font-medium text-white/60 mb-3">Project Thumbnail</label>
+                <label className="block text-sm font-medium text-white/60 mb-3">Project Poster</label>
                 <div className="flex items-start gap-5">
-                  <div className="w-32 h-24 rounded-xl bg-[#0d0d0d] border border-white/10 overflow-hidden shrink-0 flex items-center justify-center">
+                  <div className="w-24 h-36 rounded-xl bg-[#0C0C11] border border-white/[0.11] overflow-hidden shrink-0 flex items-center justify-center">
                     {form.thumbnailPreview ? (
-                      <img src={form.thumbnailPreview} alt="Thumbnail" className="w-full h-full object-cover" />
+                      <img src={form.thumbnailPreview} alt="Project Poster" className="w-full h-full object-cover" />
                     ) : (
                       <svg className="w-8 h-8 text-white/15" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.41a2.25 2.25 0 013.182 0l2.909 2.91m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
@@ -559,13 +735,13 @@ function CreateProjectPage() {
                     )}
                   </div>
                   <div className="flex-1">
-                    <label className="block px-4 py-3.5 bg-[#0d0d0d] border border-white/10 border-dashed rounded-xl cursor-pointer transition-all duration-300 hover:border-purple/40 hover:bg-white/[0.02] text-center">
+                    <label className="block px-4 py-3.5 bg-[#0C0C11] border border-white/[0.11] border-dashed rounded-xl cursor-pointer transition-all duration-300 hover:border-purple/40 hover:bg-[#0E0E14] text-center">
                       <span className="text-sm text-white/40">
-                        {form.thumbnailFile ? form.thumbnailFile.name : 'Upload thumbnail (JPG, PNG)'}
+                        {form.thumbnailFile ? form.thumbnailFile.name : 'Upload project poster (JPG, PNG)'}
                       </span>
                       <input type="file" onChange={handleThumbnailChange} accept="image/*" className="sr-only" />
                     </label>
-                    <p className="text-xs text-white/20 mt-2">Recommended: 16:9 aspect ratio, min 800×450</p>
+                    <p className="text-xs text-white/25 mt-2">Upload a portrait film poster. Recommended size: 1200 × 1800 px (2:3).</p>
                   </div>
                 </div>
               </div>
@@ -573,7 +749,7 @@ function CreateProjectPage() {
               {/* Script Upload */}
               <div>
                 <label className="block text-sm font-medium text-white/60 mb-3">Script (PDF)</label>
-                <label className="flex items-center gap-4 px-5 py-5 bg-[#0d0d0d] border border-white/10 border-dashed rounded-xl cursor-pointer transition-all duration-300 hover:border-purple/40 hover:bg-white/[0.02]">
+                <label className="flex items-center gap-4 px-5 py-5 bg-[#0C0C11] border border-white/[0.11] border-dashed rounded-xl cursor-pointer transition-all duration-300 hover:border-purple/40 hover:bg-[#0E0E14]">
                   <div className="w-12 h-12 rounded-xl bg-purple/10 flex items-center justify-center shrink-0">
                     <svg className="w-6 h-6 text-purple/60" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
@@ -583,30 +759,99 @@ function CreateProjectPage() {
                     <p className="text-sm text-white/60">
                       {form.scriptFileName || 'Upload your script'}
                     </p>
-                    <p className="text-xs text-white/25 mt-0.5">PDF format, max 50MB</p>
+                    <p className="text-xs text-white/25 mt-0.5">PDF format, max 25MB</p>
                   </div>
                   <input type="file" onChange={handleScriptChange} accept=".pdf" className="sr-only" />
                 </label>
               </div>
 
+              {/* Script Access Privacy Selector */}
+              <div className="space-y-3 pt-1">
+                <div>
+                  <label className="block text-sm font-medium text-white/80 mb-1">Script Access</label>
+                  <p className="text-xs text-white/40">Control who can read and preview your project's screenplay.</p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {[
+                    {
+                      value: 'ACCEPTED_TEAM',
+                      label: 'Accepted Team Only',
+                      desc: 'Only confirmed team members can view the screenplay.',
+                      badge: 'Default',
+                    },
+                    {
+                      value: 'APPLICANTS',
+                      label: 'Applicants & Team',
+                      desc: 'Collaborators with a pending or accepted application can view the screenplay.',
+                    },
+                    {
+                      value: 'PUBLIC',
+                      label: 'Anyone Viewing Project',
+                      desc: 'Anyone who can view this project can read the screenplay.',
+                    },
+                  ].map((tier) => {
+                    const isSelected = form.scriptVisibility === tier.value
+                    return (
+                      <button
+                        key={tier.value}
+                        type="button"
+                        onClick={() => setForm((f) => ({ ...f, scriptVisibility: tier.value }))}
+                        className={`p-4 rounded-xl text-left border transition-all relative flex flex-col justify-between ${
+                          isSelected
+                            ? 'bg-[#18122B] border-purple shadow-[0_0_20px_rgba(98,57,191,0.25)]'
+                            : 'bg-[#0C0C11] border-white/[0.08] hover:border-white/20 hover:bg-[#0E0E14]'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center justify-between gap-2 mb-1.5">
+                            <span className={`text-xs font-semibold ${isSelected ? 'text-white' : 'text-white/80'}`}>
+                              {tier.label}
+                            </span>
+                            {tier.badge && (
+                              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-purple/20 text-purple-light border border-purple/30">
+                                {tier.badge}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-white/45 leading-relaxed">{tier.desc}</p>
+                        </div>
+                        <div className="mt-3 flex items-center gap-1.5 text-[11px]">
+                          <span className={`w-2.5 h-2.5 rounded-full border flex items-center justify-center ${
+                            isSelected ? 'border-purple bg-purple' : 'border-white/30'
+                          }`}>
+                            {isSelected && <span className="w-1 h-1 rounded-full bg-white" />}
+                          </span>
+                          <span className={isSelected ? 'text-purple-light font-medium' : 'text-white/30'}>
+                            {isSelected ? 'Selected' : 'Select'}
+                          </span>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
               {/* Preview Summary */}
-              <div className="mt-4 p-5 bg-[#0d0d0d] border border-white/5 rounded-xl">
+              <div className="mt-4 p-5 bg-[#0C0C11] border border-white/[0.08] rounded-xl">
                 <h4 className="text-xs font-semibold text-white/30 uppercase tracking-wider mb-4">Project Summary</h4>
                 <div className="space-y-2.5">
                   <SummaryRow label="Title" value={form.title} />
+                  <SummaryRow label="Logline" value={form.logline} />
+                  <SummaryRow label="Description" value={form.description} />
                   <SummaryRow label="Genre" value={form.genre} />
                   <SummaryRow label="Location" value={form.location} />
                   {form.budget && <SummaryRow label="Budget" value={`₹${Number(form.budget).toLocaleString('en-IN')}`} />}
                   {form.timeline && <SummaryRow label="Timeline" value={form.timeline} />}
-                  <SummaryRow label="Roles" value={form.roles.join(', ')} />
+                  <SummaryRow label="Roles" value={form.roles.map(r => typeof r === 'string' ? r : (r.count > 1 ? `${r.role} (×${r.count})` : r.role)).join(', ')} />
                   <SummaryRow label="Script" value={form.scriptFileName || 'Default sample'} />
+                  <SummaryRow label="Script Access" value={form.scriptVisibility === 'PUBLIC' ? 'Anyone Viewing Project' : form.scriptVisibility === 'APPLICANTS' ? 'Applicants & Team' : 'Accepted Team Only'} />
                 </div>
               </div>
             </div>
           )}
 
           {/* Navigation Buttons */}
-          <div className="flex items-center justify-between mt-10 pt-6 border-t border-white/5">
+          <div className="flex items-center justify-between mt-10 pt-6 border-t border-white/[0.08]">
             {currentStep > 1 ? (
               <button
                 onClick={prevStep}
@@ -677,6 +922,14 @@ function CreateProjectPage() {
           <span className="text-sm font-medium">{toast.text}</span>
         </div>
       )}
+
+      {/* Role Picker Modal */}
+      <RolePickerModal
+        isOpen={isRolePickerOpen}
+        onClose={() => setIsRolePickerOpen(false)}
+        onSelectRole={handleAddRole}
+        selectedRoleNames={form.roles.map((r) => (typeof r === 'string' ? r : r.role))}
+      />
     </section>
   )
 }

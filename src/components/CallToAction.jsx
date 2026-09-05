@@ -4,7 +4,7 @@ import { useAuth } from '../context/useAuth'
 function CallToAction() {
   const { user } = useAuth()
   return (
-    <section id="cta" className="relative py-32 px-6 overflow-hidden">
+    <section id="cta" className="relative pt-10 md:pt-14 pb-20 md:pb-28 px-6 overflow-hidden">
       {/* Background Effects */}
       <div className="absolute inset-0">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-purple/8 rounded-full blur-[150px]" />
@@ -27,7 +27,7 @@ function CallToAction() {
           <div className="h-px w-12 bg-gradient-to-l from-transparent to-purple/50" />
         </div>
 
-        <h2 className="font-['DM_Serif_Display'] text-4xl sm:text-5xl md:text-6xl font-normal tracking-tight mb-5">
+        <h2 className="font-['Fraunces',_serif] text-4xl sm:text-5xl md:text-6xl font-semibold tracking-[-0.02em] leading-[1.12] mb-5">
           Ready to Make
           <br />
           <span className="gradient-text">Your Film?</span>

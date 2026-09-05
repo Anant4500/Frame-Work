@@ -1,87 +1,337 @@
-const steps = [
+import { Link } from 'react-router-dom'
+
+const flowchartSteps = [
   {
-    icon: (
-      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-      </svg>
-    ),
-    title: 'Post Script',
-    description: 'Share your screenplay or film concept with a growing community of passionate collaborators.',
     number: '01',
+    title: 'Post Your Story',
+    description: 'Share your project and define the roles you need.',
   },
   {
-    icon: (
-      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
-      </svg>
-    ),
-    title: 'Find Talent',
-    description: 'Discover actors, editors, cinematographers, and crew members ready to join your vision.',
     number: '02',
+    title: 'Build Your Crew',
+    description: 'Discover filmmakers and find the right people for each role.',
+    hasConnector: true,
   },
   {
-    icon: (
-      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m-3.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-1.5A1.125 1.125 0 0118 18.375M20.625 4.5H3.375m17.25 0c.621 0 1.125.504 1.125 1.125M20.625 4.5h-1.5C18.504 4.5 18 5.004 18 5.625m3.75 0v1.5c0 .621-.504 1.125-1.125 1.125M3.375 4.5c-.621 0-1.125.504-1.125 1.125M3.375 4.5h1.5C5.496 4.5 6 5.004 6 5.625m-3.75 0v1.5c0 .621.504 1.125 1.125 1.125m0 0h1.5m-1.5 0c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125m1.5-3.75C5.496 8.25 6 7.746 6 7.125v-1.5M4.875 8.25C5.496 8.25 6 8.754 6 9.375v1.5m0-5.25v5.25m0-5.25C6 5.004 6.504 4.5 7.125 4.5h9.75c.621 0 1.125.504 1.125 1.125m1.125 2.625h1.5m-1.5 0A1.125 1.125 0 0118 7.125v-1.5m1.125 2.625c-.621 0-1.125.504-1.125 1.125v1.5m2.625-2.625c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125M18 5.625v5.25M7.125 12h9.75m-9.75 0A1.125 1.125 0 016 10.875M7.125 12C6.504 12 6 12.504 6 13.125m0-2.25C6 11.496 5.496 12 4.875 12M18 10.875c0 .621-.504 1.125-1.125 1.125M18 10.875c0 .621.504 1.125 1.125 1.125m-2.25 0c.621 0 1.125.504 1.125 1.125m-12 5.25v-5.25m0 5.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125m-12 0v-1.5c0-.621-.504-1.125-1.125-1.125M18 18.375v-5.25m0 5.25v-1.5c0-.621.504-1.125 1.125-1.125M18 13.125v1.5c0 .621.504 1.125 1.125 1.125M18 13.125c0-.621.504-1.125 1.125-1.125M6 13.125v1.5c0 .621-.504 1.125-1.125 1.125M6 13.125C6 12.504 5.496 12 4.875 12m-1.5 0h1.5m-1.5 0c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125M19.125 12h1.5m0 0c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125m-17.25 0h1.5m14.25 0h1.5" />
-      </svg>
-    ),
-    title: 'Make Film',
-    description: 'Collaborate in real-time, manage your production, and bring your story from script to screen.',
     number: '03',
+    title: 'Make the Film',
+    description: 'Collaborate, create, and turn the idea into a finished film.',
   },
 ]
 
 function HowItWorks() {
   return (
-    <section id="how-it-works" className="relative py-28 px-6">
-      {/* Subtle top divider */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-px bg-gradient-to-r from-transparent via-purple/30 to-transparent" />
+    <section id="how-it-works" className="relative py-12 md:py-16 px-6 overflow-hidden">
+      {/* ── Section Background Stack ── */}
 
-      <div className="max-w-6xl mx-auto">
+      {/* Layer 1: Base */}
+      <div className="absolute inset-0 pointer-events-none" style={{ backgroundColor: '#0A0A0F' }} />
+
+      {/* Layer 2: Residual Purple Haze */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
+        {/* Upper-middle ambient haze — leftover from Hero */}
+        <div
+          className="absolute pointer-events-none"
+          style={{
+            width: '900px',
+            height: '550px',
+            top: '0%',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'radial-gradient(ellipse 70% 50% at 50% 20%, rgba(59, 31, 115, 0.16) 0%, rgba(98, 57, 191, 0.07) 50%, transparent 80%)',
+            filter: 'blur(75px)',
+          }}
+        />
+
+        {/* Layer 3: Center-card emphasis — restrained radial glow behind middle area */}
+        <div
+          className="absolute pointer-events-none"
+          style={{
+            width: '560px',
+            height: '420px',
+            top: '64%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            background: 'radial-gradient(ellipse, rgba(98, 57, 191, 0.14) 0%, rgba(59, 31, 115, 0.08) 45%, transparent 70%)',
+            filter: 'blur(60px)',
+          }}
+        />
+      </div>
+
+      {/* Layer 4: Grain (Subtle 1.8%) */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        aria-hidden="true"
+        style={{
+          opacity: 0.018,
+          mixBlendMode: 'overlay',
+          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='hiw-g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.78' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23hiw-g)'/%3E%3C/svg%3E")`,
+          backgroundRepeat: 'repeat',
+        }}
+      />
+
+      {/* Layer 5a: Filmstrip — Left Edge */}
+      <div
+        className="howitworks-filmstrip absolute top-0 bottom-0 left-0 pointer-events-none hidden md:block"
+        aria-hidden="true"
+        style={{ width: '40px', zIndex: 3 }}
+      >
+        <div
+          className="absolute top-0 bottom-0 right-0"
+          style={{ width: '1px', background: 'rgba(255, 255, 255, 0.04)' }}
+        />
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage: `repeating-linear-gradient(
+              to bottom,
+              transparent 0px,
+              transparent 5px,
+              rgba(98, 57, 191, 0.12) 5px,
+              rgba(98, 57, 191, 0.12) 15px,
+              transparent 15px,
+              transparent 26px
+            )`,
+            backgroundSize: '6px 26px',
+            backgroundPosition: 'center top',
+            backgroundRepeat: 'repeat-y',
+            maskImage: 'linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%)',
+            WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%)',
+          }}
+        />
+      </div>
+
+      {/* Layer 5b: Filmstrip — Right Edge */}
+      <div
+        className="howitworks-filmstrip absolute top-0 bottom-0 right-0 pointer-events-none hidden md:block"
+        aria-hidden="true"
+        style={{ width: '40px', zIndex: 3 }}
+      >
+        <div
+          className="absolute top-0 bottom-0 left-0"
+          style={{ width: '1px', background: 'rgba(255, 255, 255, 0.04)' }}
+        />
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage: `repeating-linear-gradient(
+              to bottom,
+              transparent 0px,
+              transparent 5px,
+              rgba(98, 57, 191, 0.12) 5px,
+              rgba(98, 57, 191, 0.12) 15px,
+              transparent 15px,
+              transparent 26px
+            )`,
+            backgroundSize: '6px 26px',
+            backgroundPosition: 'center top',
+            backgroundRepeat: 'repeat-y',
+            maskImage: 'linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%)',
+            WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%)',
+          }}
+        />
+      </div>
+
+      {/* Layer 6: Bottom transition to next section */}
+      <div
+        className="absolute bottom-0 left-0 right-0 pointer-events-none"
+        aria-hidden="true"
+        style={{
+          height: '80px',
+          background: 'linear-gradient(to bottom, transparent, #0A0A0F)',
+          zIndex: 4,
+        }}
+      />
+
+      {/* Subtle top divider */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-px bg-gradient-to-r from-transparent via-purple/30 to-transparent z-10" />
+
+      <div className="relative z-10 max-w-6xl mx-auto">
         {/* Section Header */}
-        <div className="text-center mb-20 reveal opacity-0 translate-y-8 transition-all duration-700 [&.is-visible]:opacity-100 [&.is-visible]:translate-y-0">
-          <span className="inline-block text-purple text-sm font-semibold tracking-widest uppercase mb-4">
-            How It Works
+        <div className="text-center mb-8 sm:mb-9 reveal opacity-0 translate-y-8 transition-all duration-700 [&.is-visible]:opacity-100 [&.is-visible]:translate-y-0">
+          <span className="inline-block text-purple text-xs sm:text-sm font-semibold tracking-widest uppercase mb-2 sm:mb-2.5">
+            How FrameWork Works
           </span>
-          <h2 className="font-['DM_Serif_Display'] text-4xl sm:text-5xl font-normal tracking-tight">
-            Three Steps to Your Film
+          <h2 className="font-['Fraunces',_serif] text-3xl sm:text-4xl font-normal leading-[1.15] tracking-tight text-white mb-3 sm:mb-3.5">
+            From Idea to Film.
           </h2>
+          <p className="font-['Inter'] text-sm sm:text-[15px] text-white/50 max-w-xl mx-auto leading-relaxed">
+            FrameWork helps stories find the right people — from posting a project to building a crew and making the film.
+          </p>
         </div>
 
-        {/* Steps */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {steps.map((step, index) => (
-            <div
-              key={step.number}
-              className={`reveal opacity-0 translate-y-8 transition-all duration-700 [&.is-visible]:opacity-100 [&.is-visible]:translate-y-0`}
-              style={{ transitionDelay: `${index * 150}ms` }}
-            >
-              <div className="group relative glass-card rounded-2xl p-8 h-full cursor-default transition-all duration-500 hover:scale-[1.03] hover:shadow-[0_0_40px_rgba(98,57,191,0.15)] hover:border-purple/20">
-                {/* Step Number */}
-                <span className="absolute top-6 right-6 text-5xl font-black text-white/[0.03]">
-                  {step.number}
-                </span>
+        {/* Main 40/60 Asymmetric Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-[40%_60%] gap-8 lg:gap-12 items-center">
+          {/* LEFT: Vertical 3-Step Flowchart */}
+          <div className="reveal opacity-0 translate-y-8 transition-all duration-700 [&.is-visible]:opacity-100 [&.is-visible]:translate-y-0">
+            <div className="space-y-6 sm:space-y-7 pl-1 sm:pl-2">
+              {flowchartSteps.map((step, idx) => (
+                <div key={step.number} className="relative flex items-start gap-3.5 sm:gap-4">
+                  {/* Step Number */}
+                  <span className="font-['Inter'] text-xs font-semibold text-white/40 tracking-wider pt-0.5 w-5 text-right flex-shrink-0">
+                    {step.number}
+                  </span>
 
-                {/* Icon */}
-                <div className="w-14 h-14 rounded-xl bg-purple/10 flex items-center justify-center mb-6 text-purple transition-all duration-500 group-hover:bg-purple/20 group-hover:shadow-[0_0_20px_rgba(98,57,191,0.2)]">
-                  {step.icon}
+                  {/* Node & Connecting Line Column */}
+                  <div className="flex flex-col items-center flex-shrink-0 w-3 self-stretch">
+                    <div
+                      className="w-2.5 h-2.5 rounded-full flex-shrink-0 z-10 mt-1"
+                      style={{
+                        backgroundColor: '#6239BF',
+                        boxShadow: '0 0 10px rgba(98, 57, 191, 0.7)',
+                      }}
+                    />
+                    {idx < flowchartSteps.length - 1 && (
+                      <div
+                        className="w-px flex-1 my-1 min-h-[36px]"
+                        style={{ background: 'rgba(98, 57, 191, 0.35)' }}
+                      />
+                    )}
+                  </div>
+
+                  {/* Step Content */}
+                  <div className="flex-1 relative -mt-0.5 pb-1">
+                    <div className="flex items-center gap-2.5">
+                      <h3 className="font-['Fraunces',_serif] text-base sm:text-[22px] font-medium leading-snug text-white mb-1">
+                        {step.title}
+                      </h3>
+                      {/* Subtle horizontal connector from step 02 toward right panel */}
+                      {step.hasConnector && (
+                        <div
+                          className="hidden lg:block w-8 h-px pointer-events-none ml-1 mb-1"
+                          style={{
+                            background: 'linear-gradient(to right, rgba(98, 57, 191, 0.25), transparent)',
+                          }}
+                        />
+                      )}
+                    </div>
+                    <p className="font-['Inter'] text-sm sm:text-[14.5px] text-white/50 leading-[1.5] max-w-xs sm:max-w-sm">
+                      {step.description}
+                    </p>
+                  </div>
                 </div>
+              ))}
+            </div>
+          </div>
 
-                {/* Title */}
-                <h3 className="text-xl font-bold mb-3 transition-colors duration-300 group-hover:text-purple-light">
-                  {step.title}
-                </h3>
+          {/* RIGHT: Unified Creator / Collaborator Decision Panel */}
+          <div className="reveal opacity-0 translate-y-8 transition-all duration-700 [&.is-visible]:opacity-100 [&.is-visible]:translate-y-0" style={{ transitionDelay: '150ms' }}>
+            <div
+              className="rounded-2xl sm:rounded-3xl border border-white/[0.08] overflow-hidden"
+              style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.02)',
+              }}
+            >
+              {/* TOP HALF: Creator Pathway */}
+              <div
+                className="p-5 sm:px-7 sm:py-5 md:px-8 md:py-[22px]"
+                style={{
+                  background: 'radial-gradient(ellipse at top left, rgba(98, 57, 191, 0.08) 0%, transparent 70%), rgba(255, 255, 255, 0.02)',
+                }}
+              >
+                <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-5 sm:gap-8">
+                  {/* Left Content Column (~72%) */}
+                  <div className="flex-1 min-w-0">
+                    <span className="inline-block text-purple text-xs font-semibold tracking-[0.12em] uppercase mb-2">
+                      Have a Story?
+                    </span>
+                    <h3 className="font-['Fraunces',_serif] text-xl sm:text-[28px] font-normal leading-[1.18] tracking-tight text-white mb-2">
+                      Build the Crew Your Film Needs.
+                    </h3>
+                    <p className="font-['Inter'] text-white/60 text-sm sm:text-[15px] leading-[1.5] mb-3.5 max-w-lg">
+                      Post your project, define open roles, and find collaborators who can bring your story to life.
+                    </p>
 
-                {/* Description */}
-                <p className="text-white/50 leading-relaxed text-sm">
-                  {step.description}
-                </p>
+                    {/* 3 Points */}
+                    <ul className="space-y-1.5 sm:space-y-2">
+                      <li className="flex items-center gap-2.5 text-sm text-white/70">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#6239BF] flex-shrink-0" />
+                        <span>Post your script</span>
+                      </li>
+                      <li className="flex items-center gap-2.5 text-sm text-white/70">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#6239BF] flex-shrink-0" />
+                        <span>Define the roles you need</span>
+                      </li>
+                      <li className="flex items-center gap-2.5 text-sm text-white/70">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#6239BF] flex-shrink-0" />
+                        <span>Manage applications and build your team</span>
+                      </li>
+                    </ul>
+                  </div>
 
-                {/* Bottom accent line */}
-                <div className="absolute bottom-0 left-8 right-8 h-px bg-gradient-to-r from-transparent via-purple/0 to-transparent transition-all duration-500 group-hover:via-purple/30" />
+                  {/* Right CTA Column (~28%) */}
+                  <div className="flex-shrink-0 self-start sm:self-end sm:pb-1">
+                    <Link
+                      to="/register"
+                      id="howitworks-cta-creator"
+                      className="inline-flex items-center gap-2 px-5 sm:px-6 py-2.5 min-h-[44px] bg-[#6239BF] hover:bg-purple-dark text-white text-sm font-semibold rounded-full transition-all duration-300 hover:shadow-[0_0_25px_rgba(98,57,191,0.4)] hover:scale-[1.02] active:scale-95 whitespace-nowrap"
+                    >
+                      Join as Creator
+                      <svg className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                      </svg>
+                    </Link>
+                  </div>
+                </div>
+              </div>
+
+              {/* INTERNAL DIVIDER */}
+              <div className="h-px w-full" style={{ backgroundColor: 'rgba(255, 255, 255, 0.08)' }} />
+
+              {/* BOTTOM HALF: Collaborator Pathway */}
+              <div
+                className="p-5 sm:px-7 sm:py-5 md:px-8 md:py-[22px]"
+                style={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.015)',
+                }}
+              >
+                <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-5 sm:gap-8">
+                  {/* Left Content Column (~72%) */}
+                  <div className="flex-1 min-w-0">
+                    <span className="inline-block text-white/40 text-xs font-semibold tracking-[0.12em] uppercase mb-2">
+                      Have a Skill?
+                    </span>
+                    <h3 className="font-['Fraunces',_serif] text-xl sm:text-[28px] font-normal leading-[1.18] tracking-tight text-white mb-2">
+                      Find a Film Worth Joining.
+                    </h3>
+                    <p className="font-['Inter'] text-white/60 text-sm sm:text-[15px] leading-[1.5] mb-3.5 max-w-lg">
+                      Explore projects, apply for roles, and build your filmmaking credits through real collaborations.
+                    </p>
+
+                    {/* 3 Points */}
+                    <ul className="space-y-1.5 sm:space-y-2">
+                      <li className="flex items-center gap-2.5 text-sm text-white/70">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#6239BF] flex-shrink-0" />
+                        <span>Discover open projects</span>
+                      </li>
+                      <li className="flex items-center gap-2.5 text-sm text-white/70">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#6239BF] flex-shrink-0" />
+                        <span>Apply for specific roles</span>
+                      </li>
+                      <li className="flex items-center gap-2.5 text-sm text-white/70">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#6239BF] flex-shrink-0" />
+                        <span>Build experience and credits</span>
+                      </li>
+                    </ul>
+                  </div>
+
+                  {/* Right CTA Column (~28%) */}
+                  <div className="flex-shrink-0 self-start sm:self-end sm:pb-1">
+                    <Link
+                      to="/register"
+                      id="howitworks-cta-collaborator"
+                      className="inline-flex items-center gap-2 px-5 sm:px-6 py-2.5 min-h-[44px] bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 hover:border-purple/40 text-white text-sm font-semibold rounded-full transition-all duration-300 hover:shadow-[0_0_20px_rgba(98,57,191,0.2)] hover:scale-[1.02] active:scale-95 whitespace-nowrap"
+                    >
+                      Join as Collaborator
+                      <svg className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                      </svg>
+                    </Link>
+                  </div>
+                </div>
               </div>
             </div>
-          ))}
+          </div>
         </div>
       </div>
     </section>

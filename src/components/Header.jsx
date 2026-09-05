@@ -2,6 +2,11 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/useAuth'
 import { supabase } from '../lib/supabaseClient'
+import {
+  getNotificationTitle,
+  getNotificationDestination,
+  formatNotificationTime,
+} from '../utils/notifications'
 
 function Header() {
   const [scrolled, setScrolled] = useState(false)
@@ -27,8 +32,9 @@ function Header() {
     setNotifOpen(false)
   }, [location])
 
+  // Scroll to #creators when on homepage, or navigate if elsewhere
   useEffect(() => {
-    if (location.pathname === '/' && location.hash === '#creators') {
+    if (location.hash === '#creators') {
       const timer = setTimeout(() => {
         const element = document.getElementById('creators')
         if (element) {
@@ -55,16 +61,53 @@ function Header() {
     }
   }, [user?.id])
 
+  // Realtime subscription for notifications
   useEffect(() => {
+    if (!user?.id) {
+      setNotifications([])
+      return
+    }
+
     fetchNotifications()
-    const interval = setInterval(fetchNotifications, 30000)
-    return () => clearInterval(interval)
-  }, [fetchNotifications])
+
+    const channel = supabase
+      .channel(`user-notifications-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          if (payload.eventType === 'INSERT') {
+            setNotifications((prev) => {
+              if (prev.some((n) => n.id === payload.new.id)) return prev
+              return [payload.new, ...prev.slice(0, 9)]
+            })
+          } else if (payload.eventType === 'UPDATE') {
+            setNotifications((prev) =>
+              prev.map((n) => (n.id === payload.new.id ? payload.new : n))
+            )
+          } else if (payload.eventType === 'DELETE') {
+            setNotifications((prev) =>
+              prev.filter((n) => n.id !== payload.old.id)
+            )
+          }
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [user?.id, fetchNotifications])
 
   const unreadCount = notifications.filter((n) => !n.is_read).length
 
   const markAllRead = async () => {
-    if (unreadCount === 0) return
+    if (unreadCount === 0 || !user?.id) return
     try {
       await supabase
         .from('notifications')
@@ -77,21 +120,28 @@ function Header() {
     }
   }
 
-  const handleCreatorsClick = (e) => {
-    e.preventDefault()
-    if (mobileMenuOpen) {
-      setMobileMenuOpen(false)
-    }
-    if (isHome) {
-      const element = document.getElementById('creators')
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth' })
+  const handleNotificationClick = async (n) => {
+    try {
+      if (!n.is_read) {
+        await supabase
+          .from('notifications')
+          .update({ is_read: true })
+          .eq('id', n.id)
+        setNotifications((prev) =>
+          prev.map((item) => (item.id === n.id ? { ...item, is_read: true } : item))
+        )
       }
-      window.history.pushState(null, '', '#creators')
-    } else {
-      navigate('/#creators')
+    } catch (err) {
+      console.error('Error marking notification read:', err)
+    } finally {
+      setNotifOpen(false)
+      const dest = getNotificationDestination(n)
+      if (dest) {
+        navigate(dest)
+      }
     }
   }
+
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -127,13 +177,13 @@ function Header() {
     >
       <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-2 group">
-          <div className="w-8 h-8 bg-purple rounded-lg flex items-center justify-center transition-all duration-300 group-hover:shadow-[0_0_20px_rgba(98,57,191,0.5)]">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="23 7 16 12 23 17 23 7" />
-              <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-            </svg>
-          </div>
+        <Link to="/" className="flex items-center gap-2.5 group">
+          <img
+            src="/images/framework-logo.png"
+            alt=""
+            aria-hidden="true"
+            className="h-7 md:h-8 w-auto object-contain transition-all duration-300 group-hover:drop-shadow-[0_0_12px_rgba(98,57,191,0.6)] group-hover:scale-105"
+          />
           <span className="text-xl font-bold tracking-tight">
             Frame<span className="text-purple">Work</span>
           </span>
@@ -150,13 +200,6 @@ function Header() {
             }`}
           >
             Explore
-          </Link>
-          <Link
-            to="/#creators"
-            onClick={handleCreatorsClick}
-            className="text-sm font-medium text-white/70 hover:text-white transition-colors duration-300 relative after:content-[''] after:absolute after:bottom-[-4px] after:left-0 after:w-0 after:h-[2px] after:bg-purple after:transition-all after:duration-300 hover:after:w-full"
-          >
-            Creators
           </Link>
           {user && (
             <Link
@@ -223,31 +266,57 @@ function Header() {
                         <p className="text-xs text-white/25">No notifications yet</p>
                       </div>
                     ) : (
-                      notifications.map((n) => (
-                        <div
-                          key={n.id}
-                          className={`px-4 py-3 border-b border-white/[0.03] transition-colors duration-200 hover:bg-white/[0.03] ${
-                            !n.is_read ? 'bg-purple/[0.04]' : ''
-                          }`}
-                        >
-                          <div className="flex items-start gap-2.5">
-                            {!n.is_read && (
-                              <span className="w-2 h-2 rounded-full bg-purple shrink-0 mt-1.5" />
-                            )}
-                            <div className="min-w-0 flex-1">
-                              <p className={`text-xs leading-relaxed ${!n.is_read ? 'text-white/80' : 'text-white/50'}`}>
-                                {n.message}
-                              </p>
-                              <p className="text-[10px] text-white/20 mt-1">
-                                {new Date(n.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                                {' · '}
-                                {new Date(n.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                              </p>
+                      notifications.map((n) => {
+                        const title = getNotificationTitle(n)
+                        const timeStr = formatNotificationTime(n.created_at)
+                        const isAccepted = n.type === 'APPLICATION_ACCEPTED'
+                        const isRejected = n.type === 'APPLICATION_REJECTED'
+                        return (
+                          <div
+                            key={n.id}
+                            onClick={() => handleNotificationClick(n)}
+                            className={`px-4 py-3 border-b border-white/[0.04] transition-colors duration-200 cursor-pointer hover:bg-white/[0.06] ${
+                              !n.is_read ? 'bg-purple/[0.07]' : ''
+                            }`}
+                          >
+                            <div className="flex items-start gap-2.5">
+                              <div className="mt-1 shrink-0">
+                                {!n.is_read ? (
+                                  <span className={`w-2 h-2 rounded-full block ${
+                                    isAccepted ? 'bg-emerald-400' : isRejected ? 'bg-rose-400' : 'bg-purple'
+                                  }`} />
+                                ) : (
+                                  <span className="w-2 h-2 rounded-full bg-white/20 block" />
+                                )}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className={`text-xs font-semibold leading-tight mb-0.5 ${!n.is_read ? 'text-white' : 'text-white/70'}`}>
+                                  {title}
+                                </p>
+                                <p className={`text-xs leading-relaxed line-clamp-2 ${!n.is_read ? 'text-white/80' : 'text-white/50'}`}>
+                                  {n.message}
+                                </p>
+                                <p className="text-[10px] text-white/30 mt-1 font-medium">
+                                  {timeStr}
+                                </p>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))
+                        )
+                      })
                     )}
+                  </div>
+
+                  {/* View All Footer */}
+                  <div className="p-2.5 border-t border-white/5 bg-[#0e0e13] text-center">
+                    <Link
+                      to="/notifications"
+                      onClick={() => setNotifOpen(false)}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-purple-light hover:text-white transition-colors"
+                    >
+                      <span>View all notifications</span>
+                      <span className="text-[11px]">&rarr;</span>
+                    </Link>
                   </div>
                 </div>
               </div>
@@ -370,13 +439,26 @@ function Header() {
           <Link to="/explore" className="text-white/70 hover:text-white transition-colors py-2">
             Explore
           </Link>
-          <Link to="/#creators" onClick={handleCreatorsClick} className="text-white/70 hover:text-white transition-colors py-2">
-            Creators
-          </Link>
           {user && (
-            <Link to="/my-projects" className={`transition-colors py-2 font-medium ${location.pathname === '/my-projects' ? 'text-purple-light' : 'text-white/70 hover:text-white'}`}>
-              {user.role === 'creator' ? 'My Projects' : 'Dashboard'}
-            </Link>
+            <>
+              <Link to="/my-projects" className={`transition-colors py-2 font-medium ${location.pathname === '/my-projects' ? 'text-purple-light' : 'text-white/70 hover:text-white'}`}>
+                {user.role === 'creator' ? 'My Projects' : 'Dashboard'}
+              </Link>
+              <Link
+                to="/notifications"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`flex items-center justify-between py-2 font-medium transition-colors ${
+                  location.pathname === '/notifications' ? 'text-purple-light' : 'text-white/70 hover:text-white'
+                }`}
+              >
+                <span>Notifications</span>
+                {unreadCount > 0 && (
+                  <span className="px-2 py-0.5 text-[10px] font-bold bg-purple text-white rounded-full">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </Link>
+            </>
           )}
           {user ? (
             <>

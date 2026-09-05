@@ -56,6 +56,7 @@ async function fetchUserProfile(userId) {
     experienceLevel: profile.experience_level || '',
     availability: profile.availability || '',
     resumeUrl: profile.resume_url || '',
+    createdAt: profile.created_at || null,
     skills,
   }
 }
@@ -328,10 +329,12 @@ export function AuthProvider({ children }) {
       }
     }
 
-    // Update profile record with uploaded file references if any succeeded
-    if (uploadedAvatarUrl || uploadedResumePath) {
+    // Update profile record with location, availability, and uploaded file references
+    if (uploadedAvatarUrl || uploadedResumePath || profileData.location || profileData.availability) {
       try {
         const updatePayload = {}
+        if (profileData.location) updatePayload.location = profileData.location
+        if (profileData.availability) updatePayload.availability = profileData.availability
         if (uploadedAvatarUrl) updatePayload.profile_photo_url = uploadedAvatarUrl
         if (uploadedResumePath) updatePayload.resume_url = uploadedResumePath
 
@@ -341,7 +344,7 @@ export function AuthProvider({ children }) {
           .eq('id', authUser.id)
 
         if (profileUpdateErr) {
-          console.error('Error updating profile with files:', profileUpdateErr)
+          console.error('Error updating profile with registration data:', profileUpdateErr)
         }
       } catch (updateErr) {
         console.error('Error in profile update after file upload:', updateErr)
@@ -369,6 +372,7 @@ export function AuthProvider({ children }) {
       bio: profileData.bio || '',
       location: profileData.location || '',
       experienceLevel: profileData.experience_level || '',
+      availability: profileData.availability || '',
       resumeUrl: uploadedResumePath || '',
       skills,
     })
@@ -388,8 +392,13 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('fw_registered_users')
   }, [])
 
+  // ── Update local user state ──
+  const updateUser = useCallback((updates) => {
+    setUser((prev) => (prev ? { ...prev, ...updates } : prev))
+  }, [])
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, register }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, register, updateUser }}>
       {children}
     </AuthContext.Provider>
   )

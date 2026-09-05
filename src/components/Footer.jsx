@@ -4,13 +4,13 @@ function Footer() {
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
           {/* Logo */}
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 bg-purple rounded-lg flex items-center justify-center">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polygon points="23 7 16 12 23 17 23 7" />
-                <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-              </svg>
-            </div>
+          <div className="flex items-center gap-2.5">
+            <img
+              src="/images/framework-logo.png"
+              alt=""
+              aria-hidden="true"
+              className="h-7 w-auto object-contain"
+            />
             <span className="text-lg font-bold tracking-tight">
               Frame<span className="text-purple">Work</span>
             </span>

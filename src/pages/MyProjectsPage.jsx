@@ -1,8 +1,10 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/useAuth'
 import { supabase } from '../lib/supabaseClient'
-import { getDashboardStats } from '../data/myProjectsData'
+import CreatorProjectCard from '../components/project/CreatorProjectCard'
+import CollaboratorApplicationCard from '../components/project/CollaboratorApplicationCard'
+import JoinedProductionCard from '../components/project/JoinedProductionCard'
 
 const STATUS_STYLES = {
   'Open': 'border-purple/40 text-purple-light bg-purple/15 shadow-[0_0_8px_rgba(98,57,191,0.15)]',
@@ -29,8 +31,10 @@ function MyProjectsPage() {
   const [toast, setToast] = useState(null)
   const isCreator = user?.role === 'creator'
   const [activeTab, setActiveTab] = useState(() =>
-    user?.role === 'creator' ? 'created' : 'applications'
+    user?.role === 'creator' ? 'created' : 'joined'
   )
+  const [projectStatusFilter, setProjectStatusFilter] = useState('all')
+  const [collaboratorAppFilter, setCollaboratorAppFilter] = useState('all')
 
   useEffect(() => { window.scrollTo(0, 0) }, [])
 
@@ -46,140 +50,186 @@ function MyProjectsPage() {
   }, [toast])
 
   // Fetch creator's live projects and incoming applications from Supabase
-  useEffect(() => {
+  const fetchCreatorData = useCallback(async (showLoading = true) => {
     if (!user?.id) return
-    let isMounted = true
-
-    const fetchCreatorData = async () => {
-      try {
+    try {
+      if (showLoading) {
         setLoadingCreated(true)
-        const { data: projData, error: projError } = await supabase
-          .from('projects')
-          .select('*, roles:project_roles(*)')
-          .eq('creator_id', user.id)
-          .order('created_at', { ascending: false })
+        setLoadingApps(true)
+      }
+      const { data: projData, error: projError } = await supabase
+        .from('projects')
+        .select('*, roles:project_roles(*)')
+        .eq('creator_id', user.id)
+        .order('created_at', { ascending: false })
 
-        if (projError) throw projError
+      if (projError) throw projError
 
-        if (isMounted) {
-          const mappedProjects = (projData || []).map((p) => ({
-            id: p.id,
-            title: p.title || 'Untitled Project',
-            logline: p.description || '',
-            description: p.description || '',
-            genre: p.genre || 'Drama',
-            location: p.location || 'Remote',
-            budget: p.budget,
-            timeline: p.timeline,
-            thumbnail: p.poster_url || '/images/hero-bg.png',
-            poster_url: p.poster_url,
-            status: p.status === 'OPEN' ? 'Open' : p.status === 'IN_PRODUCTION' ? 'In Production' : p.status === 'COMPLETED' ? 'Completed' : p.status,
-            date: p.created_at ? p.created_at.split('T')[0] : '',
-            created_at: p.created_at,
-            creator: {
-              id: user.id,
-              name: user.name,
-              avatar: user.avatar
-            },
-            roles: Array.isArray(p.roles) ? p.roles.map((r) => r.role) : [],
-            rawRoles: p.roles || [],
-            applicants: []
-          }))
-          setCreatedProjects(mappedProjects)
+      const mappedProjects = (projData || []).map((p) => ({
+        id: p.id,
+        title: p.title || 'Untitled Project',
+        logline: p.logline || '',
+        description: p.description || '',
+        genre: p.genre || 'Drama',
+        location: p.location || 'Remote',
+        budget: p.budget,
+        timeline: p.timeline,
+        thumbnail: p.poster_url || '/images/hero-bg.png',
+        poster_url: p.poster_url,
+        status: p.status === 'OPEN' ? 'Open' : p.status === 'IN_PRODUCTION' ? 'In Production' : p.status === 'COMPLETED' ? 'Completed' : p.status,
+        date: p.created_at ? p.created_at.split('T')[0] : '',
+        created_at: p.created_at,
+        creator: {
+          id: user.id,
+          name: user.name,
+          avatar: user.avatar
+        },
+        roles: Array.isArray(p.roles) ? p.roles.map((r) => r.role) : [],
+        rawRoles: p.roles || [],
+      }))
+      setCreatedProjects(mappedProjects)
+
+      // Fetch incoming applications across all creator's projects
+      const { data: incomingData, error: incomingError } = await supabase
+        .from('applications')
+        .select('*, project:projects!inner(id, title, creator_id), role:project_roles(id, role), applicant:profiles(id, name, profile_photo_url, location, resume_url)')
+        .eq('project.creator_id', user.id)
+        .order('created_at', { ascending: false })
+
+      if (incomingError) throw incomingError
+
+      const mappedIncoming = (incomingData || []).map((a) => {
+        const rawStatus = a.status || 'PENDING'
+        const status = rawStatus.toUpperCase() === 'ACCEPTED' ? 'Accepted' : rawStatus.toUpperCase() === 'REJECTED' ? 'Rejected' : 'Pending'
+        return {
+          id: a.id,
+          projectId: a.project?.id || a.project_id,
+          projectTitle: a.project?.title || 'Project',
+          project_role_id: a.project_role_id,
+          applicantId: a.applicant_id,
+          applicantName: a.applicant?.name || 'Applicant',
+          applicantAvatar: a.applicant?.profile_photo_url || null,
+          applicantLocation: a.applicant?.location || 'Remote',
+          applicantResume: a.applicant?.resume_url || null,
+          roleApplied: a.role?.role || 'Collaborator',
+          message: a.message || '',
+          status,
+          dateApplied: a.created_at ? a.created_at.split('T')[0] : 'Recently',
         }
+      })
+      setIncomingApplications(mappedIncoming)
+    } catch (err) {
+      console.error('Error fetching creator dashboard data:', err)
+    } finally {
+      if (showLoading) {
+        setLoadingCreated(false)
+        setLoadingApps(false)
+      }
+    }
+  }, [user?.id, user?.name, user?.avatar])
 
-        // If creator, fetch incoming applications across all creator's projects
-        if (isCreator) {
-          setLoadingApps(true)
-          const { data: incomingData, error: incomingError } = await supabase
-            .from('applications')
-            .select('*, project:projects!inner(id, title, creator_id), role:project_roles(role), applicant:profiles(id, name, profile_photo_url, location, resume_url)')
-            .eq('project.creator_id', user.id)
-            .order('created_at', { ascending: false })
+  // Fetch collaborator's submitted applications + real project/creator data
+  const fetchCollaboratorData = useCallback(async () => {
+    if (!user?.id) return
+    try {
+      setLoadingApps(true)
+      const { data: appData, error: appError } = await supabase
+        .from('applications')
+        .select(`
+          id,
+          status,
+          message,
+          created_at,
+          project_role_id,
+          role:project_roles(role),
+          project:projects(
+            id,
+            title,
+            poster_url,
+            location,
+            genre,
+            status,
+            creator_id,
+            creator:profiles(id, name, profile_photo_url)
+          )
+        `)
+        .eq('applicant_id', user.id)
+        .order('created_at', { ascending: false })
 
-          if (incomingError) throw incomingError
+      if (appError) throw appError
 
-          if (isMounted) {
-            const mappedIncoming = (incomingData || []).map((a) => {
-              const rawStatus = a.status || 'PENDING'
-              const status = rawStatus.toUpperCase() === 'ACCEPTED' ? 'Accepted' : rawStatus.toUpperCase() === 'REJECTED' ? 'Rejected' : 'Pending'
-              return {
-                id: a.id,
-                projectId: a.project?.id || a.project_id,
-                projectTitle: a.project?.title || 'Project',
-                applicantId: a.applicant_id,
-                applicantName: a.applicant?.name || 'Applicant',
-                applicantAvatar: a.applicant?.profile_photo_url || null,
-                applicantLocation: a.applicant?.location || 'Remote',
-                applicantResume: a.applicant?.resume_url || null,
-                roleApplied: a.role?.role || 'Collaborator',
-                message: a.message || '',
-                status,
-                dateApplied: a.created_at ? a.created_at.split('T')[0] : 'Recently',
-              }
-            })
-            setIncomingApplications(mappedIncoming)
+      const mappedApps = (appData || []).map((a) => {
+        const rawStatus = (a.status || 'PENDING').toUpperCase()
+        const status =
+          rawStatus === 'ACCEPTED'
+            ? 'Accepted'
+            : rawStatus === 'REJECTED'
+            ? 'Rejected'
+            : rawStatus === 'WITHDRAWN'
+            ? 'Withdrawn'
+            : 'Pending'
+
+        const rawProjStatus = (a.project?.status || 'OPEN').toUpperCase()
+        const projectStatus =
+          rawProjStatus === 'COMPLETED'
+            ? 'Completed'
+            : rawProjStatus === 'IN_PRODUCTION'
+            ? 'In Production'
+            : 'Open'
+
+        const creator = a.project?.creator || null
+        const creatorName = creator?.name || 'FrameWork creator'
+        const creatorId = creator?.id || a.project?.creator_id || null
+
+        let dateApplied = 'Recently'
+        if (a.created_at) {
+          try {
+            const d = new Date(a.created_at)
+            if (!isNaN(d.getTime())) {
+              dateApplied = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+            }
+          } catch {
+            dateApplied = a.created_at.split('T')[0]
           }
         }
-      } catch (err) {
-        console.error('Error fetching creator dashboard data:', err)
-      } finally {
-        if (isMounted) {
-          setLoadingCreated(false)
-          setLoadingApps(false)
+
+        return {
+          id: a.id,
+          projectId: a.project?.id || a.project_id,
+          title: a.project?.title || 'Untitled Project',
+          poster: a.project?.poster_url || '/images/hero-bg.png',
+          genre: a.project?.genre || 'Film',
+          location: a.project?.location || 'Remote',
+          status,
+          rawStatus: a.status,
+          projectStatus,
+          rawProjectStatus: a.project?.status,
+          roleApplied: a.role?.role || 'Collaborator',
+          dateApplied,
+          message: a.message || '',
+          creatorId,
+          creatorName,
+          creatorAvatar: creator?.profile_photo_url || null,
         }
-      }
+      })
+      setMyApplicationsList(mappedApps)
+    } catch (err) {
+      console.error('Error fetching collaborator applications:', err)
+    } finally {
+      setLoadingApps(false)
     }
+  }, [user?.id])
 
-    const fetchCollaboratorData = async () => {
-      try {
-        setLoadingApps(true)
-        const { data: appData, error: appError } = await supabase
-          .from('applications')
-          .select('*, project:projects(id, title, poster_url, location, genre), role:project_roles(role)')
-          .eq('applicant_id', user.id)
-          .order('created_at', { ascending: false })
-
-        if (appError) throw appError
-
-        if (isMounted) {
-          const mappedApps = (appData || []).map((a) => {
-            const rawStatus = a.status || 'PENDING'
-            const status = rawStatus.toUpperCase() === 'ACCEPTED' ? 'Accepted' : rawStatus.toUpperCase() === 'REJECTED' ? 'Rejected' : 'Pending'
-            return {
-              id: a.id,
-              projectId: a.project?.id || a.project_id,
-              title: a.project?.title || 'Untitled Project',
-              poster: a.project?.poster_url || '/images/hero-bg.png',
-              genre: a.project?.genre || 'Film',
-              location: a.project?.location || 'Remote',
-              status,
-              roleApplied: a.role?.role || 'Collaborator',
-              dateApplied: a.created_at ? a.created_at.split('T')[0] : 'Recently',
-              message: a.message || '',
-            }
-          })
-          setMyApplicationsList(mappedApps)
-        }
-      } catch (err) {
-        console.error('Error fetching collaborator applications:', err)
-      } finally {
-        if (isMounted) setLoadingApps(false)
-      }
-    }
-
+  useEffect(() => {
     if (isCreator) {
-      fetchCreatorData()
+      fetchCreatorData(true)
     } else {
       fetchCollaboratorData()
     }
+  }, [isCreator, fetchCreatorData, fetchCollaboratorData])
 
-    return () => {
-      isMounted = false
-    }
-  }, [user?.id, user?.name, user?.avatar, isCreator])
-
-  const joinedProjectsList = useMemo(() => {
+  // Collaborator Joined Productions (Accepted applications with real project status & creator)
+  const joinedProductionsList = useMemo(() => {
     if (isCreator) {
       return []
     }
@@ -187,44 +237,208 @@ function MyProjectsPage() {
       .filter((a) => a.status === 'Accepted')
       .map((a) => ({
         id: a.id,
+        applicationId: a.id,
         projectId: a.projectId,
         title: a.title,
         poster: a.poster,
-        status: 'In Production',
+        projectStatus: a.projectStatus,
+        rawProjectStatus: a.rawProjectStatus,
+        isCompleted: (a.rawProjectStatus || '').toUpperCase() === 'COMPLETED',
         role: a.roleApplied,
-        creatorName: 'Creator',
+        creatorName: a.creatorName,
+        creatorId: a.creatorId,
+        creatorAvatar: a.creatorAvatar,
         location: a.location,
+        genre: a.genre,
       }))
   }, [isCreator, myApplicationsList])
 
-  const stats = useMemo(() =>
-    getDashboardStats(createdProjects, joinedProjectsList),
-    [createdProjects, joinedProjectsList]
-  )
+  // Group incoming applications by project ID for Creator Command Center
+  const applicationsByProject = useMemo(() => {
+    const map = {}
+    for (const app of incomingApplications) {
+      const pid = String(app.projectId)
+      if (!map[pid]) {
+        map[pid] = {
+          all: [],
+          pending: 0,
+          accepted: 0,
+          rejected: 0,
+        }
+      }
+      map[pid].all.push(app)
+      const s = String(app.status || '').toUpperCase()
+      if (s === 'PENDING') map[pid].pending += 1
+      else if (s === 'ACCEPTED') map[pid].accepted += 1
+      else if (s === 'REJECTED') map[pid].rejected += 1
+    }
+    return map
+  }, [incomingApplications])
+
+  // Enrich creator projects with live aggregated metrics
+  const enrichedCreatorProjects = useMemo(() => {
+    return createdProjects.map((proj) => {
+      const pApps = applicationsByProject[String(proj.id)] || {
+        all: [],
+        pending: 0,
+        accepted: 0,
+        rejected: 0,
+      }
+
+      const totalRequired = Array.isArray(proj.rawRoles)
+        ? proj.rawRoles.reduce((sum, r) => sum + (Number(r.positions_needed) || 1), 0)
+        : 0
+
+      const totalFilled = pApps.accepted
+      const pendingApplications = pApps.pending
+      const teamMembers = pApps.accepted
+      const totalApplications = pApps.all.length
+
+      return {
+        ...proj,
+        totalRequired,
+        totalFilled,
+        pendingApplications,
+        teamMembers,
+        totalApplications,
+        applicants: pApps.all,
+      }
+    })
+  }, [createdProjects, applicationsByProject])
+
+  // Creator Summary Metrics
+  const creatorSummary = useMemo(() => {
+    const totalProjects = enrichedCreatorProjects.length
+    const openProductions = enrichedCreatorProjects.filter((p) => {
+      const s = String(p.status || '').toUpperCase()
+      return s === 'OPEN' || s === 'OPEN FOR COLLABORATION'
+    }).length
+    const pendingApplications = incomingApplications.filter(
+      (a) => String(a.status || '').toUpperCase() === 'PENDING'
+    ).length
+    const teamMembers = incomingApplications.filter(
+      (a) => String(a.status || '').toUpperCase() === 'ACCEPTED'
+    ).length
+
+    return {
+      totalProjects,
+      openProductions,
+      pendingApplications,
+      teamMembers,
+    }
+  }, [enrichedCreatorProjects, incomingApplications])
+
+  // Collaborator Summary Metrics (Exact real calculations)
+  const collaboratorSummary = useMemo(() => {
+    const totalApplications = myApplicationsList.length
+    const pendingApplications = myApplicationsList.filter(
+      (a) => a.status === 'Pending'
+    ).length
+
+    const activeProjectIds = new Set()
+    const completedProjectIds = new Set()
+
+    for (const a of myApplicationsList) {
+      if (a.status === 'Accepted') {
+        const pStatus = (a.rawProjectStatus || '').toUpperCase()
+        if (pStatus === 'COMPLETED') {
+          completedProjectIds.add(a.projectId)
+        } else {
+          activeProjectIds.add(a.projectId)
+        }
+      }
+    }
+
+    return {
+      activeProductions: activeProjectIds.size,
+      pendingApplications,
+      completedCredits: completedProjectIds.size,
+      totalApplications,
+    }
+  }, [myApplicationsList])
+
+  // Collaborator Application Filters
+  const collaboratorFilterCounts = useMemo(() => {
+    return {
+      all: myApplicationsList.length,
+      pending: myApplicationsList.filter((a) => a.status === 'Pending').length,
+      accepted: myApplicationsList.filter((a) => a.status === 'Accepted').length,
+      rejected: myApplicationsList.filter((a) => a.status === 'Rejected').length,
+    }
+  }, [myApplicationsList])
+
+  const filteredCollaboratorApplications = useMemo(() => {
+    if (collaboratorAppFilter === 'all') return myApplicationsList
+    if (collaboratorAppFilter === 'pending') return myApplicationsList.filter((a) => a.status === 'Pending')
+    if (collaboratorAppFilter === 'accepted') return myApplicationsList.filter((a) => a.status === 'Accepted')
+    if (collaboratorAppFilter === 'rejected') return myApplicationsList.filter((a) => a.status === 'Rejected')
+    return myApplicationsList
+  }, [myApplicationsList, collaboratorAppFilter])
+
+  // Creator Status filter counts & filtered projects
+  const statusFilterCounts = useMemo(() => {
+    const counts = {
+      all: enrichedCreatorProjects.length,
+      open: 0,
+      in_production: 0,
+      completed: 0,
+    }
+    for (const p of enrichedCreatorProjects) {
+      const s = String(p.status || '').toUpperCase()
+      if (s === 'OPEN' || s === 'OPEN FOR COLLABORATION') {
+        counts.open += 1
+      } else if (s === 'IN_PRODUCTION' || s === 'IN PRODUCTION') {
+        counts.in_production += 1
+      } else if (s === 'COMPLETED') {
+        counts.completed += 1
+      }
+    }
+    return counts
+  }, [enrichedCreatorProjects])
+
+  const filteredCreatorProjects = useMemo(() => {
+    if (projectStatusFilter === 'all') return enrichedCreatorProjects
+    if (projectStatusFilter === 'open') {
+      return enrichedCreatorProjects.filter((p) => {
+        const s = String(p.status || '').toUpperCase()
+        return s === 'OPEN' || s === 'OPEN FOR COLLABORATION'
+      })
+    }
+    if (projectStatusFilter === 'in_production') {
+      return enrichedCreatorProjects.filter((p) => {
+        const s = String(p.status || '').toUpperCase()
+        return s === 'IN_PRODUCTION' || s === 'IN PRODUCTION'
+      })
+    }
+    if (projectStatusFilter === 'completed') {
+      return enrichedCreatorProjects.filter((p) => {
+        const s = String(p.status || '').toUpperCase()
+        return s === 'COMPLETED'
+      })
+    }
+    return enrichedCreatorProjects
+  }, [enrichedCreatorProjects, projectStatusFilter])
 
   const handleAcceptApplication = async (appId) => {
     try {
-      const { error } = await supabase
-        .from('applications')
-        .update({ status: 'ACCEPTED' })
-        .eq('id', appId)
+      const { data: rpcRes, error: rpcErr } = await supabase.rpc('accept_project_application', {
+        p_application_id: appId,
+      })
 
-      if (error) throw error
+      if (rpcErr) {
+        throw rpcErr
+      }
 
-      const app = incomingApplications.find((a) => a.id === appId)
+      if (rpcRes && !rpcRes.success) {
+        setToast({ type: 'error', text: rpcRes.error || 'This role is already filled.' })
+        return
+      }
+
       setIncomingApplications((prev) =>
         prev.map((a) => a.id === appId ? { ...a, status: 'Accepted' } : a)
       )
       setToast({ type: 'success', text: 'Application accepted successfully!' })
-
-      // Notify the applicant
-      if (app?.applicantId) {
-        supabase.from('notifications').insert({
-          user_id: app.applicantId,
-          project_id: app.projectId,
-          message: `Your application for "${app.roleApplied}" on "${app.projectTitle}" was ACCEPTED! 🎉`,
-        }).then(() => {}).catch(() => {})
-      }
+      fetchCreatorData(false)
     } catch (err) {
       console.error('Error accepting application:', err)
       setToast({ type: 'error', text: err.message || 'Failed to accept application' })
@@ -233,27 +447,22 @@ function MyProjectsPage() {
 
   const handleRejectApplication = async (appId) => {
     try {
-      const { error } = await supabase
-        .from('applications')
-        .update({ status: 'REJECTED' })
-        .eq('id', appId)
+      const { data: rpcRes, error: rpcErr } = await supabase.rpc('reject_project_application', {
+        p_application_id: appId,
+      })
 
-      if (error) throw error
+      if (rpcErr) throw rpcErr
 
-      const app = incomingApplications.find((a) => a.id === appId)
+      if (rpcRes && !rpcRes.success) {
+        setToast({ type: 'error', text: rpcRes.error || 'Failed to reject application' })
+        return
+      }
+
       setIncomingApplications((prev) =>
         prev.map((a) => a.id === appId ? { ...a, status: 'Rejected' } : a)
       )
       setToast({ type: 'error', text: 'Application rejected' })
-
-      // Notify the applicant
-      if (app?.applicantId) {
-        supabase.from('notifications').insert({
-          user_id: app.applicantId,
-          project_id: app.projectId,
-          message: `Your application for "${app.roleApplied}" on "${app.projectTitle}" was declined.`,
-        }).then(() => {}).catch(() => {})
-      }
+      fetchCreatorData(false)
     } catch (err) {
       console.error('Error rejecting application:', err)
       setToast({ type: 'error', text: err.message || 'Failed to reject application' })
@@ -262,18 +471,16 @@ function MyProjectsPage() {
 
   if (!user) return null
 
-  // Tab order differs by role
-  const displayedApplications = isCreator ? incomingApplications : myApplicationsList
-
+  // Tabs configured by role
   const tabs = isCreator
     ? [
-        { key: 'created', label: 'Created', count: createdProjects.length },
-        { key: 'applications', label: 'Applications', count: incomingApplications.length },
-        { key: 'joined', label: 'Joined', count: joinedProjectsList.length },
+        { key: 'created', label: 'Projects', count: enrichedCreatorProjects.length },
+        { key: 'applications', label: 'Applications', count: incomingApplications.length, pendingCount: creatorSummary.pendingApplications },
+        { key: 'joined', label: 'Joined', count: 0 },
       ]
     : [
+        { key: 'joined', label: 'Joined Productions', count: joinedProductionsList.length },
         { key: 'applications', label: 'Applications', count: myApplicationsList.length },
-        { key: 'joined', label: 'Joined Projects', count: joinedProjectsList.length },
       ]
 
   return (
@@ -282,64 +489,120 @@ function MyProjectsPage() {
         {/* Page Header */}
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between mb-10 gap-4 animate-fade-in-up">
           <div>
-            {/* Role Badge */}
-            <span className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full border mb-4 ${
-              isCreator
-                ? 'text-purple-light bg-purple/10 border-purple/30'
-                : 'text-emerald-400 bg-emerald-500/10 border-emerald-500/25'
-            }`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${
-                isCreator ? 'bg-purple' : 'bg-emerald-400'
-              }`} />
-              {isCreator ? 'Creator Mode' : 'Collaborator Mode'}
-            </span>
-            <h1 className="text-4xl sm:text-5xl font-black tracking-tight mb-3">
-              {isCreator ? (
-                <>My <span className="gradient-text">Projects</span></>
-              ) : (
-                <>Collaborator <span className="gradient-text">Dashboard</span></>
-              )}
-            </h1>
-            <p className="text-white/40 text-lg max-w-xl">
-              {isCreator
-                ? 'Manage projects you are creating and track incoming applications.'
-                : 'Track your applications and films you have joined.'}
-            </p>
+            {isCreator ? (
+              <>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full border border-purple/30 bg-purple/10 text-purple-light mb-4">
+                  <span className="w-1.5 h-1.5 rounded-full bg-purple" />
+                  CREATOR WORKSPACE
+                </span>
+                <h1 className="font-['Fraunces',_serif] text-4xl sm:text-5xl font-semibold tracking-[-0.02em] leading-[1.15] mb-3 text-white">
+                  My <span className="gradient-text">Projects</span>
+                </h1>
+                <p className="text-white/45 text-base sm:text-lg max-w-xl">
+                  Manage your productions, applications, roles, and teams.
+                </p>
+              </>
+            ) : (
+              <>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full border border-purple/30 bg-purple/10 text-purple-light mb-4">
+                  <span className="w-1.5 h-1.5 rounded-full bg-purple" />
+                  COLLABORATOR WORKSPACE
+                </span>
+                <h1 className="font-['Fraunces',_serif] text-4xl sm:text-5xl font-semibold tracking-[-0.02em] leading-[1.15] mb-3 text-white">
+                  My Applications & <span className="gradient-text">Productions</span>
+                </h1>
+                <p className="text-white/45 text-base sm:text-lg max-w-xl">
+                  Track your applications, joined films, and production credits.
+                </p>
+              </>
+            )}
           </div>
+
           {isCreator ? (
             <Link
               to="/create-project"
-              id="start-new-project-btn"
-              className="inline-flex items-center gap-2 px-6 py-3.5 bg-purple text-white text-sm font-semibold rounded-full transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_30px_rgba(98,57,191,0.4)] hover:scale-[1.03] active:scale-95 shrink-0"
+              id="create-project-btn"
+              className="inline-flex items-center gap-2 px-6 py-3.5 bg-[#6239BF] text-white text-sm font-semibold rounded-full transition-all duration-300 hover:bg-[#502da8] hover:shadow-[0_0_30px_rgba(98,57,191,0.4)] hover:scale-[1.02] active:scale-95 shrink-0"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
               </svg>
-              Start New Project
+              <span>+ Create Project</span>
             </Link>
           ) : (
             <Link
               to="/explore"
               id="explore-projects-btn"
-              className="inline-flex items-center gap-2 px-6 py-3.5 bg-purple text-white text-sm font-semibold rounded-full transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_30px_rgba(98,57,191,0.4)] hover:scale-[1.03] active:scale-95 shrink-0"
+              className="inline-flex items-center gap-2 px-6 py-3.5 bg-[#6239BF] text-white text-sm font-semibold rounded-full transition-all duration-300 hover:bg-[#502da8] hover:shadow-[0_0_30px_rgba(98,57,191,0.4)] hover:scale-[1.02] active:scale-95 shrink-0"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
               </svg>
-              Explore Projects
+              <span>Explore Projects &rarr;</span>
             </Link>
           )}
         </div>
 
-        {/* Stats Row */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10 animate-fade-in-up delay-100" style={{ animationFillMode: 'both' }}>
-          <StatCard label="Projects Created" value={stats.projectsCreated} icon={<IconFilm />} />
-          <StatCard label="Projects Joined" value={stats.projectsJoined} icon={<IconUsers />} />
-          <StatCard label="Active Collaborations" value={stats.activeCollaborations} icon={<IconBolt />} />
-          <StatCard label="Completed Credits" value={stats.completedCredits} icon={<IconTrophy />} />
-        </div>
+        {/* Stats / Metrics Row */}
+        {isCreator ? (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10 animate-fade-in-up delay-100" style={{ animationFillMode: 'both' }}>
+            <CreatorMetricCard
+              label="Total Projects"
+              value={creatorSummary.totalProjects}
+              icon={<IconFilm />}
+              subtitle="Productions created"
+            />
+            <CreatorMetricCard
+              label="Open Productions"
+              value={creatorSummary.openProductions}
+              icon={<IconBolt />}
+              subtitle="Actively recruiting"
+            />
+            <CreatorMetricCard
+              label="Pending Applications"
+              value={creatorSummary.pendingApplications}
+              icon={<IconInbox />}
+              subtitle={creatorSummary.pendingApplications > 0 ? "Needs your review" : "All reviewed"}
+              highlight={creatorSummary.pendingApplications > 0}
+            />
+            <CreatorMetricCard
+              label="Team Members"
+              value={creatorSummary.teamMembers}
+              icon={<IconUsers />}
+              subtitle="Accepted collaborators"
+            />
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10 animate-fade-in-up delay-100" style={{ animationFillMode: 'both' }}>
+            <CreatorMetricCard
+              label="Active Productions"
+              value={collaboratorSummary.activeProductions}
+              icon={<IconBolt />}
+              subtitle="Joined ongoing films"
+            />
+            <CreatorMetricCard
+              label="Pending Applications"
+              value={collaboratorSummary.pendingApplications}
+              icon={<IconInbox />}
+              subtitle={collaboratorSummary.pendingApplications > 0 ? "Awaiting decision" : "All reviewed"}
+              highlight={collaboratorSummary.pendingApplications > 0}
+            />
+            <CreatorMetricCard
+              label="Completed Credits"
+              value={collaboratorSummary.completedCredits}
+              icon={<IconTrophy />}
+              subtitle="Verified film credits"
+            />
+            <CreatorMetricCard
+              label="Total Applications"
+              value={collaboratorSummary.totalApplications}
+              icon={<IconSend />}
+              subtitle="Submitted applications"
+            />
+          </div>
+        )}
 
-        {/* Tabs */}
+        {/* Tabs Header */}
         <div className="relative flex gap-1 mb-8 border-b border-white/5">
           {tabs.map((tab) => (
             <button
@@ -353,7 +616,11 @@ function MyProjectsPage() {
               {tab.label}
               {tab.count > 0 && (
                 <span className={`ml-2 text-xs px-2 py-0.5 rounded-full transition-all duration-300 ${
-                  activeTab === tab.key ? 'bg-purple/20 text-purple-light' : 'bg-white/5 text-white/30'
+                  activeTab === tab.key
+                    ? 'bg-purple/20 text-purple-light font-semibold'
+                    : isCreator && tab.key === 'applications' && tab.pendingCount > 0
+                      ? 'bg-purple/25 text-purple-light border border-purple/30 font-semibold'
+                      : 'bg-white/5 text-white/30'
                 }`}>
                   {tab.count}
                 </span>
@@ -367,15 +634,45 @@ function MyProjectsPage() {
 
         {/* Tab Content */}
         <div style={{ animation: 'fadeInUp 0.5s ease-out' }} key={activeTab}>
-          {isCreator && activeTab === 'created' && <CreatedTab projects={createdProjects} loading={loadingCreated} />}
-          {activeTab === 'joined' && <JoinedTab projects={joinedProjectsList} />}
-          {activeTab === 'applications' && (
+          {isCreator && activeTab === 'created' && (
+            <CreatorProjectsTab
+              projects={filteredCreatorProjects}
+              allProjectsCount={enrichedCreatorProjects.length}
+              loading={loadingCreated}
+              statusFilter={projectStatusFilter}
+              onFilterChange={setProjectStatusFilter}
+              statusCounts={statusFilterCounts}
+            />
+          )}
+
+          {isCreator && activeTab === 'joined' && (
+            <JoinedTab projects={[]} />
+          )}
+
+          {isCreator && activeTab === 'applications' && (
             <ApplicationsTab
-              applications={displayedApplications}
-              isCreator={isCreator}
+              applications={incomingApplications}
+              isCreator={true}
               loading={loadingApps}
               onAccept={handleAcceptApplication}
               onReject={handleRejectApplication}
+            />
+          )}
+
+          {!isCreator && activeTab === 'applications' && (
+            <CollaboratorApplicationsTab
+              applications={filteredCollaboratorApplications}
+              filter={collaboratorAppFilter}
+              onFilterChange={setCollaboratorAppFilter}
+              filterCounts={collaboratorFilterCounts}
+              loading={loadingApps}
+            />
+          )}
+
+          {!isCreator && activeTab === 'joined' && (
+            <CollaboratorJoinedTab
+              productions={joinedProductionsList}
+              loading={loadingApps}
             />
           )}
         </div>
@@ -405,23 +702,17 @@ function MyProjectsPage() {
   )
 }
 
-/* ─── Stats Card ─── */
-function StatCard({ label, value, icon }) {
-  return (
-    <div className="group bg-[#111111] border border-white/5 rounded-2xl p-5 transition-all duration-300 hover:border-white/10 hover:bg-[#141414]">
-      <div className="flex items-center gap-3 mb-3">
-        <div className="w-9 h-9 rounded-xl bg-purple/10 flex items-center justify-center text-purple transition-all duration-300 group-hover:bg-purple/15 group-hover:shadow-[0_0_12px_rgba(98,57,191,0.15)]">
-          {icon}
-        </div>
-        <span className="text-white/35 text-xs font-medium uppercase tracking-wider">{label}</span>
-      </div>
-      <p className="text-3xl font-black text-white">{value}</p>
-    </div>
-  )
-}
-
-/* ─── Created Tab ─── */
-function CreatedTab({ projects, loading }) {
+/* ═══════════════════════════════════════════ */
+/*        CREATOR PROJECTS TAB & FILTERS       */
+/* ═══════════════════════════════════════════ */
+function CreatorProjectsTab({
+  projects = [],
+  allProjectsCount = 0,
+  loading = false,
+  statusFilter = 'all',
+  onFilterChange,
+  statusCounts = {},
+}) {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -429,95 +720,252 @@ function CreatedTab({ projects, loading }) {
           <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
           <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" />
         </svg>
-        <p className="text-white/40 text-sm">Loading your created projects...</p>
+        <p className="text-white/40 text-sm">Loading your productions...</p>
       </div>
     )
   }
-  if (projects.length === 0) {
+
+  if (allProjectsCount === 0) {
     return (
       <EmptyState
         icon={<IconFilm />}
-        title="You haven't created a project yet."
-        subtitle="Bring your vision to life — start your first film project on FrameWork."
-        btnLabel="Start Your First Project"
+        title="No Productions Created Yet"
+        subtitle="Start your first film project, list roles, and assemble your crew."
+        btnLabel="+ Create Your First Project"
         btnLink="/create-project"
       />
     )
   }
+
+  const filters = [
+    { key: 'all', label: 'All', count: statusCounts.all || 0 },
+    { key: 'open', label: 'Open', count: statusCounts.open || 0 },
+    { key: 'in_production', label: 'In Production', count: statusCounts.in_production || 0 },
+    { key: 'completed', label: 'Completed', count: statusCounts.completed || 0 },
+  ]
+
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-      {projects.map((p) => <CreatedCard key={p.id} project={p} />)}
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center gap-2 pb-2">
+        {filters.map((f) => (
+          <button
+            key={f.key}
+            type="button"
+            id={`filter-${f.key}`}
+            onClick={() => onFilterChange(f.key)}
+            className={`px-3.5 py-1.5 text-xs font-semibold rounded-full border transition-all duration-200 ${
+              statusFilter === f.key
+                ? 'bg-purple text-white border-purple shadow-[0_0_15px_rgba(98,57,191,0.3)]'
+                : 'bg-white/[0.04] border-white/10 text-white/50 hover:border-purple/30 hover:text-white/80'
+            }`}
+          >
+            <span>{f.label}</span>
+            <span className={`ml-1.5 px-1.5 py-0.2 rounded-full text-[10px] ${
+              statusFilter === f.key ? 'bg-white/20 text-white' : 'bg-white/5 text-white/40'
+            }`}>
+              {f.count}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {projects.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {projects.map((p) => (
+            <CreatorProjectCard key={p.id} project={p} />
+          ))}
+        </div>
+      ) : (
+        <div className="py-16 text-center border border-white/5 border-dashed rounded-2xl bg-white/[0.01]">
+          <p className="text-white/40 text-sm mb-1">
+            No {statusFilter.replace('_', ' ')} productions found.
+          </p>
+          <p className="text-white/25 text-xs">
+            Try selecting a different status filter above.
+          </p>
+        </div>
+      )}
     </div>
   )
 }
 
-function CreatedCard({ project }) {
-  const isActive = project.status === 'Open' || project.status === 'In Production'
+/* ═══════════════════════════════════════════ */
+/*      COLLABORATOR APPLICATIONS TAB          */
+/* ═══════════════════════════════════════════ */
+function CollaboratorApplicationsTab({
+  applications = [],
+  filter = 'all',
+  onFilterChange,
+  filterCounts,
+  loading = false,
+}) {
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <svg className="w-10 h-10 text-purple animate-spin mb-4" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
+          <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" />
+        </svg>
+        <p className="text-white/40 text-sm">Loading your applications...</p>
+      </div>
+    )
+  }
+
+  const filters = [
+    { key: 'all', label: 'All', count: filterCounts.all },
+    { key: 'pending', label: 'Pending', count: filterCounts.pending },
+    { key: 'accepted', label: 'Accepted', count: filterCounts.accepted },
+    { key: 'rejected', label: 'Rejected', count: filterCounts.rejected },
+  ]
+
   return (
-    <div className={`group bg-[#111111] border border-white/5 rounded-2xl overflow-hidden transition-all duration-500 hover:translate-y-[-4px] hover:shadow-[0_12px_40px_rgba(0,0,0,0.5)] ${isActive ? 'hover:border-purple/25 hover:shadow-[0_12px_40px_rgba(98,57,191,0.1)]' : 'hover:border-white/10'}`}>
-      {/* Poster */}
-      <div className="relative h-44 overflow-hidden">
-        <img src={project.thumbnail} alt={project.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#111111] via-black/40 to-transparent" />
-        <span className="absolute top-3 left-3 px-3 py-1 text-xs font-semibold bg-white/10 backdrop-blur-sm rounded-full border border-white/10">
-          {project.genre}
-        </span>
-        <span className={`absolute top-3 right-3 px-2.5 py-1 text-[10px] font-bold backdrop-blur-sm rounded-full border ${STATUS_STYLES[project.status] || STATUS_STYLES['Open']}`}>
-          {project.status === 'Open' ? 'Open for Collaboration' : project.status}
-        </span>
+    <div className="space-y-6">
+      {/* Filter Chips Bar */}
+      <div className="flex flex-wrap items-center gap-2 pb-1">
+        {filters.map((f) => (
+          <button
+            key={f.key}
+            type="button"
+            id={`filter-${f.key}`}
+            onClick={() => onFilterChange(f.key)}
+            className={`px-3.5 py-1.5 text-xs font-semibold rounded-full border transition-all duration-200 ${
+              filter === f.key
+                ? 'bg-purple text-white border-purple shadow-[0_0_15px_rgba(98,57,191,0.3)]'
+                : 'bg-white/[0.04] border-white/10 text-white/50 hover:border-purple/30 hover:text-white/80'
+            }`}
+          >
+            <span>{f.label}</span>
+            <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] ${
+              filter === f.key ? 'bg-white/20 text-white' : 'bg-white/5 text-white/40'
+            }`}>
+              {f.count}
+            </span>
+          </button>
+        ))}
       </div>
 
-      {/* Content */}
-      <div className="p-5">
-        <h3 className="font-['DM_Serif_Display'] text-lg font-normal mb-2 group-hover:text-purple-light transition-colors duration-300">
-          {project.title}
-        </h3>
-
-        {/* Meta */}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-white/35 text-xs mb-4">
-          <span className="flex items-center gap-1">
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-            {project.location}
-          </span>
-          <span className="flex items-center gap-1">
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2" /><circle cx="12" cy="12" r="10" /></svg>
-            {project.date}
-          </span>
+      {/* Applications Grid or Contextual Empty State */}
+      {applications.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
+          {applications.map((app) => (
+            <CollaboratorApplicationCard key={app.id} application={app} />
+          ))}
         </div>
-
-        {/* Counts */}
-        <div className="flex items-center gap-4 mb-5">
-          <span className="flex items-center gap-1.5 text-xs text-white/40">
-            <svg className="w-4 h-4 text-purple/60" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>
-            {project.applicants?.length || 0} Applications
-          </span>
-          <span className="flex items-center gap-1.5 text-xs text-white/40">
-            <svg className="w-4 h-4 text-purple/60" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" /></svg>
-            {project.applicants?.filter((a) => a.status === 'accepted').length || 0} Team
-          </span>
+      ) : (
+        <div className="py-16 text-center border border-white/5 border-dashed rounded-2xl bg-white/[0.01]">
+          <div className="w-14 h-14 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-center mx-auto mb-4 text-white/20">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+            </svg>
+          </div>
+          <h3 className="text-base font-bold text-white/80 mb-1">
+            {filter === 'all'
+              ? 'No applications yet.'
+              : filter === 'pending'
+              ? 'No pending applications.'
+              : filter === 'accepted'
+              ? 'No accepted applications yet.'
+              : 'No rejected applications.'}
+          </h3>
+          <p className="text-white/35 text-xs mb-6 max-w-sm mx-auto">
+            {filter === 'all'
+              ? 'Find a film project that matches your craft skills and apply to join the crew.'
+              : filter === 'pending'
+              ? 'You have no applications awaiting creator decision at this time.'
+              : filter === 'accepted'
+              ? 'When a filmmaker accepts your application, it will appear here.'
+              : 'None of your submitted applications have been declined.'}
+          </p>
+          {filter === 'all' && (
+            <Link
+              to="/explore"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#6239BF] text-white text-xs font-semibold rounded-full transition-all duration-300 hover:bg-[#502da8] hover:shadow-[0_0_20px_rgba(98,57,191,0.3)]"
+            >
+              Explore Projects &rarr;
+            </Link>
+          )}
         </div>
-
-        {/* Actions */}
-        <div className="flex gap-3">
-          <Link
-            to={`/project/${project.id}`}
-            className="flex-1 py-2.5 text-sm font-semibold bg-purple text-white rounded-xl text-center transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_20px_rgba(98,57,191,0.3)] hover:scale-[1.02] active:scale-95"
-          >
-            Manage Project
-          </Link>
-          <Link
-            to={`/project/${project.id}`}
-            className="flex-1 py-2.5 text-sm font-medium border border-white/10 text-white/60 rounded-xl text-center transition-all duration-300 hover:border-white/20 hover:text-white hover:bg-white/5 hover:scale-[1.02] active:scale-95"
-          >
-            View Project
-          </Link>
-        </div>
-      </div>
+      )}
     </div>
   )
 }
 
-/* ─── Joined Tab ─── */
+/* ═══════════════════════════════════════════ */
+/*        COLLABORATOR JOINED TAB              */
+/* ═══════════════════════════════════════════ */
+function CollaboratorJoinedTab({ productions = [], loading = false }) {
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <svg className="w-10 h-10 text-purple animate-spin mb-4" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
+          <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" />
+        </svg>
+        <p className="text-white/40 text-sm">Loading joined productions...</p>
+      </div>
+    )
+  }
+
+  if (productions.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center border border-white/5 border-dashed rounded-2xl bg-white/[0.01]">
+        <div className="w-16 h-16 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-center mb-5 text-white/20">
+          <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+          </svg>
+        </div>
+        <h3 className="text-xl font-bold text-white/80 mb-2">No joined productions yet.</h3>
+        <p className="text-white/40 text-sm mb-6 max-w-md">
+          Accepted projects will appear here when you join a film team.
+        </p>
+        <Link
+          to="/explore"
+          className="inline-flex items-center gap-2 px-6 py-3 bg-[#6239BF] text-white text-xs font-semibold rounded-full transition-all duration-300 hover:bg-[#502da8] hover:shadow-[0_0_25px_rgba(98,57,191,0.35)]"
+        >
+          Explore Projects &rarr;
+        </Link>
+      </div>
+    )
+  }
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
+      {productions.map((p) => (
+        <JoinedProductionCard key={p.applicationId} production={p} />
+      ))}
+    </div>
+  )
+}
+
+/* ─── Metric Card (Shared for Creator & Collaborator) ─── */
+function CreatorMetricCard({ label, value, icon, subtitle, highlight = false }) {
+  return (
+    <div className={`group bg-[#111116] border rounded-2xl p-5 transition-all duration-300 ${
+      highlight
+        ? 'border-purple/40 shadow-[0_0_24px_rgba(98,57,191,0.15)] bg-gradient-to-b from-[#161224] to-[#111116]'
+        : 'border-white/[0.08] hover:border-white/[0.15]'
+    }`}>
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <span className="text-white/45 text-[11px] font-semibold uppercase tracking-wider">{label}</span>
+        <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-300 ${
+          highlight
+            ? 'bg-purple/25 text-purple-light'
+            : 'bg-white/[0.04] text-white/50 group-hover:text-purple group-hover:bg-purple/10'
+        }`}>
+          {icon}
+        </div>
+      </div>
+      <p className="text-3xl font-black text-white tracking-tight">{value}</p>
+      {subtitle && (
+        <p className={`text-[11px] mt-1 font-medium ${highlight ? 'text-purple-light/70' : 'text-white/35'}`}>
+          {subtitle}
+        </p>
+      )}
+    </div>
+  )
+}
+
+/* ─── Creator Joined Tab (if Creator visits joined) ─── */
 function JoinedTab({ projects = [] }) {
   if (projects.length === 0) {
     return (
@@ -533,29 +981,19 @@ function JoinedTab({ projects = [] }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
       {projects.map((p) => (
-        <div key={p.id} className="group bg-[#111111] border border-white/5 rounded-2xl overflow-hidden transition-all duration-500 hover:translate-y-[-4px] hover:shadow-[0_12px_40px_rgba(0,0,0,0.5)] hover:border-white/10">
+        <div key={p.id} className="group bg-[#111116] border border-white/5 rounded-2xl overflow-hidden transition-all duration-500 hover:translate-y-[-4px] hover:shadow-[0_12px_40px_rgba(0,0,0,0.5)] hover:border-white/10">
           <div className="relative h-40 overflow-hidden">
             <img src={p.poster} alt={p.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#111111] via-black/40 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#111116] via-black/40 to-transparent" />
             <span className={`absolute top-3 right-3 px-2.5 py-1 text-[10px] font-bold backdrop-blur-sm rounded-full border ${STATUS_STYLES[p.status] || STATUS_STYLES['Open']}`}>
               {p.status}
             </span>
           </div>
           <div className="p-5">
-            <h3 className="font-['DM_Serif_Display'] text-lg font-normal mb-1 group-hover:text-purple-light transition-colors">{p.title}</h3>
+            <h3 className="font-['Fraunces',_serif] text-lg font-semibold mb-1 group-hover:text-purple-light transition-colors">{p.title}</h3>
             <div className="flex items-center gap-2 mb-3">
               <span className="px-2.5 py-1 text-xs font-semibold bg-purple/15 border border-purple/30 text-purple-light rounded-full">
                 {p.role}
-              </span>
-            </div>
-            <div className="flex flex-col gap-1 text-xs text-white/35">
-              <span className="flex items-center gap-1.5">
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0" /></svg>
-                Created by <span className="text-white/60 font-medium">{p.creatorName}</span>
-              </span>
-              <span className="flex items-center gap-1.5">
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                {p.location}
               </span>
             </div>
             <Link
@@ -571,7 +1009,7 @@ function JoinedTab({ projects = [] }) {
   )
 }
 
-/* ─── Applications Tab ─── */
+/* ─── Creator Applications Tab ─── */
 function ApplicationsTab({ applications = [], isCreator = false, loading = false, onAccept, onReject }) {
   if (loading) {
     return (
@@ -583,6 +1021,27 @@ function ApplicationsTab({ applications = [], isCreator = false, loading = false
         <p className="text-white/40 text-sm">Loading applications...</p>
       </div>
     )
+  }
+
+  const handleViewApplicantResume = async (resumePath) => {
+    if (!resumePath) return
+    try {
+      let cleanPath = resumePath
+      if (cleanPath.includes('/resumes/')) cleanPath = cleanPath.split('/resumes/')[1]
+      if (cleanPath.includes('?')) cleanPath = cleanPath.split('?')[0]
+
+      const { data, error } = await supabase.storage
+        .from('resumes')
+        .createSignedUrl(cleanPath, 120)
+
+      if (!error && data?.signedUrl) {
+        window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
+      } else {
+        console.error('Error generating signed URL for applicant resume:', error)
+      }
+    } catch (err) {
+      console.error('Error viewing applicant resume:', err)
+    }
   }
 
   if (applications.length === 0) {
@@ -597,117 +1056,81 @@ function ApplicationsTab({ applications = [], isCreator = false, loading = false
     )
   }
 
-  // Creator incoming applications layout
-  if (isCreator) {
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {applications.map((app) => (
-          <div key={app.id} className="bg-[#111111] border border-white/5 rounded-2xl p-6 transition-all duration-300 hover:border-white/10 flex flex-col justify-between">
-            <div>
-              {/* Header: Applicant info + Status */}
-              <div className="flex items-start justify-between gap-3 mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-purple/15 border border-purple/25 flex items-center justify-center overflow-hidden shrink-0">
-                    {app.applicantAvatar ? (
-                      <img src={app.applicantAvatar} alt={app.applicantName} className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-sm font-bold text-purple">{app.applicantName.charAt(0)}</span>
-                    )}
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-base text-white">{app.applicantName}</h3>
-                    <p className="text-white/40 text-xs">{app.applicantLocation}</p>
-                  </div>
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {applications.map((app) => (
+        <div key={app.id} className="bg-[#111116] border border-white/5 rounded-2xl p-6 transition-all duration-300 hover:border-white/10 flex flex-col justify-between">
+          <div>
+            {/* Header: Applicant info + Status */}
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-purple/15 border border-purple/25 flex items-center justify-center overflow-hidden shrink-0">
+                  {app.applicantAvatar ? (
+                    <img src={app.applicantAvatar} alt={app.applicantName} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-sm font-bold text-purple">{app.applicantName.charAt(0)}</span>
+                  )}
                 </div>
-                <span className={`px-2.5 py-1 text-[10px] font-bold backdrop-blur-sm rounded-full border ${APP_STATUS[app.status] || APP_STATUS['Pending']}`}>
-                  {app.status}
-                </span>
+                <div>
+                  <h3 className="font-bold text-base text-white">{app.applicantName}</h3>
+                  <p className="text-white/40 text-xs">{app.applicantLocation}</p>
+                </div>
               </div>
-
-              {/* Application details */}
-              <div className="space-y-2 mb-4">
-                <div className="flex items-center gap-2 text-xs">
-                  <span className="text-white/40">Role applied:</span>
-                  <span className="font-semibold text-purple-light bg-purple/10 px-2 py-0.5 rounded border border-purple/20">
-                    {app.roleApplied}
-                  </span>
-                </div>
-                <div className="text-xs text-white/40">
-                  Project: <Link to={`/project/${app.projectId}`} className="text-white hover:text-purple-light transition-colors font-medium">{app.projectTitle}</Link>
-                </div>
-                {app.message && (
-                  <div className="bg-white/[0.02] border border-white/5 rounded-xl p-3 text-xs text-white/60 leading-relaxed italic">
-                    "{app.message}"
-                  </div>
-                )}
-              </div>
+              <span className={`px-2.5 py-1 text-[10px] font-bold backdrop-blur-sm rounded-full border ${APP_STATUS[app.status] || APP_STATUS['Pending']}`}>
+                {app.status}
+              </span>
             </div>
 
-            {/* Actions / Links */}
-            <div>
-              <div className="flex items-center justify-between text-xs text-white/30 pt-3 border-t border-white/5 mb-4">
-                <span>Applied {app.dateApplied}</span>
-                {app.applicantResume && (
-                  <a
-                    href={app.applicantResume}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-purple-light hover:text-purple transition-colors font-medium flex items-center gap-1"
-                  >
-                    View Resume &rarr;
-                  </a>
-                )}
+            {/* Application details */}
+            <div className="space-y-2 mb-4">
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-white/40">Role applied:</span>
+                <span className="font-semibold text-purple-light bg-purple/10 px-2 py-0.5 rounded border border-purple/20">
+                  {app.roleApplied}
+                </span>
               </div>
-
-              {app.status === 'Pending' && (
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => onAccept && onAccept(app.id)}
-                    className="flex-1 py-2 text-xs font-semibold bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg transition-all duration-300 hover:bg-emerald-500/20 hover:border-emerald-500/40 hover:scale-[1.02] active:scale-[0.98]"
-                  >
-                    Accept
-                  </button>
-                  <button
-                    onClick={() => onReject && onReject(app.id)}
-                    className="flex-1 py-2 text-xs font-semibold bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg transition-all duration-300 hover:bg-red-500/20 hover:border-red-500/40 hover:scale-[1.02] active:scale-[0.98]"
-                  >
-                    Reject
-                  </button>
+              <div className="text-xs text-white/40">
+                Project: <Link to={`/project/${app.projectId}`} className="text-white hover:text-purple-light transition-colors font-medium">{app.projectTitle}</Link>
+              </div>
+              {app.message && (
+                <div className="bg-white/[0.02] border border-white/5 rounded-xl p-3 text-xs text-white/60 leading-relaxed italic">
+                  "{app.message}"
                 </div>
               )}
             </div>
           </div>
-        ))}
-      </div>
-    )
-  }
 
-  // Collaborator sent applications layout
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-      {applications.map((app) => (
-        <div key={app.id} className={`group bg-[#111111] border rounded-2xl overflow-hidden transition-all duration-500 hover:translate-y-[-4px] hover:shadow-[0_12px_40px_rgba(0,0,0,0.5)] ${app.status === 'Rejected' ? 'border-white/5 opacity-60 hover:opacity-80' : 'border-white/5 hover:border-white/10'}`}>
-          <div className="relative h-36 overflow-hidden">
-            <img src={app.poster} alt={app.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#111111] via-black/40 to-transparent" />
-            <span className={`absolute top-3 right-3 px-2.5 py-1 text-[10px] font-bold backdrop-blur-sm rounded-full border ${APP_STATUS[app.status]}`}>
-              {app.status}
-            </span>
-          </div>
-          <div className="p-5">
-            <h3 className="font-['DM_Serif_Display'] text-base font-normal mb-2 group-hover:text-purple-light transition-colors">{app.title}</h3>
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-medium text-white/50">
-                Applied as <span className="text-purple-light">{app.roleApplied}</span>
-              </span>
-              <span className="text-xs text-white/25">{app.dateApplied}</span>
+          {/* Actions / Links */}
+          <div>
+            <div className="flex items-center justify-between text-xs text-white/30 pt-3 border-t border-white/5 mb-4">
+              <span>Applied {app.dateApplied}</span>
+              {app.applicantResume && (
+                <button
+                  type="button"
+                  onClick={() => handleViewApplicantResume(app.applicantResume)}
+                  className="text-purple-light hover:text-purple transition-colors font-medium flex items-center gap-1 cursor-pointer"
+                >
+                  View Resume &rarr;
+                </button>
+              )}
             </div>
-            <Link
-              to={`/project/${app.projectId}`}
-              className="block w-full py-2.5 text-sm font-medium border border-white/10 text-white/60 rounded-xl text-center transition-all duration-300 hover:border-purple/30 hover:text-white hover:bg-purple/5 hover:scale-[1.02] active:scale-95"
-            >
-              View Project
-            </Link>
+
+            {app.status === 'Pending' && (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => onAccept && onAccept(app.id)}
+                  className="flex-1 py-2 text-xs font-semibold bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg transition-all duration-300 hover:bg-emerald-500/20 hover:border-emerald-500/40 hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  Accept
+                </button>
+                <button
+                  onClick={() => onReject && onReject(app.id)}
+                  className="flex-1 py-2 text-xs font-semibold bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg transition-all duration-300 hover:bg-red-500/20 hover:border-red-500/40 hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  Reject
+                </button>
+              </div>
+            )}
           </div>
         </div>
       ))}
@@ -715,7 +1138,7 @@ function ApplicationsTab({ applications = [], isCreator = false, loading = false
   )
 }
 
-/* ─── Empty State ─── */
+/* ─── Shared Empty State ─── */
 function EmptyState({ icon, title, subtitle, btnLabel, btnLink }) {
   return (
     <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -748,7 +1171,14 @@ function IconTrophy() {
   return <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M18.75 4.236c.982.143 1.954.317 2.916.52A6.003 6.003 0 0116.27 9.728M18.75 4.236V4.5c0 2.108-.966 3.99-2.48 5.228m0 0a6.023 6.023 0 01-2.77.852m0 0a6.023 6.023 0 01-2.77-.852" /></svg>
 }
 function IconSend() {
-  return <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" /></svg>
+  return <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" /></svg>
+}
+function IconInbox() {
+  return (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 13.5h3.86a2.25 2.25 0 012.012 1.244l.256.512a2.25 2.25 0 002.013 1.244h3.218a2.25 2.25 0 002.013-1.244l.256-.512a2.25 2.25 0 012.013-1.244h3.859m-19.5.375v4.875a2.625 2.625 0 002.625 2.625h14.25a2.625 2.625 0 002.625-2.625v-4.875m-19.5 0A2.25 2.25 0 014.5 12h15a2.25 2.25 0 012.25 2.25" />
+    </svg>
+  )
 }
 
 export default MyProjectsPage

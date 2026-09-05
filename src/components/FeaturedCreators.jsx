@@ -49,17 +49,17 @@ function FeaturedCreators() {
   }, [])
 
   return (
-    <section id="creators" className="relative py-28 px-6">
+    <section id="creators" className="relative pt-16 md:pt-24 pb-12 md:pb-14 px-6">
       {/* Subtle top divider */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
 
       <div className="max-w-6xl mx-auto">
         {/* Section Header */}
-        <div className="text-center mb-16 reveal opacity-0 translate-y-8 transition-all duration-700 [&.is-visible]:opacity-100 [&.is-visible]:translate-y-0">
+        <div className="text-center mb-12 md:mb-14 reveal opacity-0 translate-y-8 transition-all duration-700 [&.is-visible]:opacity-100 [&.is-visible]:translate-y-0">
           <span className="inline-block text-purple text-sm font-semibold tracking-widest uppercase mb-4">
             Featured Creators
           </span>
-          <h2 className="font-['DM_Serif_Display'] text-4xl sm:text-5xl font-normal tracking-tight">
+          <h2 className="font-['Fraunces',_serif] text-4xl sm:text-5xl font-semibold tracking-[-0.02em] leading-[1.15]">
             Meet the Talent
           </h2>
         </div>
@@ -90,7 +90,7 @@ function FeaturedCreators() {
                   </div>
 
                   {/* Info */}
-                  <h3 className="font-['DM_Serif_Display'] text-lg font-normal mb-1 transition-colors duration-300 group-hover:text-purple-light">
+                  <h3 className="font-['Fraunces',_serif] text-lg font-semibold mb-1 transition-colors duration-300 group-hover:text-purple-light">
                     {creator.name}
                   </h3>
                   <p className="text-white/40 text-sm mb-1">{creator.role}</p>

@@ -57,18 +57,18 @@ function LoginPage() {
         <div className="bg-[#111111] rounded-2xl p-8 sm:p-10 border border-white/5 shadow-[0_8px_40px_rgba(0,0,0,0.5)]">
           {/* Header */}
           <div className="text-center mb-8">
-            <Link to="/" className="inline-flex items-center gap-2 mb-6">
-              <div className="w-8 h-8 bg-purple rounded-lg flex items-center justify-center">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polygon points="23 7 16 12 23 17 23 7" />
-                  <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-                </svg>
-              </div>
+            <Link to="/" className="inline-flex items-center gap-2.5 mb-6 group">
+              <img
+                src="/images/framework-logo.png"
+                alt=""
+                aria-hidden="true"
+                className="h-9 sm:h-10 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
+              />
               <span className="text-xl font-bold tracking-tight">
                 Frame<span className="text-purple">Work</span>
               </span>
             </Link>
-            <h1 className="text-2xl font-bold mb-2">Welcome Back</h1>
+            <h1 className="font-['Fraunces',_serif] text-2xl sm:text-3xl font-semibold tracking-[-0.02em] mb-2">Welcome Back</h1>
             <p className="text-white/40 text-sm">Sign in to continue your filmmaking journey</p>
           </div>
 
