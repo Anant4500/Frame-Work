@@ -31,18 +31,5 @@ export const STATUS_COLORS = {
   'Open': 'border-purple text-purple-light bg-purple/10',
   'In Production': 'border-amber-500/60 text-amber-400 bg-amber-500/10',
   'Completed': 'border-emerald-500/60 text-emerald-400 bg-emerald-500/10',
-}
-
-export const ROLE_ICONS = {
-  'Actor': '🎭',
-  'Editor': '✂️',
-  'Sound Designer': '🎧',
-  'Cinematographer': '📷',
-  'VFX Artist': '✨',
-  'Director': '🎬',
-  'Writer': '✍️',
-  'DOP': '📹',
-  'Composer': '🎵',
-  'Stunt Coordinator': '🤸',
-  'Producer': '🎞️',
+  'Closed': 'border-white/20 text-white/60 bg-white/5',
 }

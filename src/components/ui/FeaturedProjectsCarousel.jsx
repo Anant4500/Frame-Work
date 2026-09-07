@@ -26,7 +26,6 @@ function getDims(width) {
       dropY: 18,
       rotateDeg: 5,
       scaleStep: 0.08,
-      dragDistance: 170,
     }
   }
   if (width < 1024) {
@@ -38,7 +37,6 @@ function getDims(width) {
       dropY: 26,
       rotateDeg: 7,
       scaleStep: 0.09,
-      dragDistance: 210,
     }
   }
   // Desktop
@@ -49,7 +47,6 @@ function getDims(width) {
     dropY: 34,
     rotateDeg: 9,
     scaleStep: 0.10,
-    dragDistance: 240,
   }
 }
 
@@ -148,6 +145,8 @@ function CarouselCard({ project, index, totalProjects, scrollProgress, dims, onC
         src={project.thumbnail || '/images/hero-bg.png'}
         alt={project.title || 'Project poster'}
         draggable={false}
+        loading="lazy"
+        decoding="async"
         className={`absolute inset-0 w-full h-full object-cover transition-transform duration-500 ease-out pointer-events-none select-none ${
           isActive ? 'group-hover:scale-[1.025]' : ''
         }`}
@@ -186,7 +185,7 @@ function CarouselCard({ project, index, totalProjects, scrollProgress, dims, onC
         {/* Title with subtle vertical accent */}
         <div className="flex items-start gap-2 mb-1">
           <div className="w-0.5 min-h-[18px] rounded-full bg-[#6239BF] mt-1 flex-shrink-0" />
-          <h3 className="font-['Fraunces',_serif] text-base sm:text-lg md:text-[21px] font-semibold text-white leading-snug line-clamp-2 transition-colors duration-300 group-hover:text-purple-light">
+          <h3 className="font-['Bebas_Neue',_sans-serif] text-xl sm:text-2xl md:text-[26px] font-normal text-white leading-tight tracking-wide line-clamp-2 transition-colors duration-300 group-hover:text-purple-light">
             {project.title}
           </h3>
         </div>
@@ -195,12 +194,12 @@ function CarouselCard({ project, index, totalProjects, scrollProgress, dims, onC
         <div className="flex items-center gap-2 text-[11px] sm:text-xs text-white/50 pl-2.5 mb-2">
           {project.creatorName && (
             <>
-              <span className="font-['Inter'] text-white/60 truncate max-w-[110px]">by {project.creatorName}</span>
+              <span className="text-white/60 truncate max-w-[110px]">by {project.creatorName}</span>
               <span className="text-white/20">•</span>
             </>
           )}
           {project.location && (
-            <span className="flex items-center gap-1 font-['Inter'] truncate">
+            <span className="flex items-center gap-1 truncate">
               <svg className="w-3 h-3 text-white/40 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -213,10 +212,10 @@ function CarouselCard({ project, index, totalProjects, scrollProgress, dims, onC
         {/* Roles Needed (compact line) */}
         {rolesString && (
           <div className="pl-2.5 mb-2.5">
-            <span className="block font-['Inter'] text-[9px] uppercase tracking-wider text-white/40 font-semibold mb-0.5">
+            <span className="block text-[9px] uppercase tracking-wider text-white/40 font-semibold mb-0.5">
               ROLES NEEDED
             </span>
-            <p className="font-['Inter'] text-[11px] text-white/70 truncate">
+            <p className="text-[11px] text-white/70 truncate">
               {rolesString}
             </p>
           </div>

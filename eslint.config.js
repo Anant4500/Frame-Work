@@ -23,7 +23,17 @@ export default defineConfig([
       },
     },
     rules: {
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      // Core ESLint no-unused-vars does not recognize JSX member expressions (<motion.div>)
+      // without eslint-plugin-react. Allow 'motion' alongside standard PascalCase components.
+      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]|motion$' }],
+
+      // eslint-plugin-react-hooks v7 includes React Compiler rules in its flat recommended preset.
+      // FrameWork uses standard React 19 without babel-plugin-react-compiler (@vitejs/plugin-react).
+      // Intentional manual memoization (e.g. narrowing callback deps to [user?.id]) and effect-driven
+      // synchronization (e.g. route transitions, modal resets) are standard in non-compiler React.
+      // Disable compiler-specific rules while preserving 'rules-of-hooks' and 'exhaustive-deps'.
+      'react-hooks/preserve-manual-memoization': 'off',
+      'react-hooks/set-state-in-effect': 'off',
     },
   },
 ])

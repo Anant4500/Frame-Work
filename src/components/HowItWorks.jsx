@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useAuth } from '../context/useAuth'
 
 const flowchartSteps = [
   {
@@ -20,6 +21,7 @@ const flowchartSteps = [
 ]
 
 function HowItWorks() {
+  const { user } = useAuth()
   return (
     <section id="how-it-works" className="relative py-12 md:py-16 px-6 overflow-hidden">
       {/* ── Section Background Stack ── */}
@@ -70,68 +72,6 @@ function HowItWorks() {
         }}
       />
 
-      {/* Layer 5a: Filmstrip — Left Edge */}
-      <div
-        className="howitworks-filmstrip absolute top-0 bottom-0 left-0 pointer-events-none hidden md:block"
-        aria-hidden="true"
-        style={{ width: '40px', zIndex: 3 }}
-      >
-        <div
-          className="absolute top-0 bottom-0 right-0"
-          style={{ width: '1px', background: 'rgba(255, 255, 255, 0.04)' }}
-        />
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage: `repeating-linear-gradient(
-              to bottom,
-              transparent 0px,
-              transparent 5px,
-              rgba(98, 57, 191, 0.12) 5px,
-              rgba(98, 57, 191, 0.12) 15px,
-              transparent 15px,
-              transparent 26px
-            )`,
-            backgroundSize: '6px 26px',
-            backgroundPosition: 'center top',
-            backgroundRepeat: 'repeat-y',
-            maskImage: 'linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%)',
-            WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%)',
-          }}
-        />
-      </div>
-
-      {/* Layer 5b: Filmstrip — Right Edge */}
-      <div
-        className="howitworks-filmstrip absolute top-0 bottom-0 right-0 pointer-events-none hidden md:block"
-        aria-hidden="true"
-        style={{ width: '40px', zIndex: 3 }}
-      >
-        <div
-          className="absolute top-0 bottom-0 left-0"
-          style={{ width: '1px', background: 'rgba(255, 255, 255, 0.04)' }}
-        />
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage: `repeating-linear-gradient(
-              to bottom,
-              transparent 0px,
-              transparent 5px,
-              rgba(98, 57, 191, 0.12) 5px,
-              rgba(98, 57, 191, 0.12) 15px,
-              transparent 15px,
-              transparent 26px
-            )`,
-            backgroundSize: '6px 26px',
-            backgroundPosition: 'center top',
-            backgroundRepeat: 'repeat-y',
-            maskImage: 'linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%)',
-            WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 18%, black 82%, transparent 100%)',
-          }}
-        />
-      </div>
-
       {/* Layer 6: Bottom transition to next section */}
       <div
         className="absolute bottom-0 left-0 right-0 pointer-events-none"
@@ -148,14 +88,14 @@ function HowItWorks() {
 
       <div className="relative z-10 max-w-6xl mx-auto">
         {/* Section Header */}
-        <div className="text-center mb-8 sm:mb-9 reveal opacity-0 translate-y-8 transition-all duration-700 [&.is-visible]:opacity-100 [&.is-visible]:translate-y-0">
+        <div className="text-center mb-8 sm:mb-9 reveal">
           <span className="inline-block text-purple text-xs sm:text-sm font-semibold tracking-widest uppercase mb-2 sm:mb-2.5">
             How FrameWork Works
           </span>
-          <h2 className="font-['Fraunces',_serif] text-3xl sm:text-4xl font-normal leading-[1.15] tracking-tight text-white mb-3 sm:mb-3.5">
+          <h2 className="font-['Bebas_Neue',_sans-serif] text-4xl sm:text-5xl font-normal leading-tight tracking-wide text-white mb-3 sm:mb-3.5">
             From Idea to Film.
           </h2>
-          <p className="font-['Inter'] text-sm sm:text-[15px] text-white/50 max-w-xl mx-auto leading-relaxed">
+          <p className="text-sm sm:text-[15px] text-white/50 max-w-xl mx-auto leading-relaxed">
             FrameWork helps stories find the right people — from posting a project to building a crew and making the film.
           </p>
         </div>
@@ -163,12 +103,12 @@ function HowItWorks() {
         {/* Main 40/60 Asymmetric Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-[40%_60%] gap-8 lg:gap-12 items-center">
           {/* LEFT: Vertical 3-Step Flowchart */}
-          <div className="reveal opacity-0 translate-y-8 transition-all duration-700 [&.is-visible]:opacity-100 [&.is-visible]:translate-y-0">
+          <div className="reveal">
             <div className="space-y-6 sm:space-y-7 pl-1 sm:pl-2">
               {flowchartSteps.map((step, idx) => (
                 <div key={step.number} className="relative flex items-start gap-3.5 sm:gap-4">
                   {/* Step Number */}
-                  <span className="font-['Inter'] text-xs font-semibold text-white/40 tracking-wider pt-0.5 w-5 text-right flex-shrink-0">
+                  <span className="font-['Bebas_Neue',_sans-serif] text-sm font-normal text-white/50 tracking-widest pt-0.5 w-5 text-right flex-shrink-0">
                     {step.number}
                   </span>
 
@@ -192,7 +132,7 @@ function HowItWorks() {
                   {/* Step Content */}
                   <div className="flex-1 relative -mt-0.5 pb-1">
                     <div className="flex items-center gap-2.5">
-                      <h3 className="font-['Fraunces',_serif] text-base sm:text-[22px] font-medium leading-snug text-white mb-1">
+                      <h3 className="font-['Bebas_Neue',_sans-serif] text-xl sm:text-2xl font-normal leading-tight tracking-wide text-white mb-1">
                         {step.title}
                       </h3>
                       {/* Subtle horizontal connector from step 02 toward right panel */}
@@ -205,7 +145,7 @@ function HowItWorks() {
                         />
                       )}
                     </div>
-                    <p className="font-['Inter'] text-sm sm:text-[14.5px] text-white/50 leading-[1.5] max-w-xs sm:max-w-sm">
+                    <p className="text-sm sm:text-[14.5px] text-white/50 leading-[1.5] max-w-xs sm:max-w-sm">
                       {step.description}
                     </p>
                   </div>
@@ -215,7 +155,7 @@ function HowItWorks() {
           </div>
 
           {/* RIGHT: Unified Creator / Collaborator Decision Panel */}
-          <div className="reveal opacity-0 translate-y-8 transition-all duration-700 [&.is-visible]:opacity-100 [&.is-visible]:translate-y-0" style={{ transitionDelay: '150ms' }}>
+          <div className="reveal" style={{ transitionDelay: '150ms' }}>
             <div
               className="rounded-2xl sm:rounded-3xl border border-white/[0.08] overflow-hidden"
               style={{
@@ -235,10 +175,10 @@ function HowItWorks() {
                     <span className="inline-block text-purple text-xs font-semibold tracking-[0.12em] uppercase mb-2">
                       Have a Story?
                     </span>
-                    <h3 className="font-['Fraunces',_serif] text-xl sm:text-[28px] font-normal leading-[1.18] tracking-tight text-white mb-2">
+                    <h3 className="font-['Bebas_Neue',_sans-serif] text-2xl sm:text-3xl font-normal leading-tight tracking-wide text-white mb-2">
                       Build the Crew Your Film Needs.
                     </h3>
-                    <p className="font-['Inter'] text-white/60 text-sm sm:text-[15px] leading-[1.5] mb-3.5 max-w-lg">
+                    <p className="text-white/60 text-sm sm:text-[15px] leading-[1.5] mb-3.5 max-w-lg">
                       Post your project, define open roles, and find collaborators who can bring your story to life.
                     </p>
 
@@ -262,7 +202,7 @@ function HowItWorks() {
                   {/* Right CTA Column (~28%) */}
                   <div className="flex-shrink-0 self-start sm:self-end sm:pb-1">
                     <Link
-                      to="/register"
+                      to={user ? '/create-project' : '/register'}
                       id="howitworks-cta-creator"
                       className="inline-flex items-center gap-2 px-5 sm:px-6 py-2.5 min-h-[44px] bg-[#6239BF] hover:bg-purple-dark text-white text-sm font-semibold rounded-full transition-all duration-300 hover:shadow-[0_0_25px_rgba(98,57,191,0.4)] hover:scale-[1.02] active:scale-95 whitespace-nowrap"
                     >
@@ -291,10 +231,10 @@ function HowItWorks() {
                     <span className="inline-block text-white/40 text-xs font-semibold tracking-[0.12em] uppercase mb-2">
                       Have a Skill?
                     </span>
-                    <h3 className="font-['Fraunces',_serif] text-xl sm:text-[28px] font-normal leading-[1.18] tracking-tight text-white mb-2">
+                    <h3 className="font-['Bebas_Neue',_sans-serif] text-2xl sm:text-3xl font-normal leading-tight tracking-wide text-white mb-2">
                       Find a Film Worth Joining.
                     </h3>
-                    <p className="font-['Inter'] text-white/60 text-sm sm:text-[15px] leading-[1.5] mb-3.5 max-w-lg">
+                    <p className="text-white/60 text-sm sm:text-[15px] leading-[1.5] mb-3.5 max-w-lg">
                       Explore projects, apply for roles, and build your filmmaking credits through real collaborations.
                     </p>
 
@@ -318,7 +258,7 @@ function HowItWorks() {
                   {/* Right CTA Column (~28%) */}
                   <div className="flex-shrink-0 self-start sm:self-end sm:pb-1">
                     <Link
-                      to="/register"
+                      to={user ? '/explore' : '/register'}
                       id="howitworks-cta-collaborator"
                       className="inline-flex items-center gap-2 px-5 sm:px-6 py-2.5 min-h-[44px] bg-white/[0.05] hover:bg-white/[0.1] border border-white/10 hover:border-purple/40 text-white text-sm font-semibold rounded-full transition-all duration-300 hover:shadow-[0_0_20px_rgba(98,57,191,0.2)] hover:scale-[1.02] active:scale-95 whitespace-nowrap"
                     >

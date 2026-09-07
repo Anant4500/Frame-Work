@@ -18,6 +18,7 @@ export default function RolePickerModal({
   const [searchQuery, setSearchQuery] = useState('')
   const searchInputRef = useRef(null)
   const modalRef = useRef(null)
+  const previouslyFocusedElementRef = useRef(null)
 
   // Normalize selected role names for fast, case-insensitive duplicate checking
   const selectedSet = useMemo(() => {
@@ -29,9 +30,10 @@ export default function RolePickerModal({
     return filterRolesCatalog(FILM_ROLE_CATEGORIES, searchQuery)
   }, [searchQuery])
 
-  // Reset search and handle focus/scroll-lock when opened/closed
+  // Reset search and handle focus tracking, initial focus, scroll-lock, and focus restoration
   useEffect(() => {
     if (isOpen) {
+      previouslyFocusedElementRef.current = document.activeElement
       setSearchQuery('')
       // Prevent background page scrolling while modal is open
       const originalOverflow = document.body.style.overflow
@@ -45,16 +47,55 @@ export default function RolePickerModal({
       return () => {
         document.body.style.overflow = originalOverflow
         clearTimeout(timer)
+        if (
+          previouslyFocusedElementRef.current &&
+          typeof previouslyFocusedElementRef.current.focus === 'function' &&
+          document.body.contains(previouslyFocusedElementRef.current)
+        ) {
+          previouslyFocusedElementRef.current.focus()
+        }
       }
     }
   }, [isOpen])
 
-  // Keyboard shortcut: Escape closes modal
+  // Keyboard handling: Escape closes modal & Tab cycles focus trap
   useEffect(() => {
     if (!isOpen) return
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
+        e.preventDefault()
         onClose()
+        return
+      }
+
+      if (e.key === 'Tab' && modalRef.current) {
+        const focusableElements = modalRef.current.querySelectorAll(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+        const focusable = Array.from(focusableElements).filter(
+          (el) => el.offsetWidth > 0 || el.offsetHeight > 0 || el.getClientRects().length > 0
+        )
+
+        if (focusable.length === 0) {
+          e.preventDefault()
+          modalRef.current.focus()
+          return
+        }
+
+        const firstElement = focusable[0]
+        const lastElement = focusable[focusable.length - 1]
+
+        if (e.shiftKey) {
+          if (document.activeElement === firstElement || !modalRef.current.contains(document.activeElement)) {
+            e.preventDefault()
+            lastElement.focus()
+          }
+        } else {
+          if (document.activeElement === lastElement) {
+            e.preventDefault()
+            firstElement.focus()
+          }
+        }
       }
     }
     window.addEventListener('keydown', handleKeyDown)
@@ -83,7 +124,8 @@ export default function RolePickerModal({
     >
       <div
         ref={modalRef}
-        className="relative w-full max-w-[720px] max-h-[88vh] sm:max-h-[82vh] bg-[#111118] border border-white/10 rounded-2xl sm:rounded-[24px] shadow-[0_24px_60px_rgba(0,0,0,0.85)] flex flex-col overflow-hidden transition-all duration-300"
+        tabIndex={-1}
+        className="relative w-full max-w-[720px] max-h-[88vh] sm:max-h-[82vh] bg-[#111118] border border-white/10 rounded-2xl sm:rounded-[24px] shadow-[0_24px_60px_rgba(0,0,0,0.85)] flex flex-col overflow-hidden transition-all duration-300 outline-none"
         style={{
           boxShadow: '0 24px 70px rgba(0,0,0,0.9), 0 0 40px rgba(98,57,191,0.08)',
         }}
@@ -93,11 +135,11 @@ export default function RolePickerModal({
           <div>
             <h3
               id="role-picker-title"
-              className="font-['Fraunces',_serif] text-xl sm:text-2xl font-semibold text-white tracking-[-0.01em]"
+              className="font-['Bebas_Neue',_sans-serif] text-2xl sm:text-3xl font-normal text-white tracking-wide leading-none"
             >
               Add a Role
             </h3>
-            <p className="text-white/40 text-xs sm:text-sm mt-1">
+            <p className="text-white/50 text-xs sm:text-sm mt-1">
               Choose the roles needed for your project.
             </p>
           </div>
@@ -105,8 +147,8 @@ export default function RolePickerModal({
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/[0.05] hover:bg-white/10 text-white/40 hover:text-white flex items-center justify-center transition-all duration-200 border border-white/5"
-            aria-label="Close modal"
+            className="w-8 h-8 rounded-full bg-white/[0.05] hover:bg-white/10 text-white/50 hover:text-white flex items-center justify-center transition-all duration-200 border border-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-1 focus-visible:ring-offset-[#111118]"
+            aria-label="Close role picker"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -117,7 +159,10 @@ export default function RolePickerModal({
         {/* Sticky Search Input Bar */}
         <div className="p-4 sm:px-6 border-b border-white/[0.06] bg-[#111118]/95 backdrop-blur-md shrink-0">
           <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-white/30">
+            <label htmlFor="role-picker-search-input" className="sr-only">
+              Search film roles
+            </label>
+            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-white/50">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
@@ -125,11 +170,12 @@ export default function RolePickerModal({
 
             <input
               ref={searchInputRef}
+              id="role-picker-search-input"
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search roles by name, acronym (e.g. DP, 1st AD, VFX), or department..."
-              className="w-full pl-10 pr-10 py-3 bg-[#0C0C11] border border-white/[0.11] rounded-xl text-sm text-white placeholder-white/30 outline-none transition-all duration-200 focus:border-purple focus:ring-1 focus:ring-purple/30 focus:shadow-[0_0_15px_rgba(98,57,191,0.15)]"
+              className="w-full pl-10 pr-10 py-3 bg-[#0C0C11] border border-white/[0.11] rounded-xl text-sm text-white placeholder-white/40 outline-none transition-all duration-200 focus:border-purple focus:ring-1 focus:ring-purple/30 focus:shadow-[0_0_15px_rgba(98,57,191,0.15)] focus-visible:ring-2 focus-visible:ring-purple"
             />
 
             {searchQuery && (
@@ -139,8 +185,8 @@ export default function RolePickerModal({
                   setSearchQuery('')
                   searchInputRef.current?.focus()
                 }}
-                className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-white/30 hover:text-white transition-colors"
-                aria-label="Clear search"
+                className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-white/60 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple rounded-md"
+                aria-label="Clear role search"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -156,12 +202,12 @@ export default function RolePickerModal({
             filteredCategories.map((dept) => (
               <div key={dept.category} className="space-y-2">
                 {/* Department Heading (NOT selectable) */}
-                <div className="flex items-center justify-between px-1 py-1 text-[11px] font-semibold tracking-wider text-white/40 uppercase">
+                <h4 className="flex items-center justify-between px-1 py-1 text-[11px] font-semibold tracking-wider text-white/50 uppercase">
                   <span>{dept.category}</span>
-                  <span className="text-[10px] text-white/25 font-normal">
+                  <span className="text-[10px] text-white/50 font-normal">
                     {dept.roles.length} {dept.roles.length === 1 ? 'role' : 'roles'}
                   </span>
-                </div>
+                </h4>
 
                 {/* Role Items Grid / Rows */}
                 <div className="space-y-1.5">
@@ -174,13 +220,13 @@ export default function RolePickerModal({
                         type="button"
                         disabled={isSelected}
                         onClick={() => handleRoleClick(role.name)}
-                        className={`w-full min-h-[46px] px-3.5 py-2.5 rounded-xl text-left flex items-center justify-between gap-3 transition-all duration-200 border ${
+                        className={`w-full min-h-[46px] px-3.5 py-2.5 rounded-xl text-left flex items-center justify-between gap-3 transition-all duration-200 border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-1 focus-visible:ring-offset-[#111118] ${
                           isSelected
                             ? 'bg-white/[0.02] border-white/[0.04] opacity-50 cursor-not-allowed'
                             : 'bg-white/[0.03] border-white/[0.06] hover:bg-purple/10 hover:border-purple/35 hover:translate-x-0.5 cursor-pointer text-white/80 hover:text-white'
                         }`}
                       >
-                        <span className="text-sm font-medium leading-snug">
+                        <span className="text-sm font-medium leading-snug break-words">
                           {role.name}
                         </span>
 
@@ -192,7 +238,7 @@ export default function RolePickerModal({
                             Added
                           </span>
                         ) : (
-                          <span className="text-xs text-white/30 group-hover:text-purple-light shrink-0">
+                          <span className="text-xs text-white/50 group-hover:text-purple-light shrink-0">
                             + Add
                           </span>
                         )}
@@ -209,8 +255,8 @@ export default function RolePickerModal({
                   <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               </div>
-              <p className="text-sm font-medium text-white/60">No roles found</p>
-              <p className="text-xs text-white/30 mt-1 max-w-xs mx-auto">
+              <p className="text-sm font-medium text-white/70">No roles found</p>
+              <p className="text-xs text-white/50 mt-1 max-w-xs mx-auto">
                 Try searching by a department, common abbreviation, or alternate title.
               </p>
             </div>
@@ -218,12 +264,12 @@ export default function RolePickerModal({
         </div>
 
         {/* Modal Footer */}
-        <div className="p-3.5 sm:px-6 border-t border-white/[0.06] bg-[#111118] shrink-0 flex items-center justify-between text-xs text-white/30">
+        <div className="p-3.5 sm:px-6 border-t border-white/[0.06] bg-[#111118] shrink-0 flex items-center justify-between text-xs text-white/50">
           <span>{selectedRoleNames.length} role{selectedRoleNames.length !== 1 ? 's' : ''} currently added</span>
           <button
             type="button"
             onClick={onClose}
-            className="px-3.5 py-1.5 rounded-lg bg-white/[0.06] hover:bg-white/10 text-white/70 hover:text-white transition-colors"
+            className="px-3.5 py-1.5 rounded-lg bg-white/[0.06] hover:bg-white/10 text-white/80 hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-1 focus-visible:ring-offset-[#111118]"
           >
             Done
           </button>

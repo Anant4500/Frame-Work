@@ -1,12 +1,40 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/useAuth'
+import { usePageTitle } from '../hooks/usePageTitle'
 import RoleSelection from '../components/register/RoleSelection'
 import CreatorRegistrationForm from '../components/register/CreatorRegistrationForm'
 import CollaboratorRegistrationForm from '../components/register/CollaboratorRegistrationForm'
 
+/**
+ * Sanitizes Supabase Auth, network, and rate-limit errors into safe, friendly messages.
+ * Never exposes raw backend exceptions or internal error codes to the user.
+ */
+function getRegisterErrorMessage(err) {
+  const msg = (err?.message || '').toLowerCase()
+  const status = err?.status
+
+  if (status === 429 || msg.includes('too many') || msg.includes('rate limit')) {
+    return 'Too many registration attempts. Please wait a little and try again.'
+  }
+  if (msg.includes('user already registered') || msg.includes('already been registered')) {
+    return 'An account with this email already exists. Please login instead.'
+  }
+  if (msg.includes('password should be at least') || msg.includes('weak password')) {
+    return 'Password is too weak. Please use at least 6 characters.'
+  }
+  if (msg.includes('invalid email')) {
+    return 'Please enter a valid email address.'
+  }
+  if (msg.includes('failed to fetch') || msg.includes('network') || msg.includes('networkerror')) {
+    return 'Unable to reach the registration service. Check your connection and try again.'
+  }
+  return 'Unable to create your account right now. Please try again.'
+}
+
 export default function RegisterPage() {
-  const { register } = useAuth()
+  usePageTitle('Register | FrameWork')
+  const { register, user } = useAuth()
   const navigate = useNavigate()
 
   // Selected role: null | 'creator' | 'user'
@@ -14,6 +42,14 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
+  const submittingRef = useRef(false)
+
+  // Redirect already authenticated users away from /register
+  useEffect(() => {
+    if (user) {
+      navigate('/', { replace: true })
+    }
+  }, [user, navigate])
 
   // Shared base account fields preserved across role changes
   const [baseForm, setBaseForm] = useState({
@@ -22,8 +58,6 @@ export default function RegisterPage() {
     password: '',
     phone: '',
     location: '',
-    photo: null,
-    photoPreview: null,
   })
 
   // Role-specific states
@@ -36,29 +70,18 @@ export default function RegisterPage() {
     skills: [],
     experience_level: '',
     availability: 'Available',
-    resume: null,
   })
-
-  // Clean up blob URL on unmount
-  const photoPreviewRef = useRef(null)
-  photoPreviewRef.current = baseForm.photoPreview
-
-  useEffect(() => {
-    return () => {
-      if (photoPreviewRef.current) {
-        URL.revokeObjectURL(photoPreviewRef.current)
-      }
-    }
-  }, [])
 
   // Switch role handlers
   const handleSelectRole = (selectedRole) => {
+    if (loading) return
     setError('')
     setRole(selectedRole)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const handleBackToRoles = () => {
+    if (loading) return
     setError('')
     setRole(null)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -67,23 +90,21 @@ export default function RegisterPage() {
   // Common error mapper
   const handleAuthError = (err) => {
     console.error('Registration error:', err)
-    const msg = err?.message || 'Registration failed'
-    if (msg.includes('User already registered') || msg.includes('already been registered')) {
-      setError('An account with this email already exists. Please login instead.')
-    } else if (msg.includes('Password should be at least')) {
-      setError('Password is too weak. Please use at least 6 characters.')
-    } else if (msg.includes('Invalid email')) {
-      setError('Please enter a valid email address.')
-    } else {
-      setError(msg)
-    }
+    setError(getRegisterErrorMessage(err))
   }
 
   // Submit Creator
   const handleCreatorSubmit = async (e) => {
     e.preventDefault()
 
-    if (!baseForm.name?.trim() || !baseForm.email?.trim() || !baseForm.phone?.trim() || !baseForm.location?.trim()) {
+    if (submittingRef.current) return
+
+    const trimmedName = baseForm.name?.trim()
+    const trimmedEmail = baseForm.email?.trim()
+    const trimmedPhone = baseForm.phone?.trim()
+    const trimmedLocation = baseForm.location?.trim()
+
+    if (!trimmedName || !trimmedEmail || !trimmedPhone || !trimmedLocation) {
       setError('Please fill in all required fields.')
       return
     }
@@ -100,46 +121,42 @@ export default function RegisterPage() {
       return
     }
 
+    submittingRef.current = true
     setLoading(true)
     setError('')
 
     try {
       const profileData = {
-        name: baseForm.name.trim(),
-        phone: baseForm.phone.trim(),
+        name: trimmedName,
+        phone: trimmedPhone,
         role: 'creator', // Mapped to 'CREATOR' in AuthContext
         bio: creatorForm.bio ? creatorForm.bio.trim() : null,
-        location: baseForm.location.trim(),
+        location: trimmedLocation,
         experience_level: null,
         availability: null,
       }
 
-      const files = {
-        photoFile: baseForm.photo || null,
-        resumeFile: null, // Creators do not have resumes
-      }
-
       const result = await register(
-        baseForm.email.trim(),
+        trimmedEmail,
         baseForm.password,
         profileData,
-        creatorForm.skills,
-        files
+        creatorForm.skills
       )
 
       if (result?.needsEmailConfirmation) {
         setSuccessMessage(
-          `Account created! We sent a verification link to ${baseForm.email}.`
+          `Account created! We sent a verification link to ${trimmedEmail}.`
         )
         setLoading(false)
         return
       }
 
-      // Successful direct signup
+      // Successful direct signup (if email confirmation disabled)
       navigate('/')
     } catch (err) {
       handleAuthError(err)
     } finally {
+      submittingRef.current = false
       setLoading(false)
     }
   }
@@ -148,7 +165,14 @@ export default function RegisterPage() {
   const handleCollabSubmit = async (e) => {
     e.preventDefault()
 
-    if (!baseForm.name?.trim() || !baseForm.email?.trim() || !baseForm.phone?.trim() || !baseForm.location?.trim()) {
+    if (submittingRef.current) return
+
+    const trimmedName = baseForm.name?.trim()
+    const trimmedEmail = baseForm.email?.trim()
+    const trimmedPhone = baseForm.phone?.trim()
+    const trimmedLocation = baseForm.location?.trim()
+
+    if (!trimmedName || !trimmedEmail || !trimmedPhone || !trimmedLocation) {
       setError('Please fill in all required fields.')
       return
     }
@@ -169,49 +193,48 @@ export default function RegisterPage() {
       return
     }
 
+    submittingRef.current = true
     setLoading(true)
     setError('')
 
     try {
       const profileData = {
-        name: baseForm.name.trim(),
-        phone: baseForm.phone.trim(),
+        name: trimmedName,
+        phone: trimmedPhone,
         role: 'user', // Mapped to 'COLLABORATOR' in AuthContext
-        bio: null, // Collaborators do not have creator bio
-        location: baseForm.location.trim(),
+        bio: null, // Collaborators do not have creator bio at registration
+        location: trimmedLocation,
         experience_level: collabForm.experience_level || null,
         availability: collabForm.availability || 'Available',
       }
 
-      const files = {
-        photoFile: baseForm.photo || null,
-        resumeFile: collabForm.resume || null,
-      }
-
       const result = await register(
-        baseForm.email.trim(),
+        trimmedEmail,
         baseForm.password,
         profileData,
-        collabForm.skills,
-        files
+        collabForm.skills
       )
 
       if (result?.needsEmailConfirmation) {
         setSuccessMessage(
-          `Account created! We sent a verification link to ${baseForm.email}.`
+          `Account created! We sent a verification link to ${trimmedEmail}.`
         )
         setLoading(false)
         return
       }
 
-      // Successful direct signup
+      // Successful direct signup (if email confirmation disabled)
       navigate('/')
     } catch (err) {
       handleAuthError(err)
     } finally {
+      submittingRef.current = false
       setLoading(false)
     }
   }
+
+  // Prevent flash of registration form while redirect effect executes for authenticated users
+  if (user) return null
 
   // Show email confirmation success state
   if (successMessage) {
@@ -223,27 +246,33 @@ export default function RegisterPage() {
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_transparent_0%,_#0A0A0F_75%)]" />
         </div>
 
-        <div className="w-full max-w-md bg-[#111118] rounded-2xl p-8 sm:p-10 border border-white/[0.08] shadow-[0_20px_50px_rgba(0,0,0,0.6)] text-center">
+        <div
+          role="status"
+          aria-live="polite"
+          className="w-full max-w-md bg-[#111118] rounded-2xl p-8 sm:p-10 border border-white/[0.08] shadow-[0_20px_50px_rgba(0,0,0,0.6)] text-center"
+        >
           {/* Success Icon */}
           <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto mb-6">
-            <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+            <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
             </svg>
           </div>
 
-          <h1 className="font-['Fraunces',_serif] text-2xl font-semibold mb-3 text-white">
+          <h1 className="font-['Bebas_Neue',_sans-serif] text-3xl font-normal tracking-wide mb-3 text-white leading-none">
             Check your email
           </h1>
-          <p className="text-white/50 text-sm leading-relaxed mb-3">
+          <p className="text-white/60 text-sm leading-relaxed mb-3">
             {successMessage}
           </p>
-          <p className="text-xs text-white/40 mb-8">
-            Verify your email to finish setting up your FrameWork profile.
+          <p className="text-xs text-white/50 mb-8">
+            {role === 'creator'
+              ? "After verifying your email, you'll continue to your Profile where you can add your profile photo."
+              : "After verifying your email, you'll continue to your Profile where you can add your profile photo and PDF resume."}
           </p>
 
           <Link
             to="/login"
-            className="inline-flex items-center justify-center w-full px-6 py-3.5 bg-[#6239BF] text-white text-sm font-semibold rounded-xl transition-all duration-300 hover:bg-[#502db3] hover:shadow-[0_0_25px_rgba(98,57,191,0.4)]"
+            className="inline-flex items-center justify-center w-full px-6 py-3.5 bg-[#6239BF] text-white text-sm font-semibold rounded-xl transition-all duration-300 hover:bg-[#502db3] hover:shadow-[0_0_25px_rgba(98,57,191,0.4)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6239BF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#111118]"
           >
             Go to Login
           </Link>
@@ -264,6 +293,7 @@ export default function RegisterPage() {
   }
 
   const setUnifiedCreatorForm = (updater) => {
+    if (error) setError('')
     if (typeof updater === 'function') {
       const updated = updater(combinedCreatorForm)
       setBaseForm({
@@ -272,8 +302,6 @@ export default function RegisterPage() {
         password: updated.password,
         phone: updated.phone,
         location: updated.location,
-        photo: updated.photo,
-        photoPreview: updated.photoPreview,
       })
       setCreatorForm({
         skills: updated.skills || [],
@@ -283,6 +311,7 @@ export default function RegisterPage() {
   }
 
   const setUnifiedCollabForm = (updater) => {
+    if (error) setError('')
     if (typeof updater === 'function') {
       const updated = updater(combinedCollabForm)
       setBaseForm({
@@ -291,14 +320,11 @@ export default function RegisterPage() {
         password: updated.password,
         phone: updated.phone,
         location: updated.location,
-        photo: updated.photo,
-        photoPreview: updated.photoPreview,
       })
       setCollabForm({
         skills: updated.skills || [],
         experience_level: updated.experience_level || '',
         availability: updated.availability || 'Available',
-        resume: updated.resume || null,
       })
     }
   }
@@ -314,7 +340,10 @@ export default function RegisterPage() {
 
       {/* Distraction-Free Auth Header */}
       <header className="w-full max-w-5xl mx-auto flex items-center justify-between py-6 sm:py-8 px-4">
-        <Link to="/" className="inline-flex items-center gap-2.5 group">
+        <Link
+          to="/"
+          className="inline-flex items-center gap-2.5 group rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6239BF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0F]"
+        >
           <img
             src="/images/framework-logo.png"
             alt=""
@@ -328,7 +357,7 @@ export default function RegisterPage() {
 
         <Link
           to="/login"
-          className="text-xs font-semibold text-white/50 hover:text-white transition-colors"
+          className="text-xs font-semibold text-white/50 hover:text-white transition-colors rounded p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6239BF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0F]"
         >
           Sign In &rarr;
         </Link>
@@ -370,7 +399,7 @@ export default function RegisterPage() {
       </main>
 
       {/* Footer */}
-      <footer className="py-6 text-center text-xs text-white/25">
+      <footer className="py-6 text-center text-xs text-white/35">
         &copy; {new Date().getFullYear()} FrameWork. All rights reserved.
       </footer>
     </div>

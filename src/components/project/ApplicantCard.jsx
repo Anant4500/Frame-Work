@@ -57,10 +57,10 @@ export default function ApplicantCard({
         <div className="flex items-start justify-between gap-3 mb-3.5">
           <div className="flex items-center gap-3 min-w-0">
             {profileUrl ? (
-              <Link to={profileUrl} className="shrink-0 group">
+              <Link to={profileUrl} className="shrink-0 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6239BF] rounded-full">
                 <div className="w-11 h-11 rounded-full bg-purple/15 border border-purple/30 group-hover:border-purple flex items-center justify-center overflow-hidden transition-colors">
                   {applicant.avatar ? (
-                    <img src={applicant.avatar} alt={applicant.name} className="w-full h-full object-cover" />
+                    <img src={applicant.avatar} alt={applicant.name} decoding="async" className="w-full h-full object-cover" />
                   ) : (
                     <span className="text-sm font-bold text-purple">{(applicant.name || 'A').charAt(0)}</span>
                   )}
@@ -69,7 +69,7 @@ export default function ApplicantCard({
             ) : (
               <div className="w-11 h-11 rounded-full bg-purple/15 border border-purple/30 flex items-center justify-center overflow-hidden shrink-0">
                 {applicant.avatar ? (
-                  <img src={applicant.avatar} alt={applicant.name} className="w-full h-full object-cover" />
+                  <img src={applicant.avatar} alt={applicant.name} decoding="async" className="w-full h-full object-cover" />
                 ) : (
                   <span className="text-sm font-bold text-purple">{(applicant.name || 'A').charAt(0)}</span>
                 )}
@@ -79,7 +79,7 @@ export default function ApplicantCard({
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 {profileUrl ? (
-                  <Link to={profileUrl} className="text-sm font-semibold text-white hover:text-purple-light transition-colors truncate">
+                  <Link to={profileUrl} className="text-sm font-semibold text-white hover:text-purple-light transition-colors truncate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6239BF] rounded px-1">
                     {applicant.name}
                   </Link>
                 ) : (
@@ -92,7 +92,7 @@ export default function ApplicantCard({
                 {applicant.location && (
                   <>
                     <span className="text-white/20">•</span>
-                    <span className="text-white/40">{applicant.location}</span>
+                    <span className="text-white/50">{applicant.location}</span>
                   </>
                 )}
                 {(applicant.resumeUrl || applicant.resume_url) && (
@@ -101,7 +101,7 @@ export default function ApplicantCard({
                     <button
                       type="button"
                       onClick={handleViewResume}
-                      className="text-purple-light hover:text-white transition-colors underline font-medium"
+                      className="text-purple-light hover:text-white transition-colors underline font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6239BF] rounded px-1"
                     >
                       Resume
                     </button>
@@ -141,7 +141,7 @@ export default function ApplicantCard({
               type="button"
               onClick={onReject}
               disabled={isProcessing}
-              className="flex-1 py-2 px-3 text-xs font-semibold bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/40 text-red-400 rounded-lg transition-all active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed"
+              className="flex-1 py-2 px-3 text-xs font-semibold bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/40 text-red-400 rounded-lg transition-all active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111116]"
             >
               Reject
             </button>
@@ -149,7 +149,7 @@ export default function ApplicantCard({
               type="button"
               onClick={onAccept}
               disabled={isRoleFull || isProcessing}
-              className="flex-1 py-2 px-3 text-xs font-semibold bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 hover:border-emerald-500/50 text-emerald-400 rounded-lg transition-all active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed"
+              className="flex-1 py-2 px-3 text-xs font-semibold bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 hover:border-emerald-500/50 text-emerald-400 rounded-lg transition-all active:scale-[0.98] disabled:opacity-30 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111116]"
             >
               {isProcessing ? 'Accepting...' : 'Accept'}
             </button>

@@ -17,7 +17,7 @@ function CallToAction() {
         backgroundSize: '60px 60px',
       }} />
 
-      <div className="relative max-w-3xl mx-auto text-center reveal opacity-0 translate-y-8 transition-all duration-700 [&.is-visible]:opacity-100 [&.is-visible]:translate-y-0">
+      <div className="relative max-w-3xl mx-auto text-center reveal">
         {/* Decorative element */}
         <div className="flex items-center justify-center gap-3 mb-8">
           <div className="h-px w-12 bg-gradient-to-r from-transparent to-purple/50" />
@@ -27,7 +27,7 @@ function CallToAction() {
           <div className="h-px w-12 bg-gradient-to-l from-transparent to-purple/50" />
         </div>
 
-        <h2 className="font-['Fraunces',_serif] text-4xl sm:text-5xl md:text-6xl font-semibold tracking-[-0.02em] leading-[1.12] mb-5">
+        <h2 className="font-['Bebas_Neue',_sans-serif] text-5xl sm:text-6xl md:text-7xl font-normal tracking-wide leading-none mb-5">
           Ready to Make
           <br />
           <span className="gradient-text">Your Film?</span>

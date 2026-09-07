@@ -13,6 +13,10 @@ export default function CreatorProjectView({
   onReject,
   processingApplicantId,
   initialTab,
+  applicationsLoading = false,
+  applicationsError = false,
+  onRetryApplications,
+  onEnsureScriptUrl,
 }) {
   const [activeTab, setActiveTab] = useState(() =>
     initialTab && VALID_TABS.includes(initialTab.toLowerCase())
@@ -28,6 +32,25 @@ export default function CreatorProjectView({
   const [statusFilter, setStatusFilter] = useState('pending')
   const [roleFilter, setRoleFilter] = useState('all')
   const [showScriptPreview, setShowScriptPreview] = useState(false)
+
+  const handleOpenScript = async (e) => {
+    if (e && e.preventDefault) e.preventDefault()
+    if (onEnsureScriptUrl) {
+      const freshUrl = await onEnsureScriptUrl()
+      if (freshUrl) {
+        window.open(freshUrl, '_blank', 'noopener,noreferrer')
+      }
+    } else if (signedScriptUrl) {
+      window.open(signedScriptUrl, '_blank', 'noopener,noreferrer')
+    }
+  }
+
+  const handleTogglePreview = async () => {
+    if (!showScriptPreview && onEnsureScriptUrl) {
+      await onEnsureScriptUrl()
+    }
+    setShowScriptPreview(!showScriptPreview)
+  }
 
   // Derived application lists & counts
   const applicants = useMemo(() => project?.applicants || [], [project?.applicants])
@@ -148,7 +171,7 @@ export default function CreatorProjectView({
       <div className="flex items-center justify-between">
         <Link
           to="/my-projects"
-          className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-white/40 hover:text-white transition-colors duration-200 group"
+          className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-white/50 hover:text-white transition-colors duration-200 group"
         >
           <svg className="w-4 h-4 transition-transform duration-200 group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
@@ -167,6 +190,7 @@ export default function CreatorProjectView({
             <img
               src={project?.thumbnail || '/images/hero-bg.png'}
               alt={project?.title}
+              decoding="async"
               className="w-full h-full object-cover"
               onError={(e) => { e.target.src = '/images/hero-bg.png' }}
             />
@@ -180,12 +204,12 @@ export default function CreatorProjectView({
               <div className="flex flex-wrap items-center justify-between gap-3 mb-2.5">
                 <div className="flex items-center gap-2.5 flex-wrap">
                   <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-purple-light flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-purple animate-pulse" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-purple animate-pulse motion-reduce:animate-none" />
                     Project Management
                   </span>
                   <span className="text-white/20">•</span>
                   <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[10px] font-semibold border rounded-full ${STATUS_COLORS[project?.status] || 'border-white/20 text-white/60'}`}>
-                    <span className={`w-1 h-1 rounded-full ${project?.status === 'Open' ? 'bg-purple' : project?.status === 'In Production' ? 'bg-amber-400' : 'bg-emerald-400'}`} />
+                    <span className={`w-1 h-1 rounded-full ${project?.status === 'Open' ? 'bg-purple' : project?.status === 'In Production' ? 'bg-amber-400' : project?.status === 'Closed' ? 'bg-white/40' : 'bg-emerald-400'}`} />
                     {project?.status}
                   </span>
                   {project?.genre && (
@@ -200,7 +224,7 @@ export default function CreatorProjectView({
                   id="edit-project-header-btn"
                   type="button"
                   onClick={onEdit}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-purple/15 hover:bg-purple text-purple-light hover:text-white border border-purple/30 hover:border-purple text-xs font-semibold rounded-xl transition-all duration-200 active:scale-[0.98] shadow-sm hover:shadow-[0_0_20px_rgba(98,57,191,0.3)] shrink-0"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-purple/15 hover:bg-purple text-purple-light hover:text-white border border-purple/30 hover:border-purple text-xs font-semibold rounded-xl transition-all duration-200 active:scale-[0.98] shadow-sm hover:shadow-[0_0_20px_rgba(98,57,191,0.3)] shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6239BF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0F]"
                 >
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
@@ -210,7 +234,7 @@ export default function CreatorProjectView({
               </div>
 
               {/* Title (Natural wrap, break-words) */}
-              <h1 className="font-['Fraunces',_serif] text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-[-0.02em] text-white leading-tight mb-3 break-words">
+              <h1 className="font-['Bebas_Neue',_sans-serif] text-3xl sm:text-4xl lg:text-5xl font-normal tracking-wide text-white leading-tight mb-3 break-words">
                 {project?.title}
               </h1>
 
@@ -237,14 +261,16 @@ export default function CreatorProjectView({
             {/* Summary Metrics Row */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4 border-t border-white/[0.08]">
               <div className="p-3 bg-white/[0.02] border border-white/[0.05] rounded-xl">
-                <span className="block text-[10px] font-semibold uppercase tracking-wider text-white/40 mb-1">
+                <span className="block text-[10px] font-semibold uppercase tracking-wider text-white/50 mb-1">
                   Positions Filled
                 </span>
                 <p className="text-base sm:text-lg font-bold text-white leading-none">
-                  {totalFilled} <span className="text-white/30 text-xs font-medium">/ {totalRequired}</span>
+                  {applicationsError ? '—' : totalFilled} <span className="text-white/40 text-xs font-medium">/ {totalRequired}</span>
                 </p>
-                <span className="text-[10px] text-white/40 mt-1 block">
-                  {totalRequired === 0
+                <span className="text-[10px] text-white/50 mt-1 block">
+                  {applicationsError
+                    ? 'Occupancy unavailable'
+                    : totalRequired === 0
                     ? 'No positions defined'
                     : remainingPositionsTotal === 0
                     ? 'Capacity complete'
@@ -253,26 +279,26 @@ export default function CreatorProjectView({
               </div>
 
               <div className="p-3 bg-white/[0.02] border border-white/[0.05] rounded-xl">
-                <span className="block text-[10px] font-semibold uppercase tracking-wider text-white/40 mb-1">
+                <span className="block text-[10px] font-semibold uppercase tracking-wider text-white/50 mb-1">
                   Applications
                 </span>
                 <p className="text-base sm:text-lg font-bold text-white leading-none">
-                  {applicants.length}
+                  {applicationsError ? '—' : applicants.length}
                 </p>
                 <span className="text-[10px] text-purple-light mt-1 block">
-                  {pendingApplicants.length} pending review
+                  {applicationsError ? 'Applications unavailable' : `${pendingApplicants.length} pending review`}
                 </span>
               </div>
 
               <div className="p-3 bg-white/[0.02] border border-white/[0.05] rounded-xl">
-                <span className="block text-[10px] font-semibold uppercase tracking-wider text-white/40 mb-1">
+                <span className="block text-[10px] font-semibold uppercase tracking-wider text-white/50 mb-1">
                   Team Members
                 </span>
                 <p className="text-base sm:text-lg font-bold text-white leading-none">
-                  {teamMembers.length}
+                  {applicationsError ? '—' : teamMembers.length}
                 </p>
                 <span className="text-[10px] text-emerald-400/80 mt-1 block">
-                  {teamMembers.length} active collaborator{teamMembers.length === 1 ? '' : 's'}
+                  {applicationsError ? 'Team unavailable' : `${teamMembers.length} active collaborator${teamMembers.length === 1 ? '' : 's'}`}
                 </span>
               </div>
             </div>
@@ -293,7 +319,7 @@ export default function CreatorProjectView({
             className={`pb-3.5 text-sm font-semibold transition-all relative ${
               activeTab === 'overview'
                 ? 'text-white'
-                : 'text-white/45 hover:text-white/80'
+                : 'text-white/50 hover:text-white/80'
             }`}
           >
             Overview
@@ -310,7 +336,7 @@ export default function CreatorProjectView({
             className={`pb-3.5 text-sm font-semibold transition-all relative flex items-center gap-2 ${
               activeTab === 'roles'
                 ? 'text-white'
-                : 'text-white/45 hover:text-white/80'
+                : 'text-white/50 hover:text-white/80'
             }`}
           >
             <span>Roles</span>
@@ -330,11 +356,15 @@ export default function CreatorProjectView({
             className={`pb-3.5 text-sm font-semibold transition-all relative flex items-center gap-2 ${
               activeTab === 'applications'
                 ? 'text-white'
-                : 'text-white/45 hover:text-white/80'
+                : 'text-white/50 hover:text-white/80'
             }`}
           >
             <span>Applications</span>
-            {pendingApplicants.length > 0 ? (
+            {applicationsError ? (
+              <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-red-500/15 text-red-400 border border-red-500/25">
+                !
+              </span>
+            ) : pendingApplicants.length > 0 ? (
               <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-purple/25 text-purple-light border border-purple/30">
                 {pendingApplicants.length}
               </span>
@@ -356,12 +386,12 @@ export default function CreatorProjectView({
             className={`pb-3.5 text-sm font-semibold transition-all relative flex items-center gap-2 ${
               activeTab === 'team'
                 ? 'text-white'
-                : 'text-white/45 hover:text-white/80'
+                : 'text-white/50 hover:text-white/80'
             }`}
           >
             <span>Team</span>
             <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-white/[0.06] text-white/60">
-              {teamMembers.length}
+              {applicationsError ? '—' : teamMembers.length}
             </span>
             {activeTab === 'team' && (
               <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-purple rounded-full" />
@@ -379,7 +409,7 @@ export default function CreatorProjectView({
           <div className="space-y-12">
             {/* About the Project */}
             <div className="p-6 sm:p-8 bg-[#111116] border border-white/[0.08] rounded-2xl">
-              <h2 className="font-['Fraunces',_serif] text-xl sm:text-2xl font-semibold tracking-[-0.01em] text-white mb-4">
+              <h2 className="font-['Bebas_Neue',_sans-serif] text-2xl sm:text-3xl font-normal tracking-wide text-white mb-4">
                 About the Project
               </h2>
               <div className="h-px bg-white/[0.06] mb-6" />
@@ -388,7 +418,7 @@ export default function CreatorProjectView({
                   {project.description}
                 </p>
               ) : (
-                <p className="text-white/40 text-sm italic">No project description added yet.</p>
+                <p className="text-white/50 text-sm italic">No project description added yet.</p>
               )}
             </div>
 
@@ -396,21 +426,21 @@ export default function CreatorProjectView({
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               {/* Production Details */}
               <div className="lg:col-span-2 p-6 sm:p-8 bg-[#111116] border border-white/[0.08] rounded-2xl">
-                <h3 className="font-['Fraunces',_serif] text-lg font-semibold text-white mb-4">
+                <h3 className="font-['Bebas_Neue',_sans-serif] text-xl font-normal tracking-wide text-white mb-4">
                   Production Details
                 </h3>
                 <div className="h-px bg-white/[0.06] mb-6" />
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div className="p-4 bg-white/[0.02] border border-white/[0.05] rounded-xl">
-                    <span className="block text-[11px] font-semibold uppercase tracking-wider text-white/40 mb-1">
+                    <span className="block text-[11px] font-semibold uppercase tracking-wider text-white/50 mb-1">
                       Location
                     </span>
                     <p className="text-sm font-medium text-white">{project?.location || 'Remote / Not specified'}</p>
                   </div>
 
                   <div className="p-4 bg-white/[0.02] border border-white/[0.05] rounded-xl">
-                    <span className="block text-[11px] font-semibold uppercase tracking-wider text-white/40 mb-1">
+                    <span className="block text-[11px] font-semibold uppercase tracking-wider text-white/50 mb-1">
                       Budget
                     </span>
                     <p className="text-sm font-medium text-emerald-400">
@@ -421,14 +451,14 @@ export default function CreatorProjectView({
                   </div>
 
                   <div className="p-4 bg-white/[0.02] border border-white/[0.05] rounded-xl">
-                    <span className="block text-[11px] font-semibold uppercase tracking-wider text-white/40 mb-1">
+                    <span className="block text-[11px] font-semibold uppercase tracking-wider text-white/50 mb-1">
                       Timeline
                     </span>
                     <p className="text-sm font-medium text-white">{project?.timeline || 'Not specified'}</p>
                   </div>
 
                   <div className="p-4 bg-white/[0.02] border border-white/[0.05] rounded-xl">
-                    <span className="block text-[11px] font-semibold uppercase tracking-wider text-white/40 mb-1">
+                    <span className="block text-[11px] font-semibold uppercase tracking-wider text-white/50 mb-1">
                       Genre
                     </span>
                     <p className="text-sm font-medium text-white">{project?.genre || 'Drama'}</p>
@@ -440,7 +470,7 @@ export default function CreatorProjectView({
               <div className="p-6 sm:p-8 bg-[#111116] border border-white/[0.08] rounded-2xl flex flex-col justify-between">
                 <div>
                   <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
-                    <h3 className="font-['Fraunces',_serif] text-lg font-semibold text-white">
+                    <h3 className="font-['Bebas_Neue',_sans-serif] text-xl font-normal tracking-wide text-white">
                       Script
                     </h3>
                     <div className="flex items-center gap-1.5 flex-wrap">
@@ -475,21 +505,20 @@ export default function CreatorProjectView({
                         </span>. You can preview or open the file directly.
                       </p>
                       <div className="space-y-2.5">
-                        <a
-                          href={signedScriptUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="w-full py-2.5 px-4 bg-purple text-white text-xs font-semibold rounded-xl transition-all duration-200 hover:bg-purple-dark flex items-center justify-center gap-2 shadow-sm hover:shadow-[0_0_20px_rgba(98,57,191,0.3)]"
+                        <button
+                          type="button"
+                          onClick={handleOpenScript}
+                          className="w-full py-2.5 px-4 bg-purple text-white text-xs font-semibold rounded-xl transition-all duration-200 hover:bg-purple-dark flex items-center justify-center gap-2 shadow-sm hover:shadow-[0_0_20px_rgba(98,57,191,0.3)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6239BF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0F]"
                         >
                           <span>Open Script</span>
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
                           </svg>
-                        </a>
+                        </button>
                         <button
                           type="button"
-                          onClick={() => setShowScriptPreview(!showScriptPreview)}
-                          className="w-full py-2.5 px-4 bg-white/[0.04] hover:bg-white/[0.08] text-white/70 hover:text-white text-xs font-semibold rounded-xl border border-white/10 transition-all flex items-center justify-center gap-2"
+                          onClick={handleTogglePreview}
+                          className="w-full py-2.5 px-4 bg-white/[0.04] hover:bg-white/[0.08] text-white/70 hover:text-white text-xs font-semibold rounded-xl border border-white/10 transition-all flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6239BF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0F]"
                         >
                           <span>{showScriptPreview ? 'Hide Preview' : 'Preview Script'}</span>
                           <svg className={`w-3.5 h-3.5 transition-transform duration-200 ${showScriptPreview ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
@@ -500,13 +529,13 @@ export default function CreatorProjectView({
                     </div>
                   ) : (
                     <div>
-                      <p className="text-xs text-white/40 leading-relaxed mb-6">
+                      <p className="text-xs text-white/50 leading-relaxed mb-6">
                         No script has been uploaded for this project yet. Screenplays can be added via project settings.
                       </p>
                       <button
                         type="button"
                         onClick={onEdit}
-                        className="w-full py-2.5 px-4 bg-white/[0.04] hover:bg-white/[0.08] text-white/60 hover:text-white text-xs font-semibold rounded-xl border border-white/10 transition-all text-center"
+                        className="w-full py-2.5 px-4 bg-white/[0.04] hover:bg-white/[0.08] text-white/60 hover:text-white text-xs font-semibold rounded-xl border border-white/10 transition-all text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6239BF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0F]"
                       >
                         Upload in Settings
                       </button>
@@ -521,14 +550,13 @@ export default function CreatorProjectView({
               <div className="p-6 bg-[#111116] border border-white/[0.08] rounded-2xl animate-fade-in">
                 <div className="flex items-center justify-between mb-4">
                   <span className="text-xs font-semibold text-white/70">Screenplay Preview</span>
-                  <a
-                    href={signedScriptUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-purple-light hover:text-white transition-colors"
+                  <button
+                    type="button"
+                    onClick={handleOpenScript}
+                    className="text-xs text-purple-light hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6239BF] rounded px-1"
                   >
                     Open in separate tab ↗
-                  </a>
+                  </button>
                 </div>
                 <div className="rounded-xl overflow-hidden border border-white/[0.08] bg-[#0a0a0a]" style={{ height: '540px' }}>
                   <iframe
@@ -548,18 +576,20 @@ export default function CreatorProjectView({
             {/* Roles Header Bar */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-[#111116] border border-white/[0.08] rounded-2xl">
               <div>
-                <h2 className="font-['Fraunces',_serif] text-xl font-semibold text-white">
+                <h2 className="font-['Bebas_Neue',_sans-serif] text-2xl font-normal tracking-wide text-white">
                   Roles & Capacity
                 </h2>
-                <p className="text-xs text-white/45 mt-0.5">
-                  {totalFilled} of {totalRequired} total positions filled across {project?.roles ? project.roles.length : 0} role{project?.roles?.length === 1 ? '' : 's'}.
+                <p className="text-xs text-white/50 mt-0.5">
+                  {applicationsError
+                    ? `Capacity unavailable for ${project?.roles ? project.roles.length : 0} role${project?.roles?.length === 1 ? '' : 's'}.`
+                    : `${totalFilled} of ${totalRequired} total positions filled across ${project?.roles ? project.roles.length : 0} role${project?.roles?.length === 1 ? '' : 's'}.`}
                 </p>
               </div>
 
               <button
                 type="button"
                 onClick={onEdit}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-purple/15 hover:bg-purple text-purple-light hover:text-white border border-purple/30 text-xs font-semibold rounded-xl transition-all shadow-sm shrink-0 self-start sm:self-auto"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-purple/15 hover:bg-purple text-purple-light hover:text-white border border-purple/30 text-xs font-semibold rounded-xl transition-all shadow-sm shrink-0 self-start sm:self-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6239BF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0F]"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -597,7 +627,7 @@ export default function CreatorProjectView({
                               {role}
                             </h3>
                             {experience && (
-                              <span className="text-[11px] text-white/40 font-medium">
+                              <span className="text-[11px] text-white/50 font-medium">
                                 {experience} Level
                               </span>
                             )}
@@ -617,10 +647,14 @@ export default function CreatorProjectView({
                         {/* Occupancy counts */}
                         <div className="flex items-baseline justify-between text-xs mb-2">
                           <span className="font-semibold text-white/80">
-                            {acceptedCount} / {requiredCount} <span className="font-normal text-white/40">positions filled</span>
+                            {applicationsError ? '—' : acceptedCount} / {requiredCount} <span className="font-normal text-white/50">positions filled</span>
                           </span>
-                          <span className="text-[11px] text-white/40">
-                            {isFilled ? 'Capacity complete' : `${remainingSlots} position${remainingSlots === 1 ? '' : 's'} remaining`}
+                          <span className="text-[11px] text-white/50">
+                            {applicationsError
+                              ? 'Occupancy unavailable'
+                              : isFilled
+                              ? 'Capacity complete'
+                              : `${remainingSlots} position${remainingSlots === 1 ? '' : 's'} remaining`}
                           </span>
                         </div>
 
@@ -640,11 +674,11 @@ export default function CreatorProjectView({
               </div>
             ) : (
               <div className="p-12 text-center bg-[#111116] border border-white/[0.08] rounded-2xl">
-                <p className="text-white/40 text-sm mb-4">No roles added yet.</p>
+                <p className="text-white/50 text-sm mb-4">No roles added yet.</p>
                 <button
                   type="button"
                   onClick={onEdit}
-                  className="px-4 py-2 bg-purple text-white text-xs font-semibold rounded-xl hover:bg-purple-dark transition-all"
+                  className="px-4 py-2 bg-purple text-white text-xs font-semibold rounded-xl hover:bg-purple-dark transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6239BF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0F]"
                 >
                   Add Roles
                 </button>
@@ -659,10 +693,10 @@ export default function CreatorProjectView({
             {/* Header with quick stats */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 bg-[#111116] border border-white/[0.08] rounded-2xl">
               <div>
-                <h2 className="font-['Fraunces',_serif] text-xl font-semibold text-white">
+                <h2 className="font-['Bebas_Neue',_sans-serif] text-2xl font-normal tracking-wide text-white">
                   Applications
                 </h2>
-                <p className="text-xs text-white/45 mt-0.5">
+                <p className="text-xs text-white/50 mt-0.5">
                   Review and manage candidate applications for your production.
                 </p>
               </div>
@@ -670,103 +704,129 @@ export default function CreatorProjectView({
               {/* Status summary counters */}
               <div className="flex items-center gap-2 text-xs flex-wrap">
                 <span className="px-3 py-1 bg-white/[0.03] border border-white/[0.06] rounded-lg text-white/60">
-                  <strong className="text-purple-light font-bold mr-1">{pendingApplicants.length}</strong> Pending
+                  <strong className="text-purple-light font-bold mr-1">{applicationsError ? '—' : pendingApplicants.length}</strong> Pending
                 </span>
                 <span className="px-3 py-1 bg-white/[0.03] border border-white/[0.06] rounded-lg text-white/60">
-                  <strong className="text-emerald-400/90 font-bold mr-1">{teamMembers.length}</strong> Accepted
+                  <strong className="text-emerald-400/90 font-bold mr-1">{applicationsError ? '—' : teamMembers.length}</strong> Accepted
                 </span>
                 <span className="px-3 py-1 bg-white/[0.03] border border-white/[0.06] rounded-lg text-white/60">
-                  <strong className="text-red-400 font-bold mr-1">{rejectedApplicants.length}</strong> Rejected
+                  <strong className="text-red-400 font-bold mr-1">{applicationsError ? '—' : rejectedApplicants.length}</strong> Rejected
                 </span>
               </div>
             </div>
 
-            {/* Filter Bar */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-[#111116] border border-white/[0.08] rounded-xl">
-              {/* Status filter pills */}
-              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-                {[
-                  { id: 'pending', label: 'Pending', count: pendingApplicants.length },
-                  { id: 'accepted', label: 'Accepted', count: teamMembers.length },
-                  { id: 'rejected', label: 'Rejected', count: rejectedApplicants.length },
-                  { id: 'all', label: 'All', count: applicants.length },
-                ].map((tab) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setStatusFilter(tab.id)}
-                    className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all shrink-0 flex items-center gap-1.5 ${
-                      statusFilter === tab.id
-                        ? 'bg-purple text-white shadow-sm'
-                        : 'bg-white/[0.03] text-white/50 hover:text-white hover:bg-white/[0.06]'
-                    }`}
-                  >
-                    <span>{tab.label}</span>
-                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                      statusFilter === tab.id ? 'bg-white/20 text-white' : 'bg-white/5 text-white/40'
-                    }`}>
-                      {tab.count}
-                    </span>
-                  </button>
-                ))}
-              </div>
-
-              {/* Role dropdown filter */}
-              <div className="shrink-0">
-                <select
-                  value={roleFilter}
-                  onChange={(e) => setRoleFilter(e.target.value)}
-                  className="w-full sm:w-auto appearance-none px-3.5 py-1.5 bg-black/40 border border-white/[0.1] rounded-lg text-xs text-white outline-none focus:border-purple cursor-pointer pr-8"
-                >
-                  <option value="all" className="bg-[#111116]">All Roles</option>
-                  {availableFilterRoles.map((r) => (
-                    <option key={r} value={r} className="bg-[#111116]">{r}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Applications Grid */}
-            {filteredApplicants.length > 0 ? (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {filteredApplicants.map((applicant) => {
-                  const matchingRole = (project?.rawRoles || []).find((r) =>
-                    applicant.project_role_id && r.id
-                      ? String(r.id) === String(applicant.project_role_id)
-                      : r.role === applicant.role
-                  )
-                  const { isFilled } = getRoleOccupancy(matchingRole, applicants)
-
-                  return (
-                    <ApplicantCard
-                      key={applicant.id}
-                      applicant={applicant}
-                      isRoleFull={isFilled}
-                      isProcessing={processingApplicantId === applicant.id}
-                      onAccept={() => onAccept(applicant.id)}
-                      onReject={() => onReject(applicant.id)}
-                    />
-                  )
-                })}
-              </div>
-            ) : (
-              <div className="p-12 text-center bg-[#111116] border border-white/[0.08] rounded-2xl">
-                <p className="text-white/40 text-sm mb-2">
-                  {emptyFilterMessage}
+            {applicationsError ? (
+              <div className="p-8 text-center bg-[#111116] border border-white/[0.08] rounded-2xl" role="status">
+                <div className="w-10 h-10 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center mx-auto mb-3">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                  </svg>
+                </div>
+                <h3 className="text-sm font-semibold text-white mb-1">Unable to load applications</h3>
+                <p className="text-xs text-white/50 mb-4 max-w-sm mx-auto">
+                  There was an issue fetching applicant records for this project.
                 </p>
-                {(statusFilter !== 'all' || roleFilter !== 'all') && (
+                {onRetryApplications && (
                   <button
                     type="button"
-                    onClick={() => {
-                      setStatusFilter('all')
-                      setRoleFilter('all')
-                    }}
-                    className="text-xs text-purple-light hover:text-white font-medium transition-colors underline"
+                    onClick={onRetryApplications}
+                    disabled={applicationsLoading}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-purple/20 hover:bg-purple text-purple-light hover:text-white border border-purple/30 text-xs font-semibold rounded-xl transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6239BF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0F] disabled:opacity-50"
                   >
-                    Clear filter settings
+                    {applicationsLoading ? 'Retrying...' : 'Retry Applications'}
                   </button>
                 )}
               </div>
+            ) : (
+              <>
+                {/* Filter Bar */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-[#111116] border border-white/[0.08] rounded-xl">
+                  {/* Status filter pills */}
+                  <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                    {[
+                      { id: 'pending', label: 'Pending', count: pendingApplicants.length },
+                      { id: 'accepted', label: 'Accepted', count: teamMembers.length },
+                      { id: 'rejected', label: 'Rejected', count: rejectedApplicants.length },
+                      { id: 'all', label: 'All', count: applicants.length },
+                    ].map((tab) => (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setStatusFilter(tab.id)}
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all shrink-0 flex items-center gap-1.5 ${
+                          statusFilter === tab.id
+                            ? 'bg-purple text-white shadow-sm'
+                            : 'bg-white/[0.03] text-white/50 hover:text-white hover:bg-white/[0.06]'
+                        }`}
+                      >
+                        <span>{tab.label}</span>
+                        <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                          statusFilter === tab.id ? 'bg-white/20 text-white' : 'bg-white/5 text-white/40'
+                        }`}>
+                          {tab.count}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Role dropdown filter */}
+                  <div className="shrink-0">
+                    <select
+                      value={roleFilter}
+                      onChange={(e) => setRoleFilter(e.target.value)}
+                      className="w-full sm:w-auto appearance-none px-3.5 py-1.5 bg-black/40 border border-white/[0.1] rounded-lg text-xs text-white outline-none focus:border-purple cursor-pointer pr-8"
+                    >
+                      <option value="all" className="bg-[#111116]">All Roles</option>
+                      {availableFilterRoles.map((r) => (
+                        <option key={r} value={r} className="bg-[#111116]">{r}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Applications Grid */}
+                {filteredApplicants.length > 0 ? (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {filteredApplicants.map((applicant) => {
+                      const matchingRole = (project?.rawRoles || []).find((r) =>
+                        applicant.project_role_id && r.id
+                          ? String(r.id) === String(applicant.project_role_id)
+                          : r.role === applicant.role
+                      )
+                      const { isFilled } = getRoleOccupancy(matchingRole, applicants)
+
+                      return (
+                        <ApplicantCard
+                          key={applicant.id}
+                          applicant={applicant}
+                          isRoleFull={isFilled}
+                          isProcessing={processingApplicantId === applicant.id}
+                          onAccept={() => onAccept(applicant.id)}
+                          onReject={() => onReject(applicant.id)}
+                        />
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <div className="p-12 text-center bg-[#111116] border border-white/[0.08] rounded-2xl">
+                    <p className="text-white/50 text-sm mb-2">
+                      {emptyFilterMessage}
+                    </p>
+                    {(statusFilter !== 'all' || roleFilter !== 'all') && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setStatusFilter('all')
+                          setRoleFilter('all')
+                        }}
+                        className="text-xs text-purple-light hover:text-white font-medium transition-colors underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6239BF] rounded px-1"
+                      >
+                        Clear filter settings
+                      </button>
+                    )}
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
@@ -777,20 +837,41 @@ export default function CreatorProjectView({
             {/* Team Header */}
             <div className="flex items-center justify-between p-5 bg-[#111116] border border-white/[0.08] rounded-2xl">
               <div>
-                <h2 className="font-['Fraunces',_serif] text-xl font-semibold text-white">
+                <h2 className="font-['Bebas_Neue',_sans-serif] text-2xl font-normal tracking-wide text-white">
                   Team
                 </h2>
-                <p className="text-xs text-white/45 mt-0.5">
+                <p className="text-xs text-white/50 mt-0.5">
                   Collaborators currently accepted into this production.
                 </p>
               </div>
               <span className="px-3 py-1 text-xs font-bold text-emerald-400/90 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
-                {teamMembers.length} {teamMembers.length === 1 ? 'Collaborator' : 'Collaborators'}
+                {applicationsError ? '—' : `${teamMembers.length} ${teamMembers.length === 1 ? 'Collaborator' : 'Collaborators'}`}
               </span>
             </div>
 
-            {/* Team Members Grid */}
-            {teamMembers.length > 0 ? (
+            {applicationsError ? (
+              <div className="p-8 text-center bg-[#111116] border border-white/[0.08] rounded-2xl" role="status">
+                <div className="w-10 h-10 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center mx-auto mb-3">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                  </svg>
+                </div>
+                <h3 className="text-sm font-semibold text-white mb-1">Unable to load team members</h3>
+                <p className="text-xs text-white/50 mb-4 max-w-sm mx-auto">
+                  Team collaborator records could not be retrieved.
+                </p>
+                {onRetryApplications && (
+                  <button
+                    type="button"
+                    onClick={onRetryApplications}
+                    disabled={applicationsLoading}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-purple/20 hover:bg-purple text-purple-light hover:text-white border border-purple/30 text-xs font-semibold rounded-xl transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6239BF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0F] disabled:opacity-50"
+                  >
+                    {applicationsLoading ? 'Retrying...' : 'Retry'}
+                  </button>
+                )}
+              </div>
+            ) : teamMembers.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {teamMembers.map((member) => {
                   const profileId = member.applicant_id || member.applicant?.id || null
@@ -803,10 +884,10 @@ export default function CreatorProjectView({
                     >
                       <div className="flex flex-col items-center">
                         {profileUrl ? (
-                          <Link to={profileUrl} className="block group/avatar">
+                          <Link to={profileUrl} className="block group/avatar focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6239BF] rounded-full">
                             <div className="w-16 h-16 rounded-full bg-purple/15 border border-purple/30 group-hover/avatar:border-purple flex items-center justify-center overflow-hidden mb-3 transition-colors">
                               {member.avatar ? (
-                                <img src={member.avatar} alt={member.name} className="w-full h-full object-cover" />
+                                <img src={member.avatar} alt={member.name} decoding="async" className="w-full h-full object-cover" />
                               ) : (
                                 <span className="text-xl font-bold text-purple">{(member.name || 'U').charAt(0)}</span>
                               )}
@@ -815,7 +896,7 @@ export default function CreatorProjectView({
                         ) : (
                           <div className="w-16 h-16 rounded-full bg-purple/15 border border-purple/30 flex items-center justify-center overflow-hidden mb-3">
                             {member.avatar ? (
-                              <img src={member.avatar} alt={member.name} className="w-full h-full object-cover" />
+                              <img src={member.avatar} alt={member.name} decoding="async" className="w-full h-full object-cover" />
                             ) : (
                               <span className="text-xl font-bold text-purple">{(member.name || 'U').charAt(0)}</span>
                             )}
@@ -823,7 +904,7 @@ export default function CreatorProjectView({
                         )}
 
                         {profileUrl ? (
-                          <Link to={profileUrl} className="text-sm font-semibold text-white hover:text-purple-light transition-colors truncate max-w-full">
+                          <Link to={profileUrl} className="text-sm font-semibold text-white hover:text-purple-light transition-colors truncate max-w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6239BF] rounded px-1">
                             {member.name}
                           </Link>
                         ) : (
@@ -833,7 +914,7 @@ export default function CreatorProjectView({
                         <p className="text-xs text-purple-light font-medium mt-0.5">{member.role}</p>
 
                         {member.location && (
-                          <p className="text-[11px] text-white/40 mt-1">{member.location}</p>
+                          <p className="text-[11px] text-white/50 mt-1">{member.location}</p>
                         )}
                       </div>
 
@@ -849,12 +930,12 @@ export default function CreatorProjectView({
               </div>
             ) : (
               <div className="p-12 text-center bg-[#111116] border border-white/[0.08] rounded-2xl">
-                <p className="text-white/40 text-sm font-medium mb-1">No team members yet.</p>
-                <p className="text-white/25 text-xs mb-4">Accepted collaborators will appear here.</p>
+                <p className="text-white/50 text-sm font-medium mb-1">No team members yet.</p>
+                <p className="text-white/40 text-xs mb-4">Accepted collaborators will appear here.</p>
                 <button
                   type="button"
                   onClick={() => setActiveTab('applications')}
-                  className="px-4 py-2 bg-purple/15 hover:bg-purple text-purple-light hover:text-white border border-purple/30 text-xs font-semibold rounded-xl transition-all"
+                  className="px-4 py-2 bg-purple/15 hover:bg-purple text-purple-light hover:text-white border border-purple/30 text-xs font-semibold rounded-xl transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6239BF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0F]"
                 >
                   View Applications
                 </button>

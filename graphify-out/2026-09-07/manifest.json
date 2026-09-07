@@ -12,10 +12,10 @@
     "semantic_hash": "83bf0e55efaa5d1c1f91ccb07e687a6d"
   },
   "src/App.jsx": {
-    "mtime": 1788729172.3755333,
-    "seen": 1788729214.858262,
-    "ast_hash": "83d3f6e519b781458d2ca610ca309e8e",
-    "semantic_hash": "83d3f6e519b781458d2ca610ca309e8e"
+    "mtime": 1788728043.838974,
+    "seen": 1788728068.34112,
+    "ast_hash": "bf3460d88c37d217029c53934cdca4df",
+    "semantic_hash": "bf3460d88c37d217029c53934cdca4df"
   },
   "src/components/CallToAction.jsx": {
     "mtime": 1788596680.419643,
@@ -322,23 +322,5 @@
     "seen": 1788727516.5612059,
     "ast_hash": "dfb875b7ebe13faac2d3f3c53a414837",
     "semantic_hash": "dfb875b7ebe13faac2d3f3c53a414837"
-  },
-  "src/components/ErrorBoundary.jsx": {
-    "mtime": 1788729157.9359646,
-    "seen": 1788729214.8584354,
-    "ast_hash": "d3b2bd8f25c77f2b8f69d47d3076525b",
-    "semantic_hash": "d3b2bd8f25c77f2b8f69d47d3076525b"
-  },
-  "src/pages/NotFoundPage.jsx": {
-    "mtime": 1788729147.1474087,
-    "seen": 1788729214.863263,
-    "ast_hash": "94e64a4cdcbab809114968c95ced9777",
-    "semantic_hash": "94e64a4cdcbab809114968c95ced9777"
-  },
-  "vercel.json": {
-    "mtime": 1788729128.3051004,
-    "seen": 1788729214.8639562,
-    "ast_hash": "cf6fad1ce721da13630f9f3e7b81fd0c",
-    "semantic_hash": "cf6fad1ce721da13630f9f3e7b81fd0c"
   }
 }

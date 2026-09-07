@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useState, useEffect, useRef } from 'react'
+import { useNavigate, Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/useAuth'
+import { usePageTitle } from '../hooks/usePageTitle'
 import { supabase } from '../lib/supabaseClient'
 import RolePickerModal from '../components/project/RolePickerModal'
 
@@ -25,12 +26,17 @@ function clampToMaxNonWhitespace(text, maxNonWhitespace = 1000) {
 }
 
 function CreateProjectPage() {
+  usePageTitle('Create Project | FrameWork')
   const { user } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [toast, setToast] = useState(null)
   const [loading, setLoading] = useState(false)
   const [currentStep, setCurrentStep] = useState(1)
   const [isRolePickerOpen, setIsRolePickerOpen] = useState(false)
+  const publishingRef = useRef(false)
+  const thumbnailPreviewRef = useRef(null)
+  const navTimerRef = useRef(null)
 
   const [form, setForm] = useState({
     title: '',
@@ -53,6 +59,21 @@ function CreateProjectPage() {
   }, [])
 
   useEffect(() => {
+    thumbnailPreviewRef.current = form.thumbnailPreview
+  }, [form.thumbnailPreview])
+
+  useEffect(() => {
+    return () => {
+      if (thumbnailPreviewRef.current && thumbnailPreviewRef.current.startsWith('blob:')) {
+        URL.revokeObjectURL(thumbnailPreviewRef.current)
+      }
+      if (navTimerRef.current) {
+        clearTimeout(navTimerRef.current)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
     if (toast) {
       const timer = setTimeout(() => setToast(null), 6000)
       return () => clearTimeout(timer)
@@ -70,12 +91,13 @@ function CreateProjectPage() {
             </svg>
           </div>
           <h2 className="text-2xl font-bold mb-3">Sign In Required</h2>
-          <p className="text-white/40 text-sm leading-relaxed mb-6">
+          <p className="text-white/60 text-sm leading-relaxed mb-6">
             You need to be logged in to create a project.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link
               to="/login"
+              state={{ from: `${location.pathname}${location.search}${location.hash}` }}
               className="px-6 py-3 bg-purple text-white text-sm font-semibold rounded-full transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_30px_rgba(98,57,191,0.4)] hover:scale-[1.02]"
             >
               Sign In
@@ -124,10 +146,10 @@ function CreateProjectPage() {
               </h2>
 
               {/* Description */}
-              <p className="text-white/50 text-sm leading-relaxed text-center mb-2">
-                Your account is registered as a <span className="text-white/80 font-medium">Collaborator</span>. Creating and publishing film projects is available for Creator accounts.
+              <p className="text-white/60 text-sm leading-relaxed text-center mb-2">
+                Your account is registered as a <span className="text-white/90 font-medium">Collaborator</span>. Creating and publishing film projects is available for Creator accounts.
               </p>
-              <p className="text-white/35 text-sm leading-relaxed text-center mb-8">
+              <p className="text-white/50 text-sm leading-relaxed text-center mb-8">
                 As a Collaborator, you can browse open projects, apply for roles, and build your portfolio.
               </p>
 
@@ -136,7 +158,7 @@ function CreateProjectPage() {
                 <Link
                   to="/explore"
                   id="collab-explore-btn"
-                  className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-purple text-white text-sm font-semibold rounded-xl transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_30px_rgba(98,57,191,0.4)] hover:scale-[1.02] active:scale-95"
+                  className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-purple text-white text-sm font-semibold rounded-xl transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_30px_rgba(98,57,191,0.4)] hover:scale-[1.02] active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2 focus-visible:ring-offset-[#111111]"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
@@ -146,7 +168,7 @@ function CreateProjectPage() {
                 <Link
                   to="/my-projects"
                   id="collab-dashboard-btn"
-                  className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3.5 border border-white/10 text-white/60 text-sm font-medium rounded-xl transition-all duration-300 hover:border-white/20 hover:text-white hover:bg-white/[0.03] hover:scale-[1.02] active:scale-95"
+                  className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3.5 border border-white/10 text-white/60 text-sm font-medium rounded-xl transition-all duration-300 hover:border-white/20 hover:text-white hover:bg-white/[0.03] hover:scale-[1.02] active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2 focus-visible:ring-offset-[#111111]"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
@@ -158,9 +180,9 @@ function CreateProjectPage() {
           </div>
 
           {/* Footer hint */}
-          <p className="text-center text-white/20 text-xs mt-6">
+          <p className="text-center text-white/50 text-xs mt-6">
             Want to create projects?{' '}
-            <Link to="/register" className="text-purple/60 hover:text-purple transition-colors">
+            <Link to="/register" className="text-purple-light hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-purple">
               Register a new Creator account
             </Link>
           </p>
@@ -218,34 +240,164 @@ function CreateProjectPage() {
   }
 
   const handleThumbnailChange = (e) => {
-    const file = e.target.files[0]
+    const file = e.target.files?.[0]
     if (!file) return
+
+    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp']
+    const hasValidExt = /\.(jpe?g|png|webp)$/i.test(file.name)
+
+    if (!allowedMimeTypes.includes(file.type) || !hasValidExt || file.size === 0 || file.size > 10 * 1024 * 1024) {
+      setToast({ type: 'error', text: 'Choose a JPG, PNG, or WebP image up to 10 MB.' })
+      e.target.value = ''
+      return
+    }
+
+    if (form.thumbnailPreview && form.thumbnailPreview.startsWith('blob:')) {
+      URL.revokeObjectURL(form.thumbnailPreview)
+    }
+
     const url = URL.createObjectURL(file)
     setForm((f) => ({ ...f, thumbnailFile: file, thumbnailPreview: url }))
   }
 
   const handleScriptChange = (e) => {
-    const file = e.target.files[0]
+    const file = e.target.files?.[0]
     if (!file) return
-    if (file.size > 25 * 1024 * 1024) {
-      setToast({ type: 'error', text: 'Script file size must be 25MB or less' })
+
+    const hasPdfExt = /\.pdf$/i.test(file.name)
+    const hasPdfMime = !file.type || file.type === 'application/pdf'
+
+    if (!hasPdfExt || !hasPdfMime || file.size === 0 || file.size > 25 * 1024 * 1024) {
+      setToast({ type: 'error', text: 'Choose a PDF screenplay up to 25 MB.' })
+      e.target.value = ''
       return
     }
+
     setForm((f) => ({ ...f, scriptFile: file, scriptFileName: file.name }))
+  }
+
+  const focusField = (fieldId) => {
+    const el = document.getElementById(fieldId)
+    if (el) {
+      const prefersReducedMotion =
+        typeof window !== 'undefined' &&
+        window.matchMedia &&
+        window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      el.scrollIntoView({
+        behavior: prefersReducedMotion ? 'auto' : 'smooth',
+        block: 'center',
+      })
+      el.focus({ preventScroll: true })
+    }
   }
 
   const validateStep = (step) => {
     if (step === 1) {
-      if (!form.title.trim()) { setToast({ type: 'error', text: 'Project title is required' }); return false }
-      if (!form.logline.trim()) { setToast({ type: 'error', text: 'Logline is required' }); return false }
-      if (form.logline.length > 90) { setToast({ type: 'error', text: 'Logline must be 90 characters or less' }); return false }
-      if (!form.description.trim()) { setToast({ type: 'error', text: 'Description is required' }); return false }
-      if (form.description.replace(/\s/g, '').length > 1000) { setToast({ type: 'error', text: 'Description must be 1000 characters or less, excluding spaces' }); return false }
-      if (!form.genre) { setToast({ type: 'error', text: 'Please select a genre' }); return false }
-      if (!form.location) { setToast({ type: 'error', text: 'Please select a location' }); return false }
+      if (!form.title.trim()) {
+        setToast({ type: 'error', text: 'Project title is required' })
+        if (currentStep !== 1) {
+          setCurrentStep(1)
+          setTimeout(() => focusField('create-title'), 60)
+        } else {
+          focusField('create-title')
+        }
+        return false
+      }
+      if (form.title.trim().length > 100) {
+        setToast({ type: 'error', text: 'Project title must be 100 characters or less' })
+        if (currentStep !== 1) {
+          setCurrentStep(1)
+          setTimeout(() => focusField('create-title'), 60)
+        } else {
+          focusField('create-title')
+        }
+        return false
+      }
+      if (!form.logline.trim()) {
+        setToast({ type: 'error', text: 'Logline is required' })
+        if (currentStep !== 1) {
+          setCurrentStep(1)
+          setTimeout(() => focusField('create-logline'), 60)
+        } else {
+          focusField('create-logline')
+        }
+        return false
+      }
+      if (form.logline.length > 90) {
+        setToast({ type: 'error', text: 'Logline must be 90 characters or less' })
+        if (currentStep !== 1) {
+          setCurrentStep(1)
+          setTimeout(() => focusField('create-logline'), 60)
+        } else {
+          focusField('create-logline')
+        }
+        return false
+      }
+      if (!form.description.trim()) {
+        setToast({ type: 'error', text: 'Description is required' })
+        if (currentStep !== 1) {
+          setCurrentStep(1)
+          setTimeout(() => focusField('create-description'), 60)
+        } else {
+          focusField('create-description')
+        }
+        return false
+      }
+      if (form.description.replace(/\s/g, '').length > 1000) {
+        setToast({ type: 'error', text: 'Description must be 1000 characters or less, excluding spaces' })
+        if (currentStep !== 1) {
+          setCurrentStep(1)
+          setTimeout(() => focusField('create-description'), 60)
+        } else {
+          focusField('create-description')
+        }
+        return false
+      }
+      if (!form.genre) {
+        setToast({ type: 'error', text: 'Please select a genre' })
+        if (currentStep !== 1) {
+          setCurrentStep(1)
+          setTimeout(() => focusField('create-genre'), 60)
+        } else {
+          focusField('create-genre')
+        }
+        return false
+      }
+      if (!form.location) {
+        setToast({ type: 'error', text: 'Please select a location' })
+        if (currentStep !== 1) {
+          setCurrentStep(1)
+          setTimeout(() => focusField('create-location'), 60)
+        } else {
+          focusField('create-location')
+        }
+        return false
+      }
+      if (form.budget !== '' && form.budget != null) {
+        const budgetNum = Number(form.budget)
+        if (isNaN(budgetNum) || !isFinite(budgetNum) || budgetNum < 0) {
+          setToast({ type: 'error', text: 'Budget must be a valid positive number' })
+          if (currentStep !== 1) {
+            setCurrentStep(1)
+            setTimeout(() => focusField('create-budget'), 60)
+          } else {
+            focusField('create-budget')
+          }
+          return false
+        }
+      }
     }
     if (step === 2) {
-      if (form.roles.length === 0) { setToast({ type: 'error', text: 'Select at least one role' }); return false }
+      if (form.roles.length === 0) {
+        setToast({ type: 'error', text: 'Select at least one role' })
+        if (currentStep !== 2) {
+          setCurrentStep(2)
+          setTimeout(() => focusField('create-add-role-btn'), 60)
+        } else {
+          focusField('create-add-role-btn')
+        }
+        return false
+      }
     }
     return true
   }
@@ -261,6 +413,8 @@ function CreateProjectPage() {
   }
 
   const handlePublish = async () => {
+    if (publishingRef.current) return
+
     if (!validateStep(1) || !validateStep(2)) return
 
     // 0. Verify active authenticated user session
@@ -275,7 +429,13 @@ function CreateProjectPage() {
       return
     }
 
+    publishingRef.current = true
     setLoading(true)
+
+    let publishSucceeded = false
+    let uploadedPosterPath = null
+    let uploadedScriptPath = null
+    let createdProjectId = null
 
     try {
       let posterUrl = null
@@ -284,8 +444,9 @@ function CreateProjectPage() {
       // Step 1A: Upload project poster if a file was selected
       if (form.thumbnailFile) {
         const file = form.thumbnailFile
-        const fileExt = file.name.split('.').pop() || 'png'
-        const sanitizedFileName = `${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${fileExt}`
+        const fileExt = (file.name.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '')
+        const validatedExt = ['jpg', 'jpeg', 'png', 'webp'].includes(fileExt) ? fileExt : 'png'
+        const sanitizedFileName = `${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${validatedExt}`
         const filePath = `${activeUserId}/${sanitizedFileName}`
 
         const { error: uploadError } = await supabase.storage
@@ -296,8 +457,11 @@ function CreateProjectPage() {
           })
 
         if (uploadError) {
-          throw new Error(`[Storage Error] Poster upload failed: ${uploadError.message || JSON.stringify(uploadError)}`)
+          console.error('[Storage Error] Poster upload failed:', uploadError)
+          throw new Error('Unable to upload the project poster. Please try again.')
         }
+
+        uploadedPosterPath = filePath
 
         const { data: publicUrlData } = supabase.storage
           .from('project-posters')
@@ -320,9 +484,22 @@ function CreateProjectPage() {
           })
 
         if (scriptUploadError) {
-          throw new Error(`[Storage Error] Script upload failed: ${scriptUploadError.message || JSON.stringify(scriptUploadError)}`)
+          console.error('[Storage Error] Script upload failed:', scriptUploadError)
+          if (uploadedPosterPath) {
+            try {
+              const { error: remPosterErr } = await supabase.storage.from('project-posters').remove([uploadedPosterPath])
+              if (remPosterErr) {
+                console.warn('Failed to clean up poster after script upload error:', remPosterErr)
+              }
+            } catch (cleanErr) {
+              console.warn('Exception cleaning up poster after script upload error:', cleanErr)
+            }
+            uploadedPosterPath = null
+          }
+          throw new Error('Unable to upload the screenplay. Please try again.')
         }
 
+        uploadedScriptPath = filePath
         scriptPath = filePath
       }
 
@@ -348,24 +525,47 @@ function CreateProjectPage() {
         .select('id')
         .single()
 
-      if (projectError) {
-        throw new Error(`[Database Error] Project creation failed: ${projectError.message || JSON.stringify(projectError)}`)
+      if (projectError || !createdProject?.id) {
+        console.error('[Database Error] Project creation failed:', projectError)
+        if (uploadedPosterPath) {
+          try {
+            const { error: remPosterErr } = await supabase.storage.from('project-posters').remove([uploadedPosterPath])
+            if (remPosterErr) {
+              console.warn('Failed to clean up poster after project insert error:', remPosterErr)
+            }
+          } catch (cleanErr) {
+            console.warn('Exception cleaning up poster after project insert error:', cleanErr)
+          }
+          uploadedPosterPath = null
+        }
+        if (uploadedScriptPath) {
+          try {
+            const { error: remScriptErr } = await supabase.storage.from('scripts').remove([uploadedScriptPath])
+            if (remScriptErr) {
+              console.warn('Failed to clean up script after project insert error:', remScriptErr)
+            }
+          } catch (cleanErr) {
+            console.warn('Exception cleaning up script after project insert error:', cleanErr)
+          }
+          uploadedScriptPath = null
+        }
+        throw new Error('Unable to create the project. Please try again.')
       }
 
-      if (!createdProject?.id) {
-        throw new Error('[Database Error] Project was created but no valid ID was returned.')
-      }
+      createdProjectId = createdProject.id
 
       // Step 3: Insert roles into public.project_roles
       if (form.roles && form.roles.length > 0) {
         const rolesToInsert = form.roles.map((item) => {
           const roleName = typeof item === 'string' ? item : item.role
           const count = typeof item === 'object' && item.count ? Math.max(1, Number(item.count)) : 1
+          const expLevel = typeof item === 'object' && item.experience ? item.experience : 'Intermediate'
           return {
-            project_id: createdProject.id,
+            project_id: createdProjectId,
             role: roleName,
             positions_needed: count,
             positions_filled: 0,
+            experience_level: expLevel,
           }
         })
 
@@ -374,21 +574,74 @@ function CreateProjectPage() {
           .insert(rolesToInsert)
 
         if (rolesError) {
-          throw new Error(`[Database Error] Adding project roles failed: ${rolesError.message || JSON.stringify(rolesError)}`)
+          console.error('[Database Error] Adding project roles failed:', rolesError)
+          let rollbackFailed = false
+
+          if (createdProjectId) {
+            try {
+              const { error: delErr } = await supabase
+                .from('projects')
+                .delete()
+                .eq('id', createdProjectId)
+                .eq('creator_id', activeUserId)
+              if (delErr) {
+                console.warn('Failed to delete project row during role insert rollback:', delErr)
+                rollbackFailed = true
+              }
+            } catch (cleanErr) {
+              console.warn('Exception during project rollback:', cleanErr)
+              rollbackFailed = true
+            }
+            createdProjectId = null
+          }
+
+          if (uploadedPosterPath) {
+            try {
+              const { error: remPosterErr } = await supabase.storage.from('project-posters').remove([uploadedPosterPath])
+              if (remPosterErr) {
+                console.warn('Failed to clean up poster after role insert error:', remPosterErr)
+              }
+            } catch (cleanErr) {
+              console.warn('Exception cleaning up poster after role insert error:', cleanErr)
+            }
+            uploadedPosterPath = null
+          }
+
+          if (uploadedScriptPath) {
+            try {
+              const { error: remScriptErr } = await supabase.storage.from('scripts').remove([uploadedScriptPath])
+              if (remScriptErr) {
+                console.warn('Failed to clean up script after role insert error:', remScriptErr)
+              }
+            } catch (cleanErr) {
+              console.warn('Exception cleaning up script after role insert error:', cleanErr)
+            }
+            uploadedScriptPath = null
+          }
+
+          if (rollbackFailed) {
+            throw new Error('Unable to finish publishing the project. Please check My Projects before trying again.')
+          } else {
+            throw new Error('Unable to save project roles. Your project was not published.')
+          }
         }
       }
 
       // Step 4: Success feedback & navigation
-      setToast({ type: 'success', text: 'Project published successfully to Supabase!' })
-      setTimeout(() => {
+      publishSucceeded = true
+      setToast({ type: 'success', text: 'Project published successfully!' })
+      navTimerRef.current = setTimeout(() => {
         navigate('/my-projects')
       }, 1500)
     } catch (err) {
       console.error('Project publish error:', err)
-      const errorMsg = err?.message || (typeof err === 'string' ? err : 'An unexpected error occurred while publishing the project.')
+      const errorMsg = err?.message || 'An unexpected error occurred while publishing the project.'
       setToast({ type: 'error', text: errorMsg })
     } finally {
-      setLoading(false)
+      if (!publishSucceeded) {
+        publishingRef.current = false
+        setLoading(false)
+      }
     }
   }
 
@@ -416,17 +669,17 @@ function CreateProjectPage() {
         <div className="mb-10 reveal">
           <Link
             to="/explore"
-            className="inline-flex items-center gap-2 text-sm text-white/40 hover:text-white transition-colors duration-300 mb-6 group"
+            className="inline-flex items-center gap-2 text-sm text-white/50 hover:text-white transition-colors duration-300 mb-6 group rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple"
           >
-            <svg className="w-4 h-4 transition-transform duration-300 group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+            <svg className="w-4 h-4 transition-transform duration-300 group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
             </svg>
             Back to Projects
           </Link>
-          <h1 className="font-['Fraunces',_serif] text-3xl sm:text-4xl lg:text-5xl font-semibold tracking-[-0.02em] leading-[1.15] mb-3">
+          <h1 className="font-['Bebas_Neue',_sans-serif] text-4xl sm:text-5xl lg:text-6xl font-normal tracking-wide leading-none mb-3">
             Create <span className="gradient-text">Project</span>
           </h1>
-          <p className="text-white/40 text-lg">
+          <p className="text-white/50 text-lg">
             Publish your film project and find your dream team.
           </p>
         </div>
@@ -436,24 +689,26 @@ function CreateProjectPage() {
           {steps.map((step, idx) => (
             <div key={step.num} className="flex items-center">
               <button
+                type="button"
                 onClick={() => { if (step.num < currentStep) setCurrentStep(step.num) }}
-                className={`flex items-center gap-2.5 px-4 py-2.5 rounded-full transition-all duration-500 ${
+                className={`flex items-center gap-2.5 px-4 py-2.5 rounded-full transition-all duration-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple ${
                   currentStep === step.num
                     ? 'bg-purple/15 border border-purple/30 text-white'
                     : currentStep > step.num
                     ? 'text-purple-light cursor-pointer hover:bg-white/5'
-                    : 'text-white/20 cursor-default'
+                    : 'text-white/50 cursor-default'
                 }`}
+                aria-current={currentStep === step.num ? 'step' : undefined}
               >
                 <span className={`w-7 h-7 rounded-full text-xs font-bold flex items-center justify-center transition-all duration-500 ${
                   currentStep === step.num
                     ? 'bg-purple text-white shadow-[0_0_15px_rgba(98,57,191,0.4)]'
                     : currentStep > step.num
                     ? 'bg-purple/20 text-purple-light'
-                    : 'bg-white/5 text-white/30'
+                    : 'bg-white/5 text-white/50'
                 }`}>
                   {currentStep > step.num ? (
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3} aria-hidden="true">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
                   ) : step.num}
@@ -461,7 +716,7 @@ function CreateProjectPage() {
                 <span className="text-sm font-medium hidden sm:inline">{step.label}</span>
               </button>
               {idx < steps.length - 1 && (
-                <div className={`w-8 sm:w-16 h-px mx-1 transition-colors duration-500 ${currentStep > step.num ? 'bg-purple/40' : 'bg-white/10'}`} />
+                <div className={`w-8 sm:w-16 h-px mx-1 transition-colors duration-500 ${currentStep > step.num ? 'bg-purple/40' : 'bg-white/10'}`} aria-hidden="true" />
               )}
             </div>
           ))}
@@ -477,9 +732,11 @@ function CreateProjectPage() {
 
           {/* Step 1: Project Details */}
           {currentStep === 1 && (
-            <div className="space-y-6 animate-fade-in">
+            <div className="space-y-6 animate-fade-in motion-reduce:animate-none">
               <div>
-                <label htmlFor="create-title" className="block text-sm font-medium text-white/60 mb-2">Project Title *</label>
+                <label htmlFor="create-title" className="block text-sm font-medium text-white/70 mb-2">
+                  Project Title <span className="text-purple-light" aria-hidden="true">*</span>
+                </label>
                 <input
                   id="create-title"
                   type="text"
@@ -488,12 +745,16 @@ function CreateProjectPage() {
                   onChange={handleChange}
                   placeholder="e.g. Echoes of Amber"
                   maxLength={100}
-                  className="w-full px-4 py-3.5 bg-[#0C0C11] border border-white/[0.11] rounded-xl text-sm text-white placeholder-white/30 outline-none transition-all duration-300 focus:border-purple focus:ring-1 focus:ring-purple/20 focus:shadow-[0_0_15px_rgba(98,57,191,0.12)]"
+                  required
+                  aria-required="true"
+                  className="w-full px-4 py-3.5 bg-[#0C0C11] border border-white/[0.11] rounded-xl text-sm text-white placeholder-white/40 outline-none transition-all duration-300 focus:border-purple focus:ring-1 focus:ring-purple/20 focus:shadow-[0_0_15px_rgba(98,57,191,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2 focus-visible:ring-offset-[#0C0C11]"
                 />
               </div>
 
               <div>
-                <label htmlFor="create-logline" className="block text-sm font-medium text-white/60 mb-2">Logline *</label>
+                <label htmlFor="create-logline" className="block text-sm font-medium text-white/70 mb-2">
+                  Logline <span className="text-purple-light" aria-hidden="true">*</span>
+                </label>
                 <textarea
                   id="create-logline"
                   name="logline"
@@ -502,13 +763,18 @@ function CreateProjectPage() {
                   placeholder="A short, compelling pitch for your project..."
                   rows={2}
                   maxLength={90}
-                  className="w-full px-4 py-3 bg-[#0C0C11] border border-white/[0.11] rounded-xl text-sm text-white placeholder-white/30 outline-none transition-all duration-300 focus:border-purple focus:ring-1 focus:ring-purple/20 focus:shadow-[0_0_15px_rgba(98,57,191,0.12)] resize-none"
+                  required
+                  aria-required="true"
+                  aria-describedby="logline-counter"
+                  className="w-full px-4 py-3 bg-[#0C0C11] border border-white/[0.11] rounded-xl text-sm text-white placeholder-white/40 outline-none transition-all duration-300 focus:border-purple focus:ring-1 focus:ring-purple/20 focus:shadow-[0_0_15px_rgba(98,57,191,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2 focus-visible:ring-offset-[#0C0C11] resize-none"
                 />
-                <p className="text-white/20 text-xs text-right mt-1">{form.logline.length}/90</p>
+                <p id="logline-counter" className="text-white/50 text-xs text-right mt-1">{form.logline.length}/90</p>
               </div>
 
               <div>
-                <label htmlFor="create-description" className="block text-sm font-medium text-white/60 mb-2">Description *</label>
+                <label htmlFor="create-description" className="block text-sm font-medium text-white/70 mb-2">
+                  Description <span className="text-purple-light" aria-hidden="true">*</span>
+                </label>
                 <textarea
                   id="create-description"
                   name="description"
@@ -516,49 +782,60 @@ function CreateProjectPage() {
                   onChange={handleDescriptionChange}
                   placeholder="Describe your project, story, vision, or what collaborators should know..."
                   rows={6}
-                  className="w-full px-4 py-3.5 bg-[#0C0C11] border border-white/[0.11] rounded-xl text-sm text-white placeholder-white/30 outline-none transition-all duration-300 focus:border-purple focus:ring-1 focus:ring-purple/20 focus:shadow-[0_0_15px_rgba(98,57,191,0.12)] resize-none"
+                  required
+                  aria-required="true"
+                  aria-describedby="description-counter"
+                  className="w-full px-4 py-3.5 bg-[#0C0C11] border border-white/[0.11] rounded-xl text-sm text-white placeholder-white/40 outline-none transition-all duration-300 focus:border-purple focus:ring-1 focus:ring-purple/20 focus:shadow-[0_0_15px_rgba(98,57,191,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2 focus-visible:ring-offset-[#0C0C11] resize-none"
                 />
-                <p className="text-white/20 text-xs text-right mt-1">{form.description.replace(/\s/g, '').length}/1000</p>
+                <p id="description-counter" className="text-white/50 text-xs text-right mt-1">{form.description.replace(/\s/g, '').length}/1000</p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div>
-                  <label htmlFor="create-genre" className="block text-sm font-medium text-white/60 mb-2">Genre *</label>
+                  <label htmlFor="create-genre" className="block text-sm font-medium text-white/70 mb-2">
+                    Genre <span className="text-purple-light" aria-hidden="true">*</span>
+                  </label>
                   <div className="relative">
                     <select
                       id="create-genre"
                       name="genre"
                       value={form.genre}
                       onChange={handleChange}
-                      className="w-full appearance-none px-4 py-3.5 pr-10 bg-[#0C0C11] border border-white/[0.11] rounded-xl text-sm text-white outline-none transition-all duration-300 focus:border-purple focus:ring-1 focus:ring-purple/20 focus:shadow-[0_0_15px_rgba(98,57,191,0.12)] cursor-pointer"
+                      required
+                      aria-required="true"
+                      className="w-full appearance-none px-4 py-3.5 pr-10 bg-[#0C0C11] border border-white/[0.11] rounded-xl text-sm text-white outline-none transition-all duration-300 focus:border-purple focus:ring-1 focus:ring-purple/20 focus:shadow-[0_0_15px_rgba(98,57,191,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2 focus-visible:ring-offset-[#0C0C11] cursor-pointer"
                     >
                       <option value="" className="bg-[#0C0C11]">Select genre</option>
                       {genreOptions.map((g) => (
                         <option key={g} value={g} className="bg-[#0C0C11]">{g}</option>
                       ))}
                     </select>
-                    <svg className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <svg className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                     </svg>
                   </div>
                 </div>
 
                 <div>
-                  <label htmlFor="create-location" className="block text-sm font-medium text-white/60 mb-2">Location *</label>
+                  <label htmlFor="create-location" className="block text-sm font-medium text-white/70 mb-2">
+                    Location <span className="text-purple-light" aria-hidden="true">*</span>
+                  </label>
                   <div className="relative">
                     <select
                       id="create-location"
                       name="location"
                       value={form.location}
                       onChange={handleChange}
-                      className="w-full appearance-none px-4 py-3.5 pr-10 bg-[#0C0C11] border border-white/[0.11] rounded-xl text-sm text-white outline-none transition-all duration-300 focus:border-purple focus:ring-1 focus:ring-purple/20 focus:shadow-[0_0_15px_rgba(98,57,191,0.12)] cursor-pointer"
+                      required
+                      aria-required="true"
+                      className="w-full appearance-none px-4 py-3.5 pr-10 bg-[#0C0C11] border border-white/[0.11] rounded-xl text-sm text-white outline-none transition-all duration-300 focus:border-purple focus:ring-1 focus:ring-purple/20 focus:shadow-[0_0_15px_rgba(98,57,191,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2 focus-visible:ring-offset-[#0C0C11] cursor-pointer"
                     >
                       <option value="" className="bg-[#0C0C11]">Select location</option>
                       {locationOptions.map((l) => (
                         <option key={l} value={l} className="bg-[#0C0C11]">{l}</option>
                       ))}
                     </select>
-                    <svg className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <svg className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                     </svg>
                   </div>
@@ -567,7 +844,9 @@ function CreateProjectPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div>
-                  <label htmlFor="create-budget" className="block text-sm font-medium text-white/60 mb-2">Budget (₹)</label>
+                  <label htmlFor="create-budget" className="block text-sm font-medium text-white/70 mb-2">
+                    Budget (₹) <span className="text-white/50 text-xs font-normal">(Optional)</span>
+                  </label>
                   <input
                     id="create-budget"
                     type="number"
@@ -576,12 +855,15 @@ function CreateProjectPage() {
                     onChange={handleChange}
                     placeholder="e.g. 500000"
                     min="0"
-                    className="w-full px-4 py-3.5 bg-[#0C0C11] border border-white/[0.11] rounded-xl text-sm text-white placeholder-white/30 outline-none transition-all duration-300 focus:border-purple focus:ring-1 focus:ring-purple/20 focus:shadow-[0_0_15px_rgba(98,57,191,0.12)]"
+                    step="any"
+                    className="w-full px-4 py-3.5 bg-[#0C0C11] border border-white/[0.11] rounded-xl text-sm text-white placeholder-white/40 outline-none transition-all duration-300 focus:border-purple focus:ring-1 focus:ring-purple/20 focus:shadow-[0_0_15px_rgba(98,57,191,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2 focus-visible:ring-offset-[#0C0C11]"
                   />
                 </div>
 
                 <div>
-                  <label htmlFor="create-timeline" className="block text-sm font-medium text-white/60 mb-2">Timeline</label>
+                  <label htmlFor="create-timeline" className="block text-sm font-medium text-white/70 mb-2">
+                    Timeline <span className="text-white/50 text-xs font-normal">(Optional)</span>
+                  </label>
                   <input
                     id="create-timeline"
                     type="text"
@@ -589,7 +871,7 @@ function CreateProjectPage() {
                     value={form.timeline}
                     onChange={handleChange}
                     placeholder="e.g. Shooting Nov 2026 / 3 Months"
-                    className="w-full px-4 py-3.5 bg-[#0C0C11] border border-white/[0.11] rounded-xl text-sm text-white placeholder-white/30 outline-none transition-all duration-300 focus:border-purple focus:ring-1 focus:ring-purple/20 focus:shadow-[0_0_15px_rgba(98,57,191,0.12)]"
+                    className="w-full px-4 py-3.5 bg-[#0C0C11] border border-white/[0.11] rounded-xl text-sm text-white placeholder-white/40 outline-none transition-all duration-300 focus:border-purple focus:ring-1 focus:ring-purple/20 focus:shadow-[0_0_15px_rgba(98,57,191,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2 focus-visible:ring-offset-[#0C0C11]"
                   />
                 </div>
               </div>
@@ -598,11 +880,11 @@ function CreateProjectPage() {
 
           {/* Step 2: Team & Roles */}
           {currentStep === 2 && (
-            <div className="space-y-6 animate-fade-in">
+            <div className="space-y-6 animate-fade-in motion-reduce:animate-none">
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-medium text-white/60">
-                    Roles Required *
+                  <label className="block text-sm font-medium text-white/70">
+                    Roles Required <span className="text-purple-light" aria-hidden="true">*</span>
                   </label>
                   {form.roles.length > 0 && (
                     <span className="text-xs text-purple-light font-medium">
@@ -610,7 +892,7 @@ function CreateProjectPage() {
                     </span>
                   )}
                 </div>
-                <p className="text-white/25 text-xs mb-5">
+                <p className="text-white/50 text-xs mb-5">
                   Choose the creative and technical talent needed for your production.
                 </p>
 
@@ -621,6 +903,7 @@ function CreateProjectPage() {
                       const roleName = typeof item === 'string' ? item : item.role
                       const count = typeof item === 'object' && item.count ? item.count : 1
                       const experience = typeof item === 'object' && item.experience ? item.experience : 'Intermediate'
+                      const roleDomId = `role-${index}-${roleName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`
 
                       return (
                         <div
@@ -629,8 +912,8 @@ function CreateProjectPage() {
                         >
                           <div className="flex items-start justify-between gap-3 mb-4">
                             <div className="flex items-center gap-2.5">
-                              <span className="w-2 h-2 rounded-full bg-purple" />
-                              <h4 className="text-sm sm:text-base font-semibold text-white leading-snug">
+                              <span className="w-2 h-2 rounded-full bg-purple" aria-hidden="true" />
+                              <h4 className="text-sm sm:text-base font-semibold text-white leading-snug break-words">
                                 {roleName}
                               </h4>
                             </div>
@@ -638,7 +921,8 @@ function CreateProjectPage() {
                             <button
                               type="button"
                               onClick={() => handleRemoveRole(index)}
-                              className="text-xs text-red-400/70 hover:text-red-300 transition-colors px-2 py-1 rounded hover:bg-red-500/10 shrink-0"
+                              aria-label={`Remove role ${roleName}`}
+                              className="text-xs text-red-400/80 hover:text-red-300 transition-colors px-2.5 py-1 rounded-lg hover:bg-red-500/10 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0C0C11]"
                             >
                               Remove
                             </button>
@@ -647,7 +931,7 @@ function CreateProjectPage() {
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-white/[0.06]">
                             {/* Count Control */}
                             <div>
-                              <span className="block text-xs font-medium text-white/40 mb-2 uppercase tracking-wider">
+                              <span className="block text-xs font-medium text-white/50 mb-2 uppercase tracking-wider" aria-hidden="true">
                                 Count
                               </span>
                               <div className="inline-flex items-center bg-[#111118] border border-white/[0.10] rounded-xl overflow-hidden">
@@ -655,19 +939,19 @@ function CreateProjectPage() {
                                   type="button"
                                   onClick={() => handleRoleCountChange(index, -1)}
                                   disabled={count <= 1}
-                                  className="w-10 h-10 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/[0.05] disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-base font-medium"
-                                  aria-label="Decrease count"
+                                  className="w-10 h-10 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/[0.05] disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-base font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-inset"
+                                  aria-label={`Decrease positions for ${roleName}`}
                                 >
                                   −
                                 </button>
-                                <span className="w-12 text-center text-sm font-semibold text-white">
+                                <span className="w-12 text-center text-sm font-semibold text-white" aria-live="polite" aria-atomic="true">
                                   {count}
                                 </span>
                                 <button
                                   type="button"
                                   onClick={() => handleRoleCountChange(index, 1)}
-                                  className="w-10 h-10 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/[0.05] transition-colors text-base font-medium"
-                                  aria-label="Increase count"
+                                  className="w-10 h-10 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/[0.05] transition-colors text-base font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-inset"
+                                  aria-label={`Increase positions for ${roleName}`}
                                 >
                                   +
                                 </button>
@@ -676,14 +960,16 @@ function CreateProjectPage() {
 
                             {/* Experience Level Selector */}
                             <div>
-                              <span className="block text-xs font-medium text-white/40 mb-2 uppercase tracking-wider">
+                              <label htmlFor={`exp-${roleDomId}`} className="block text-xs font-medium text-white/50 mb-2 uppercase tracking-wider">
                                 Experience Level
-                              </span>
+                              </label>
                               <div className="relative">
                                 <select
+                                  id={`exp-${roleDomId}`}
                                   value={experience}
                                   onChange={(e) => handleRoleExperienceChange(index, e.target.value)}
-                                  className="w-full appearance-none px-3.5 py-2.5 bg-[#111118] border border-white/[0.10] rounded-xl text-sm text-white outline-none transition-all focus:border-purple cursor-pointer pr-9"
+                                  aria-label={`Experience level for ${roleName}`}
+                                  className="w-full appearance-none px-3.5 py-2.5 bg-[#111118] border border-white/[0.10] rounded-xl text-sm text-white outline-none transition-all focus:border-purple focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2 focus-visible:ring-offset-[#111118] cursor-pointer pr-9"
                                 >
                                   {['Beginner', 'Student', 'Intermediate', 'Professional'].map((lvl) => (
                                     <option key={lvl} value={lvl} className="bg-[#111118]">
@@ -691,7 +977,7 @@ function CreateProjectPage() {
                                     </option>
                                   ))}
                                 </select>
-                                <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                                <svg className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
                                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                                 </svg>
                               </div>
@@ -705,11 +991,12 @@ function CreateProjectPage() {
 
                 {/* Add Role / Add Another Role Trigger Button */}
                 <button
+                  id="create-add-role-btn"
                   type="button"
                   onClick={() => setIsRolePickerOpen(true)}
-                  className="w-full py-4 px-5 bg-[#0C0C11] hover:bg-[#0E0E14] border border-dashed border-white/[0.15] hover:border-purple/50 rounded-2xl text-sm font-medium text-white/70 hover:text-white transition-all duration-300 flex items-center justify-center gap-2 group shadow-sm"
+                  className="w-full py-4 px-5 bg-[#0C0C11] hover:bg-[#0E0E14] border border-dashed border-white/[0.15] hover:border-purple/50 rounded-2xl text-sm font-medium text-white/70 hover:text-white transition-all duration-300 flex items-center justify-center gap-2 group shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2 focus-visible:ring-offset-[#111118]"
                 >
-                  <span className="w-6 h-6 rounded-full bg-purple/20 text-purple-light group-hover:bg-purple group-hover:text-white flex items-center justify-center transition-all duration-200 text-base">
+                  <span className="w-6 h-6 rounded-full bg-purple/20 text-purple-light group-hover:bg-purple group-hover:text-white flex items-center justify-center transition-all duration-200 text-base" aria-hidden="true">
                     +
                   </span>
                   <span>{form.roles.length === 0 ? 'Add Role' : 'Add Another Role'}</span>
@@ -720,58 +1007,56 @@ function CreateProjectPage() {
 
           {/* Step 3: Media */}
           {currentStep === 3 && (
-            <div className="space-y-6 animate-fade-in">
+            <div className="space-y-6 animate-fade-in motion-reduce:animate-none">
               {/* Poster */}
               <div>
-                <label className="block text-sm font-medium text-white/60 mb-3">Project Poster</label>
+                <label htmlFor="create-poster-input" className="block text-sm font-medium text-white/70 mb-3">Project Poster</label>
                 <div className="flex items-start gap-5">
                   <div className="w-24 h-36 rounded-xl bg-[#0C0C11] border border-white/[0.11] overflow-hidden shrink-0 flex items-center justify-center">
                     {form.thumbnailPreview ? (
-                      <img src={form.thumbnailPreview} alt="Project Poster" className="w-full h-full object-cover" />
+                      <img src={form.thumbnailPreview} alt="Project Poster Preview" className="w-full h-full object-cover" />
                     ) : (
-                      <svg className="w-8 h-8 text-white/15" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                      <svg className="w-8 h-8 text-white/20" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5} aria-hidden="true">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.41a2.25 2.25 0 013.182 0l2.909 2.91m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
                       </svg>
                     )}
                   </div>
-                  <div className="flex-1">
-                    <label className="block px-4 py-3.5 bg-[#0C0C11] border border-white/[0.11] border-dashed rounded-xl cursor-pointer transition-all duration-300 hover:border-purple/40 hover:bg-[#0E0E14] text-center">
-                      <span className="text-sm text-white/40">
-                        {form.thumbnailFile ? form.thumbnailFile.name : 'Upload project poster (JPG, PNG)'}
+                  <div className="flex-1 min-w-0">
+                    <label htmlFor="create-poster-input" className="block px-4 py-3.5 bg-[#0C0C11] border border-white/[0.11] border-dashed rounded-xl cursor-pointer transition-all duration-300 hover:border-purple/40 hover:bg-[#0E0E14] text-center focus-within:ring-2 focus-within:ring-purple focus-within:ring-offset-2 focus-within:ring-offset-[#0C0C11]">
+                      <span className="text-sm text-white/50 truncate block min-w-0">
+                        {form.thumbnailFile ? form.thumbnailFile.name : 'Upload project poster (JPG, PNG, WebP)'}
                       </span>
-                      <input type="file" onChange={handleThumbnailChange} accept="image/*" className="sr-only" />
+                      <input id="create-poster-input" type="file" onChange={handleThumbnailChange} accept="image/jpeg,image/png,image/webp" className="sr-only" aria-describedby="poster-help-text" />
                     </label>
-                    <p className="text-xs text-white/25 mt-2">Upload a portrait film poster. Recommended size: 1200 × 1800 px (2:3).</p>
+                    <p id="poster-help-text" className="text-xs text-white/50 mt-2">Upload a portrait film poster. Recommended size: 1200 × 1800 px (2:3). Supported formats: JPG, PNG, WebP up to 10 MB.</p>
                   </div>
                 </div>
               </div>
 
               {/* Script Upload */}
               <div>
-                <label className="block text-sm font-medium text-white/60 mb-3">Script (PDF)</label>
-                <label className="flex items-center gap-4 px-5 py-5 bg-[#0C0C11] border border-white/[0.11] border-dashed rounded-xl cursor-pointer transition-all duration-300 hover:border-purple/40 hover:bg-[#0E0E14]">
-                  <div className="w-12 h-12 rounded-xl bg-purple/10 flex items-center justify-center shrink-0">
+                <label htmlFor="create-script-input" className="block text-sm font-medium text-white/70 mb-3">Script (PDF)</label>
+                <label htmlFor="create-script-input" className="flex items-center gap-4 px-5 py-5 bg-[#0C0C11] border border-white/[0.11] border-dashed rounded-xl cursor-pointer transition-all duration-300 hover:border-purple/40 hover:bg-[#0E0E14] focus-within:ring-2 focus-within:ring-purple focus-within:ring-offset-2 focus-within:ring-offset-[#0C0C11]">
+                  <div className="w-12 h-12 rounded-xl bg-purple/10 flex items-center justify-center shrink-0" aria-hidden="true">
                     <svg className="w-6 h-6 text-purple/60" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                     </svg>
                   </div>
-                  <div>
-                    <p className="text-sm text-white/60">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm text-white/70 truncate min-w-0">
                       {form.scriptFileName || 'Upload your script'}
                     </p>
-                    <p className="text-xs text-white/25 mt-0.5">PDF format, max 25MB</p>
+                    <p id="script-help-text" className="text-xs text-white/50 mt-0.5">PDF format, max 25MB</p>
                   </div>
-                  <input type="file" onChange={handleScriptChange} accept=".pdf" className="sr-only" />
+                  <input id="create-script-input" type="file" onChange={handleScriptChange} accept=".pdf,application/pdf" className="sr-only" aria-describedby="script-help-text" />
                 </label>
               </div>
 
               {/* Script Access Privacy Selector */}
-              <div className="space-y-3 pt-1">
-                <div>
-                  <label className="block text-sm font-medium text-white/80 mb-1">Script Access</label>
-                  <p className="text-xs text-white/40">Control who can read and preview your project's screenplay.</p>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <fieldset className="space-y-3 pt-1 border-0 m-0 p-0">
+                <legend className="block text-sm font-medium text-white/80 mb-1">Script Access</legend>
+                <p className="text-xs text-white/50">Control who can read and preview your project's screenplay.</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3" role="radiogroup" aria-label="Script Access Options">
                   {[
                     {
                       value: 'ACCEPTED_TEAM',
@@ -792,16 +1077,22 @@ function CreateProjectPage() {
                   ].map((tier) => {
                     const isSelected = form.scriptVisibility === tier.value
                     return (
-                      <button
+                      <label
                         key={tier.value}
-                        type="button"
-                        onClick={() => setForm((f) => ({ ...f, scriptVisibility: tier.value }))}
-                        className={`p-4 rounded-xl text-left border transition-all relative flex flex-col justify-between ${
+                        className={`p-4 rounded-xl text-left border transition-all relative flex flex-col justify-between cursor-pointer focus-within:ring-2 focus-within:ring-purple focus-within:ring-offset-2 focus-within:ring-offset-[#0C0C11] ${
                           isSelected
                             ? 'bg-[#18122B] border-purple shadow-[0_0_20px_rgba(98,57,191,0.25)]'
                             : 'bg-[#0C0C11] border-white/[0.08] hover:border-white/20 hover:bg-[#0E0E14]'
                         }`}
                       >
+                        <input
+                          type="radio"
+                          name="scriptVisibility"
+                          value={tier.value}
+                          checked={isSelected}
+                          onChange={() => setForm((f) => ({ ...f, scriptVisibility: tier.value }))}
+                          className="sr-only"
+                        />
                         <div>
                           <div className="flex items-center justify-between gap-2 mb-1.5">
                             <span className={`text-xs font-semibold ${isSelected ? 'text-white' : 'text-white/80'}`}>
@@ -813,27 +1104,30 @@ function CreateProjectPage() {
                               </span>
                             )}
                           </div>
-                          <p className="text-[11px] text-white/45 leading-relaxed">{tier.desc}</p>
+                          <p className="text-[11px] text-white/50 leading-relaxed">{tier.desc}</p>
                         </div>
                         <div className="mt-3 flex items-center gap-1.5 text-[11px]">
-                          <span className={`w-2.5 h-2.5 rounded-full border flex items-center justify-center ${
-                            isSelected ? 'border-purple bg-purple' : 'border-white/30'
-                          }`}>
+                          <span
+                            className={`w-2.5 h-2.5 rounded-full border flex items-center justify-center ${
+                              isSelected ? 'border-purple bg-purple' : 'border-white/30'
+                            }`}
+                            aria-hidden="true"
+                          >
                             {isSelected && <span className="w-1 h-1 rounded-full bg-white" />}
                           </span>
-                          <span className={isSelected ? 'text-purple-light font-medium' : 'text-white/30'}>
+                          <span className={isSelected ? 'text-purple-light font-medium' : 'text-white/50'}>
                             {isSelected ? 'Selected' : 'Select'}
                           </span>
                         </div>
-                      </button>
+                      </label>
                     )
                   })}
                 </div>
-              </div>
+              </fieldset>
 
               {/* Preview Summary */}
               <div className="mt-4 p-5 bg-[#0C0C11] border border-white/[0.08] rounded-xl">
-                <h4 className="text-xs font-semibold text-white/30 uppercase tracking-wider mb-4">Project Summary</h4>
+                <h4 className="text-xs font-semibold text-white/50 uppercase tracking-wider mb-4">Project Summary</h4>
                 <div className="space-y-2.5">
                   <SummaryRow label="Title" value={form.title} />
                   <SummaryRow label="Logline" value={form.logline} />
@@ -854,10 +1148,11 @@ function CreateProjectPage() {
           <div className="flex items-center justify-between mt-10 pt-6 border-t border-white/[0.08]">
             {currentStep > 1 ? (
               <button
+                type="button"
                 onClick={prevStep}
-                className="flex items-center gap-2 px-5 py-3 text-sm font-medium text-white/50 hover:text-white transition-all duration-300 rounded-xl hover:bg-white/5"
+                className="flex items-center gap-2 px-5 py-3 text-sm font-medium text-white/60 hover:text-white transition-all duration-300 rounded-xl hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2 focus-visible:ring-offset-[#111118]"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
                 </svg>
                 Previous
@@ -866,23 +1161,25 @@ function CreateProjectPage() {
 
             {currentStep < 3 ? (
               <button
+                type="button"
                 onClick={nextStep}
-                className="flex items-center gap-2 px-6 py-3 bg-purple text-white text-sm font-semibold rounded-xl transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_20px_rgba(98,57,191,0.3)] hover:scale-[1.02] active:scale-[0.98]"
+                className="flex items-center gap-2 px-6 py-3 bg-purple text-white text-sm font-semibold rounded-xl transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_20px_rgba(98,57,191,0.3)] hover:scale-[1.02] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2 focus-visible:ring-offset-[#111118]"
               >
                 Next Step
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                 </svg>
               </button>
             ) : (
               <button
+                type="button"
                 onClick={handlePublish}
                 disabled={loading}
-                className="flex items-center gap-2 px-8 py-3.5 bg-purple text-white text-sm font-bold rounded-xl transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_30px_rgba(98,57,191,0.5)] hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 px-8 py-3.5 bg-purple text-white text-sm font-bold rounded-xl transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_30px_rgba(98,57,191,0.5)] hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2 focus-visible:ring-offset-[#111118]"
               >
                 {loading ? (
                   <>
-                    <svg className="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none">
+                    <svg className="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                       <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
                       <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" />
                     </svg>
@@ -890,7 +1187,7 @@ function CreateProjectPage() {
                   </>
                 ) : (
                   <>
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                     </svg>
                     Publish Project
@@ -904,18 +1201,23 @@ function CreateProjectPage() {
 
       {/* Toast */}
       {toast && (
-        <div className={`fixed bottom-6 right-6 z-50 px-5 py-3.5 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.4)] border backdrop-blur-xl toast-enter flex items-center gap-3 ${
-          toast.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
-          toast.type === 'error' ? 'bg-red-500/10 border-red-500/20 text-red-400' :
-          'bg-purple/10 border-purple/20 text-purple-light'
-        }`}>
+        <div
+          role={toast.type === 'error' ? 'alert' : 'status'}
+          aria-live={toast.type === 'error' ? 'assertive' : 'polite'}
+          aria-atomic="true"
+          className={`fixed bottom-6 right-6 z-50 px-5 py-3.5 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.4)] border backdrop-blur-xl toast-enter flex items-center gap-3 ${
+            toast.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
+            toast.type === 'error' ? 'bg-red-500/10 border-red-500/20 text-red-400' :
+            'bg-purple/10 border-purple/20 text-purple-light'
+          }`}
+        >
           {toast.type === 'success' && (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
           )}
           {toast.type === 'error' && (
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           )}
@@ -937,8 +1239,8 @@ function CreateProjectPage() {
 function SummaryRow({ label, value }) {
   return (
     <div className="flex items-start gap-3">
-      <span className="text-xs text-white/25 w-16 shrink-0 pt-0.5">{label}</span>
-      <span className="text-sm text-white/60">{value || '—'}</span>
+      <span className="text-xs text-white/50 w-24 shrink-0 pt-0.5 font-medium">{label}</span>
+      <span className="text-sm text-white/80 break-words min-w-0 flex-1">{value || '—'}</span>
     </div>
   )
 }

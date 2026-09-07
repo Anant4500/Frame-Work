@@ -1,7 +1,6 @@
-import { createContext, useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '../lib/supabaseClient'
-
-export const AuthContext = createContext(null)
+import { AuthContext } from './authContextDef'
 
 // ── Role mapping helpers ──
 const DB_ROLE_TO_FRONTEND = { CREATOR: 'creator', COLLABORATOR: 'collaborator' }
@@ -15,177 +14,276 @@ function mapRoleToDb(frontendRole) {
   return FRONTEND_ROLE_TO_DB[frontendRole] || 'COLLABORATOR'
 }
 
-// ── Fetch profile + skills from Supabase ──
-async function fetchUserProfile(userId) {
-  // Fetch profile
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', userId)
-    .single()
-
-  if (profileError || !profile) {
-    console.error('Error fetching profile:', profileError)
-    return null
+// ── Idempotent pending skills processing ──
+async function processPendingSkills(sessionUser) {
+  const rawPending = sessionUser?.user_metadata?.pending_skills
+  if (!Array.isArray(rawPending) || rawPending.length === 0) {
+    return true
   }
 
-  // Fetch skills via user_skills join
-  const { data: userSkills, error: skillsError } = await supabase
-    .from('user_skills')
-    .select('skill_id, skills(name)')
-    .eq('user_id', userId)
+  // Normalize safely: strings only, trimmed, non-empty, de-duplicated
+  const normalizedPending = Array.from(
+    new Set(
+      rawPending
+        .filter((s) => typeof s === 'string')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    )
+  )
 
-  if (skillsError) {
-    console.error('Error fetching user skills:', skillsError)
-  }
-
-  const skills = (userSkills || []).map((us) => us.skills?.name).filter(Boolean)
-
-  // Get the auth user for email
-  const { data: { user: authUser } } = await supabase.auth.getUser()
-
-  return {
-    id: profile.id,
-    name: profile.name,
-    email: authUser?.email || '',
-    phone: profile.phone || '',
-    role: mapRoleToFrontend(profile.role),
-    avatar: profile.profile_photo_url || null,
-    bio: profile.bio || '',
-    location: profile.location || '',
-    experienceLevel: profile.experience_level || '',
-    availability: profile.availability || '',
-    resumeUrl: profile.resume_url || '',
-    createdAt: profile.created_at || null,
-    skills,
-  }
-}
-
-// ── Insert user_skills for a user ──
-async function insertUserSkills(userId, selectedSkills) {
-  if (!selectedSkills || selectedSkills.length === 0) return
-
-  // Fetch all skills to get IDs by name
-  const { data: allSkills, error: skillsFetchError } = await supabase
-    .from('skills')
-    .select('id, name')
-
-  if (skillsFetchError) {
-    console.error('Error fetching skills:', skillsFetchError)
-    return
-  }
-
-  // Match selected skill names to skill IDs
-  const skillRows = selectedSkills
-    .map((skillName) => {
-      const match = allSkills.find(
-        (s) => s.name.toLowerCase() === skillName.toLowerCase()
-      )
-      return match ? { user_id: userId, skill_id: match.id } : null
-    })
-    .filter(Boolean)
-
-  if (skillRows.length > 0) {
-    const { error: insertSkillsError } = await supabase
-      .from('user_skills')
-      .insert(skillRows)
-
-    if (insertSkillsError) {
-      console.error('Error inserting user skills:', insertSkillsError)
+  if (normalizedPending.length === 0) {
+    try {
+      await supabase.auth.updateUser({ data: { pending_skills: null } })
+    } catch (e) {
+      console.warn('Failed to clear empty pending_skills metadata:', e)
     }
+    return true
+  }
+
+  try {
+    // Resolve pending names against public.skills in ONE batched query
+    const { data: matchedSkills, error: fetchErr } = await supabase
+      .from('skills')
+      .select('id, name')
+      .in('name', normalizedPending)
+
+    if (fetchErr) {
+      console.error('Failed to query skills for pending_skills resolution:', fetchErr)
+      return false
+    }
+
+    // All-names-resolved rule: every normalized pending skill must match a row in public.skills
+    const matchedNamesLower = new Set((matchedSkills || []).map((s) => s.name.toLowerCase()))
+    const unresolved = normalizedPending.filter(
+      (name) => !matchedNamesLower.has(name.toLowerCase())
+    )
+
+    if (unresolved.length > 0) {
+      console.warn('Pending skills contain unresolved skill names:', unresolved)
+      return false
+    }
+
+    // Build skill rows for composite key (user_id, skill_id)
+    const skillRows = matchedSkills.map((s) => ({
+      user_id: sessionUser.id,
+      skill_id: s.id,
+    }))
+
+    // Idempotent upsert preserving existing skills
+    const { error: insertErr } = await supabase
+      .from('user_skills')
+      .upsert(skillRows, { onConflict: 'user_id,skill_id', ignoreDuplicates: true })
+
+    if (insertErr) {
+      console.error('Failed to persist user_skills for pending_skills:', insertErr)
+      return false
+    }
+
+    // Clear metadata ONLY after DB persistence succeeded
+    try {
+      await supabase.auth.updateUser({
+        data: { pending_skills: null },
+      })
+    } catch (updateErr) {
+      console.warn('Persisted pending skills but failed to clear user_metadata:', updateErr)
+    }
+
+    return true
+  } catch (err) {
+    console.error('Unexpected error in processPendingSkills:', err)
+    return false
   }
 }
 
 export function AuthProvider({ children }) {
+  const [session, setSession] = useState(null)
   const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [authStatus, setAuthStatus] = useState('loading')
+  const [authError, setAuthError] = useState(null)
+
+  // Backward-compatible loading flag: true only while initial session check or retry is resolving
+  const loading = authStatus === 'loading'
+
   const initializedRef = useRef(false)
+  const activeHydrationRef = useRef(null)
+  const hydrationGenerationRef = useRef(0)
+
+  // ── Centralized, Deduplicated Session Hydration Helper ──
+  const hydrateSession = useCallback(async (sessionUser, currentSession) => {
+    if (!sessionUser?.id) {
+      setSession(null)
+      setUser(null)
+      setAuthStatus('unauthenticated')
+      setAuthError(null)
+      return { success: false, status: 'unauthenticated' }
+    }
+
+    // Deduplicate in-flight hydration for the same user ID
+    if (activeHydrationRef.current && activeHydrationRef.current.userId === sessionUser.id) {
+      return activeHydrationRef.current.promise
+    }
+
+    const generation = ++hydrationGenerationRef.current
+
+    const hydrationPromise = (async () => {
+      try {
+        // 1. Query profile row using .maybeSingle()
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', sessionUser.id)
+          .maybeSingle()
+
+        // Guard against stale response if user switched or logged out
+        if (generation !== hydrationGenerationRef.current) {
+          return { success: false, status: 'stale' }
+        }
+
+        // Transient network or server error
+        if (profileError) {
+          console.error('Error fetching profile:', profileError)
+          setSession(currentSession || null)
+          setUser(null)
+          setAuthStatus('profile-error')
+          setAuthError(profileError)
+          return { success: false, status: 'profile-error', error: profileError }
+        }
+
+        // Definite missing profile row (0 rows returned)
+        if (!profile) {
+          console.warn('Profile row missing for authenticated user:', sessionUser.id)
+          setSession(currentSession || null)
+          setUser(null)
+          setAuthStatus('profile-missing')
+          setAuthError(null)
+          return { success: false, status: 'profile-missing' }
+        }
+
+        // 2. Process pending skills if present BEFORE fetching user_skills
+        if (sessionUser.user_metadata?.pending_skills?.length > 0) {
+          await processPendingSkills(sessionUser)
+        }
+
+        // Guard against stale response
+        if (generation !== hydrationGenerationRef.current) {
+          return { success: false, status: 'stale' }
+        }
+
+        // 3. Query user_skills in ONE single call
+        const { data: userSkills, error: skillsError } = await supabase
+          .from('user_skills')
+          .select('skill_id, skills(name)')
+          .eq('user_id', sessionUser.id)
+
+        if (skillsError) {
+          console.warn('Error fetching user skills:', skillsError)
+        }
+
+        const skills = (userSkills || []).map((us) => us.skills?.name).filter(Boolean)
+
+        // 4. Construct normalized user profile (uses sessionUser.email directly, no auth.getUser() call)
+        const normalizedUser = {
+          id: profile.id,
+          name: profile.name,
+          email: sessionUser.email || '',
+          phone: profile.phone || '',
+          role: mapRoleToFrontend(profile.role),
+          avatar: profile.profile_photo_url || null,
+          bio: profile.bio || '',
+          location: profile.location || '',
+          experienceLevel: profile.experience_level || '',
+          availability: profile.availability || '',
+          resumeUrl: profile.resume_url || '',
+          createdAt: profile.created_at || null,
+          skills,
+        }
+
+        // Guard against stale response before committing final state
+        if (generation !== hydrationGenerationRef.current) {
+          return { success: false, status: 'stale' }
+        }
+
+        setSession(currentSession || null)
+        setUser(normalizedUser)
+        setAuthStatus('authenticated')
+        setAuthError(null)
+        return { success: true, status: 'authenticated', user: normalizedUser }
+      } catch (err) {
+        if (generation !== hydrationGenerationRef.current) {
+          return { success: false, status: 'stale' }
+        }
+        console.error('Unexpected error in hydrateSession:', err)
+        setSession(currentSession || null)
+        setUser(null)
+        setAuthStatus('profile-error')
+        setAuthError(err)
+        return { success: false, status: 'profile-error', error: err }
+      } finally {
+        if (activeHydrationRef.current?.userId === sessionUser.id) {
+          activeHydrationRef.current = null
+        }
+      }
+    })()
+
+    activeHydrationRef.current = {
+      userId: sessionUser.id,
+      promise: hydrationPromise,
+    }
+
+    return hydrationPromise
+  }, [])
 
   // ── Session restoration + auth state listener ──
   useEffect(() => {
-    if (initializedRef.current) return
-    initializedRef.current = true
+    // 1. Initial cold-start session restoration (runs once)
+    if (!initializedRef.current) {
+      initializedRef.current = true
 
-    // 1. Restore existing session on mount
-    const restoreSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession()
-        if (session?.user) {
-          const profile = await fetchUserProfile(session.user.id)
-          if (profile) {
-            setUser(profile)
-
-            // Check if user has pending skills to insert (stored in user metadata)
-            const pendingSkills = session.user.user_metadata?.pending_skills
-            if (pendingSkills && pendingSkills.length > 0) {
-              // Check if user already has skills
-              const { data: existingSkills } = await supabase
-                .from('user_skills')
-                .select('skill_id')
-                .eq('user_id', session.user.id)
-
-              if (!existingSkills || existingSkills.length === 0) {
-                await insertUserSkills(session.user.id, pendingSkills)
-                // Clear pending skills from metadata
-                await supabase.auth.updateUser({
-                  data: { pending_skills: null },
-                })
-                // Re-fetch profile to include skills
-                const updatedProfile = await fetchUserProfile(session.user.id)
-                if (updatedProfile) {
-                  setUser(updatedProfile)
-                }
-              }
-            }
+      const restoreSession = async () => {
+        try {
+          const { data: { session: initialSession } } = await supabase.auth.getSession()
+          if (initialSession?.user) {
+            setSession(initialSession)
+            await hydrateSession(initialSession.user, initialSession)
+          } else {
+            setSession(null)
+            setUser(null)
+            setAuthStatus('unauthenticated')
+            setAuthError(null)
           }
+        } catch (err) {
+          console.error('Session restore error:', err)
+          setSession(null)
+          setUser(null)
+          setAuthStatus('unauthenticated')
+          setAuthError(err)
         }
-      } catch (err) {
-        console.error('Session restore error:', err)
-      } finally {
-        setLoading(false)
       }
+
+      restoreSession()
     }
 
-    restoreSession()
-
-    // 2. Listen for auth state changes
+    // 2. Auth state listener is ALWAYS subscribed on effect setup
+    // (survives React StrictMode double-mount in development)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (event === 'SIGNED_IN' && session?.user) {
-          const profile = await fetchUserProfile(session.user.id)
-          if (profile) {
-            setUser(profile)
-          }
-
-          // Handle pending skills (e.g., after email confirmation)
-          const pendingSkills = session.user.user_metadata?.pending_skills
-          if (pendingSkills && pendingSkills.length > 0) {
-            const { data: existingSkills } = await supabase
-              .from('user_skills')
-              .select('skill_id')
-              .eq('user_id', session.user.id)
-
-            if (!existingSkills || existingSkills.length === 0) {
-              await insertUserSkills(session.user.id, pendingSkills)
-              await supabase.auth.updateUser({
-                data: { pending_skills: null },
-              })
-              const updatedProfile = await fetchUserProfile(session.user.id)
-              if (updatedProfile) {
-                setUser(updatedProfile)
-              }
-            }
-          }
-
-          setLoading(false)
+      (event, currentSession) => {
+        if (event === 'SIGNED_IN' && currentSession?.user) {
+          setSession(currentSession)
+          // Asynchronously trigger central hydration (deduplicated with login() if in-flight)
+          hydrateSession(currentSession.user, currentSession)
         } else if (event === 'SIGNED_OUT') {
+          hydrationGenerationRef.current++
+          activeHydrationRef.current = null
+          setSession(null)
           setUser(null)
-          setLoading(false)
-        } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-          const profile = await fetchUserProfile(session.user.id)
-          if (profile) {
-            setUser(profile)
-          }
+          setAuthStatus('unauthenticated')
+          setAuthError(null)
+        } else if (event === 'TOKEN_REFRESHED' && currentSession?.user) {
+          // Keep session current without performing redundant profile queries
+          setSession(currentSession)
+        } else if (event === 'USER_UPDATED' && currentSession?.user) {
+          // Keep session metadata (e.g. cleared pending_skills) current without full profile re-query
+          setSession(currentSession)
         }
       }
     )
@@ -193,7 +291,7 @@ export function AuthProvider({ children }) {
     return () => {
       subscription.unsubscribe()
     }
-  }, [])
+  }, [hydrateSession])
 
   // ── Login ──
   const login = useCallback(async (email, password) => {
@@ -206,50 +304,27 @@ export function AuthProvider({ children }) {
       throw error
     }
 
-    // Profile will be loaded by onAuthStateChange SIGNED_IN event,
-    // but we also load it here for immediate availability
-    if (data.user) {
-      const profile = await fetchUserProfile(data.user.id)
-      if (profile) {
-        setUser(profile)
-      }
-
-      // Handle pending skills on first login after email confirmation
-      const pendingSkills = data.user.user_metadata?.pending_skills
-      if (pendingSkills && pendingSkills.length > 0) {
-        const { data: existingSkills } = await supabase
-          .from('user_skills')
-          .select('skill_id')
-          .eq('user_id', data.user.id)
-
-        if (!existingSkills || existingSkills.length === 0) {
-          await insertUserSkills(data.user.id, pendingSkills)
-          await supabase.auth.updateUser({
-            data: { pending_skills: null },
-          })
-          const updatedProfile = await fetchUserProfile(data.user.id)
-          if (updatedProfile) {
-            setUser(updatedProfile)
-          }
-        }
-      }
+    // Await central hydration so LoginPage navigates only after profile classification completes
+    if (data?.session?.user) {
+      setSession(data.session)
+      await hydrateSession(data.session.user, data.session)
     }
 
     return data
-  }, [])
+  }, [hydrateSession])
 
   // ── Register ──
-  const register = useCallback(async (email, password, profileData, selectedSkills, files = {}) => {
+  const register = useCallback(async (email, password, profileData, selectedSkills) => {
     const dbRole = mapRoleToDb(profileData.role)
+    const emailRedirectTo = `${window.location.origin}/profile`
 
-    // 1. Sign up with Supabase Auth
-    //    Profile is created automatically by the handle_new_user trigger
-    //    We pass profile data as user metadata so the trigger can read it
-    //    Note: Never pass temporary local blob URLs into auth metadata
+    // Sign up with Supabase Auth
+    // Profile row is created automatically by the handle_new_user trigger
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
       options: {
+        emailRedirectTo,
         data: {
           name: profileData.name,
           phone: profileData.phone || null,
@@ -258,9 +333,6 @@ export function AuthProvider({ children }) {
           location: profileData.location || null,
           experience_level: profileData.experience_level || null,
           availability: profileData.availability || null,
-          profile_photo_url: null,
-          resume_url: null,
-          // Store pending skills in metadata for insertion after email confirmation
           pending_skills: selectedSkills || [],
         },
       },
@@ -275,122 +347,49 @@ export function AuthProvider({ children }) {
       throw new Error('Registration failed: no user returned')
     }
 
-    // 2. Check if email confirmation is required (no session returned)
     const needsEmailConfirmation = !authData.session
-
     if (needsEmailConfirmation) {
-      // If email confirmation is enabled, there is no active session yet.
-      // Storage RLS requires an authenticated user (auth.uid()), so we cannot
-      // perform uploads prior to email confirmation.
-      // The user can upload their avatar/resume after login from Edit Profile.
       return { needsEmailConfirmation: true, email }
     }
 
-    // 3. If session is active immediately, upload selected files to Storage
-    let uploadedAvatarUrl = null
-    let uploadedResumePath = null
-    const { photoFile, resumeFile } = files
+    // If an immediate session exists (e.g. email confirmation disabled), hydrate centrally
+    setSession(authData.session)
+    await hydrateSession(authUser, authData.session)
 
-    if (photoFile) {
-      try {
-        const avatarPath = `${authUser.id}/${Date.now()}_avatar`
-        const { error: uploadErr } = await supabase.storage
-          .from('avatars')
-          .upload(avatarPath, photoFile, { upsert: true })
-
-        if (!uploadErr) {
-          const { data: urlData } = supabase.storage
-            .from('avatars')
-            .getPublicUrl(avatarPath)
-          uploadedAvatarUrl = urlData?.publicUrl || null
-        } else {
-          console.error('Avatar upload error during registration:', uploadErr)
-        }
-      } catch (uploadErr) {
-        console.error('Avatar upload failed during registration:', uploadErr)
-      }
-    }
-
-    if (resumeFile) {
-      try {
-        const ext = resumeFile.name?.split('.').pop() || 'pdf'
-        const resumePath = `${authUser.id}/${Date.now()}_resume.${ext.toLowerCase()}`
-        const { error: uploadErr } = await supabase.storage
-          .from('resumes')
-          .upload(resumePath, resumeFile, { upsert: true })
-
-        if (!uploadErr) {
-          uploadedResumePath = resumePath
-        } else {
-          console.error('Resume upload error during registration:', uploadErr)
-        }
-      } catch (uploadErr) {
-        console.error('Resume upload failed during registration:', uploadErr)
-      }
-    }
-
-    // Update profile record with location, availability, and uploaded file references
-    if (uploadedAvatarUrl || uploadedResumePath || profileData.location || profileData.availability) {
-      try {
-        const updatePayload = {}
-        if (profileData.location) updatePayload.location = profileData.location
-        if (profileData.availability) updatePayload.availability = profileData.availability
-        if (uploadedAvatarUrl) updatePayload.profile_photo_url = uploadedAvatarUrl
-        if (uploadedResumePath) updatePayload.resume_url = uploadedResumePath
-
-        const { error: profileUpdateErr } = await supabase
-          .from('profiles')
-          .update(updatePayload)
-          .eq('id', authUser.id)
-
-        if (profileUpdateErr) {
-          console.error('Error updating profile with registration data:', profileUpdateErr)
-        }
-      } catch (updateErr) {
-        console.error('Error in profile update after file upload:', updateErr)
-      }
-    }
-
-    // 4. Insert skills now that we have an active session
-    if (selectedSkills && selectedSkills.length > 0) {
-      await insertUserSkills(authUser.id, selectedSkills)
-      // Clear pending skills from metadata since we've inserted them
-      await supabase.auth.updateUser({
-        data: { pending_skills: null },
-      })
-    }
-
-    // 5. Build user object immediately
-    const skills = selectedSkills || []
-    setUser({
-      id: authUser.id,
-      name: profileData.name,
-      email,
-      phone: profileData.phone || '',
-      role: profileData.role === 'creator' ? 'creator' : 'collaborator',
-      avatar: uploadedAvatarUrl || null,
-      bio: profileData.bio || '',
-      location: profileData.location || '',
-      experienceLevel: profileData.experience_level || '',
-      availability: profileData.availability || '',
-      resumeUrl: uploadedResumePath || '',
-      skills,
-    })
-
-    return { needsEmailConfirmation: false }
-  }, [])
+    return { needsEmailConfirmation: false, user: authUser }
+  }, [hydrateSession])
 
   // ── Logout ──
   const logout = useCallback(async () => {
+    hydrationGenerationRef.current++
+    activeHydrationRef.current = null
     const { error } = await supabase.auth.signOut()
     if (error) {
       console.error('Logout error:', error)
     }
+    setSession(null)
     setUser(null)
-    // Clean up old localStorage keys that are no longer the source of truth
-    localStorage.removeItem('fw_user')
-    localStorage.removeItem('fw_registered_users')
+    setAuthStatus('unauthenticated')
+    setAuthError(null)
   }, [])
+
+  // ── Retry profile hydration against active session ──
+  const retryProfile = useCallback(async () => {
+    let targetSession = session
+    if (!targetSession) {
+      const { data } = await supabase.auth.getSession()
+      targetSession = data?.session
+    }
+
+    if (targetSession?.user) {
+      setAuthStatus('loading')
+      activeHydrationRef.current = null
+      return await hydrateSession(targetSession.user, targetSession)
+    } else {
+      setAuthStatus('unauthenticated')
+      return { success: false, status: 'unauthenticated' }
+    }
+  }, [session, hydrateSession])
 
   // ── Update local user state ──
   const updateUser = useCallback((updates) => {
@@ -398,7 +397,20 @@ export function AuthProvider({ children }) {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, register, updateUser }}>
+    <AuthContext.Provider
+      value={{
+        session,
+        user,
+        authStatus,
+        authError,
+        loading,
+        login,
+        logout,
+        register,
+        updateUser,
+        retryProfile,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   )

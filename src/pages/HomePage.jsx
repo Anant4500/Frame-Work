@@ -1,3 +1,4 @@
+import { usePageTitle } from '../hooks/usePageTitle'
 import Hero from '../components/Hero'
 import HowItWorks from '../components/HowItWorks'
 import FeaturedProjects from '../components/FeaturedProjects'
@@ -5,6 +6,7 @@ import FeaturedCreators from '../components/FeaturedCreators'
 import CallToAction from '../components/CallToAction'
 
 function HomePage() {
+  usePageTitle('FrameWork | Build Films Together')
   return (
     <div className="homepage-bg relative" style={{ backgroundColor: '#0A0A0F' }}>
       {/* Gradient Mesh Blobs */}

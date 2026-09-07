@@ -12,7 +12,7 @@ export default function CollaboratorApplicationCard({ application }) {
       label: 'Accepted',
       badgeClass: 'border-emerald-500/30 text-emerald-400 bg-emerald-500/15',
       icon: (
-        <svg className="w-3 h-3 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+        <svg className="w-3 h-3 text-emerald-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5} aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
         </svg>
       ),
@@ -20,17 +20,17 @@ export default function CollaboratorApplicationCard({ application }) {
     Pending: {
       label: 'Pending',
       badgeClass: 'border-amber-400/25 text-amber-300 bg-amber-400/10',
-      icon: <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />,
+      icon: <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" aria-hidden="true" />,
     },
     Rejected: {
       label: 'Not Selected',
       badgeClass: 'border-rose-500/20 text-rose-300/90 bg-rose-500/10',
-      icon: <span className="w-1.5 h-1.5 rounded-full bg-rose-400 shrink-0" />,
+      icon: <span className="w-1.5 h-1.5 rounded-full bg-rose-400 shrink-0" aria-hidden="true" />,
     },
     Withdrawn: {
       label: 'Withdrawn',
       badgeClass: 'border-white/10 text-white/50 bg-white/5',
-      icon: <span className="w-1.5 h-1.5 rounded-full bg-white/40 shrink-0" />,
+      icon: <span className="w-1.5 h-1.5 rounded-full bg-white/40 shrink-0" aria-hidden="true" />,
     },
   }
 
@@ -40,6 +40,8 @@ export default function CollaboratorApplicationCard({ application }) {
       ? application.dateApplied
       : `Applied ${application.dateApplied}`
     : null
+
+  const pitchDrawerId = `app-pitch-${application.id}`
 
   return (
     <div
@@ -57,9 +59,13 @@ export default function CollaboratorApplicationCard({ application }) {
             <img
               src={application.poster || '/images/hero-bg.png'}
               alt={`${application.title || 'Project'} poster`}
+              loading="lazy"
+              decoding="async"
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
               onError={(e) => {
-                e.currentTarget.src = '/images/hero-bg.png'
+                if (e.currentTarget.src !== window.location.origin + '/images/hero-bg.png' && !e.currentTarget.src.endsWith('/images/hero-bg.png')) {
+                  e.currentTarget.src = '/images/hero-bg.png'
+                }
               }}
             />
           </div>
@@ -67,17 +73,22 @@ export default function CollaboratorApplicationCard({ application }) {
           {/* Right: Title, Creator, and Applied Role */}
           <div className="flex-1 min-w-0 flex flex-col">
             {/* Project Title */}
-            <h3 className="font-['Fraunces',_serif] text-[15px] sm:text-base font-semibold text-white leading-snug line-clamp-2 group-hover:text-purple-light transition-colors">
-              {application.title || 'Untitled Project'}
+            <h3 className="font-['Bebas_Neue',_sans-serif] text-lg sm:text-xl font-normal text-white leading-tight tracking-wide line-clamp-2 group-hover:text-purple-light transition-colors">
+              <Link
+                to={`/project/${application.projectId}`}
+                className="hover:text-purple-light transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6239BF] rounded"
+              >
+                {application.title || 'Untitled Project'}
+              </Link>
             </h3>
 
             {/* Creator Attribution */}
-            <div className="flex items-center gap-1 text-[11px] text-white/45 mt-0.5 min-w-0">
-              <span className="text-white/40 shrink-0">Created by</span>
+            <div className="flex items-center gap-1 text-[11px] text-white/50 mt-0.5 min-w-0">
+              <span className="text-white/50 shrink-0">Created by</span>
               {application.creatorId ? (
                 <Link
                   to={`/profile/${application.creatorId}`}
-                  className="text-white/80 hover:text-purple-light transition-colors font-medium truncate"
+                  className="text-white/80 hover:text-purple-light transition-colors font-medium truncate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6239BF] rounded"
                 >
                   {application.creatorName || 'Creator'}
                 </Link>
@@ -88,7 +99,7 @@ export default function CollaboratorApplicationCard({ application }) {
 
             {/* Applied Role Section */}
             <div className="mt-2">
-              <span className="text-[8.5px] font-bold tracking-[0.14em] uppercase text-white/40 block mb-0.5">
+              <span className="text-[8.5px] font-bold tracking-[0.14em] uppercase text-white/50 block mb-0.5">
                 APPLIED ROLE
               </span>
               <p
@@ -111,7 +122,7 @@ export default function CollaboratorApplicationCard({ application }) {
 
           {/* Applied Date */}
           {formattedDate && (
-            <span className="text-[10.5px] text-white/40 shrink-0">
+            <span className="text-[10.5px] text-white/50 shrink-0">
               {formattedDate}
             </span>
           )}
@@ -125,29 +136,31 @@ export default function CollaboratorApplicationCard({ application }) {
             type="button"
             onClick={() => setIsMessageExpanded((prev) => !prev)}
             aria-expanded={isMessageExpanded}
-            className="w-full flex items-center justify-between text-[11px] font-medium text-white/50 hover:text-white py-0.5 transition-colors group/btn"
+            aria-controls={pitchDrawerId}
+            className="w-full flex items-center justify-between text-[11px] font-medium text-white/60 hover:text-white py-0.5 transition-colors group/btn rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6239BF]"
           >
             <span className="flex items-center gap-1.5">
-              <svg className="w-3 h-3 text-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <svg className="w-3 h-3 text-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.129.166 2.27.293 3.423.379.35.026.67.21.865.501L12 21l2.755-4.133a1.14 1.14 0 01.865-.502 49.177 49.177 0 003.423-.379c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
               </svg>
               {isMessageExpanded ? 'Hide submitted pitch' : 'View submitted pitch'}
             </span>
             <svg
-              className={`w-3 h-3 text-white/40 group-hover/btn:text-white transition-transform duration-200 ${
+              className={`w-3 h-3 text-white/50 group-hover/btn:text-white transition-transform duration-200 ${
                 isMessageExpanded ? 'rotate-180' : ''
               }`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
               strokeWidth={2}
+              aria-hidden="true"
             >
               <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
             </svg>
           </button>
 
           {isMessageExpanded && (
-            <div className="mt-1.5 p-2.5 bg-black/35 rounded-lg border border-white/[0.05] animate-fade-in">
+            <div id={pitchDrawerId} className="mt-1.5 p-2.5 bg-black/35 rounded-lg border border-white/[0.05] animate-fade-in">
               <p className="text-[11px] text-white/70 leading-relaxed italic whitespace-pre-line">
                 "{application.message}"
               </p>

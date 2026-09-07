@@ -10,7 +10,10 @@ function Hero() {
   const { user } = useAuth()
 
   useEffect(() => {
-    setLoaded(true)
+    const handle = requestAnimationFrame(() => {
+      setLoaded(true)
+    })
+    return () => cancelAnimationFrame(handle)
   }, [])
 
   return (
@@ -85,67 +88,6 @@ function Hero() {
         }}
       />
 
-      {/* Layer 4a: Filmstrip — Left Edge */}
-      <div
-        className="hero-filmstrip hero-filmstrip-left absolute top-0 bottom-0 left-0 pointer-events-none hidden md:block"
-        aria-hidden="true"
-        style={{ width: '40px', zIndex: 3 }}
-      >
-        <div
-          className="absolute top-0 bottom-0 right-0"
-          style={{ width: '1px', background: 'rgba(255,255,255,0.06)' }}
-        />
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage: `repeating-linear-gradient(
-              to bottom,
-              transparent 0px,
-              transparent 5px,
-              rgba(98,57,191,0.18) 5px,
-              rgba(98,57,191,0.18) 15px,
-              transparent 15px,
-              transparent 26px
-            )`,
-            backgroundSize: '6px 26px',
-            backgroundPosition: 'center top',
-            backgroundRepeat: 'repeat-y',
-            maskImage: 'linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%)',
-            WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%)',
-          }}
-        />
-      </div>
-
-      {/* Layer 4b: Filmstrip — Right Edge */}
-      <div
-        className="hero-filmstrip hero-filmstrip-right absolute top-0 bottom-0 right-0 pointer-events-none hidden md:block"
-        aria-hidden="true"
-        style={{ width: '40px', zIndex: 3 }}
-      >
-        <div
-          className="absolute top-0 bottom-0 left-0"
-          style={{ width: '1px', background: 'rgba(255,255,255,0.06)' }}
-        />
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage: `repeating-linear-gradient(
-              to bottom,
-              transparent 0px,
-              transparent 5px,
-              rgba(98,57,191,0.18) 5px,
-              rgba(98,57,191,0.18) 15px,
-              transparent 15px,
-              transparent 26px
-            )`,
-            backgroundSize: '6px 26px',
-            backgroundPosition: 'center top',
-            backgroundRepeat: 'repeat-y',
-            maskImage: 'linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%)',
-            WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%)',
-          }}
-        />
-      </div>
 
       {/* Layer 5: Bottom fade / transition to next section */}
       <div
@@ -175,18 +117,18 @@ function Hero() {
 
             {/* Headline */}
             <h1
-              className={`font-['Fraunces',_serif] text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-semibold leading-[1.15] tracking-[-0.02em] mb-6 transition-all duration-1000 delay-200 ${
+              className={`font-['Bebas_Neue',_sans-serif] text-6xl sm:text-7xl md:text-8xl lg:text-9xl font-normal leading-[0.95] tracking-wide mb-6 transition-all duration-1000 delay-200 ${
                 loaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
               }`}
             >
               Build Films
               <br />
-              <span className="gradient-text italic">Together.</span>
+              <span className="gradient-text">Together.</span>
             </h1>
 
             {/* Subtext */}
             <p
-              className={`font-['Roboto_Condensed',_sans-serif] text-lg sm:text-xl text-[#D4D4D8] max-w-[560px] mb-8 sm:mb-10 leading-relaxed font-medium transition-all duration-1000 delay-400 ${
+              className={`text-lg sm:text-xl text-[#D4D4D8] max-w-[560px] mb-8 sm:mb-10 leading-relaxed font-normal transition-all duration-1000 delay-400 ${
                 loaded ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
               }`}
             >

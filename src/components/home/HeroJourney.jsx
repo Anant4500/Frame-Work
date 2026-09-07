@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 
 /* ── Static illustrative data ── */
@@ -17,10 +17,13 @@ const STEPS = [
 
 /* ── Reduced motion query ── */
 function useReducedMotion() {
-  const [reduced, setReduced] = useState(false)
+  const [reduced, setReduced] = useState(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return false
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  })
   useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return
     const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
-    setReduced(mq.matches)
     const handler = (e) => setReduced(e.matches)
     mq.addEventListener('change', handler)
     return () => mq.removeEventListener('change', handler)
@@ -36,6 +39,13 @@ export default function HeroJourney() {
   const [step, setStep] = useState(0)
   const [transitioning, setTransitioning] = useState(false)
   const reduced = useReducedMotion()
+  const timerRef = useRef(null)
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current)
+    }
+  }, [])
 
   const go = useCallback((next) => {
     if (transitioning) return
@@ -43,7 +53,8 @@ export default function HeroJourney() {
     if (clamped === step) return
     setTransitioning(true)
     setStep(clamped)
-    setTimeout(() => setTransitioning(false), reduced ? 50 : 500)
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => setTransitioning(false), reduced ? 50 : 500)
   }, [step, transitioning, reduced])
 
   const nextStep = () => step === 3 ? go(0) : go(step + 1)
@@ -61,7 +72,7 @@ export default function HeroJourney() {
 
   return (
     <div
-      className="relative w-full flex flex-col items-center justify-center select-none outline-none"
+      className="relative w-full flex flex-col items-center justify-center select-none outline-none focus-visible:ring-2 focus-visible:ring-[#6239BF] focus-visible:ring-offset-4 focus-visible:ring-offset-[#0A0A0F] rounded-2xl p-1"
       tabIndex={0}
       onKeyDown={handleKeyDown}
       role="region"
@@ -72,7 +83,7 @@ export default function HeroJourney() {
         <span className="text-[10px] sm:text-[11px] font-bold tracking-[0.18em] uppercase text-white/40">
           From Idea to Credit
         </span>
-        <span className="text-[11px] sm:text-xs font-semibold text-white/30 tabular-nums">
+        <span className="text-[11px] sm:text-xs font-semibold text-white/55 tabular-nums">
           {String(step + 1).padStart(2, '0')} / 04
         </span>
       </div>
@@ -84,7 +95,7 @@ export default function HeroJourney() {
             key={s.key}
             onClick={() => go(i)}
             aria-label={`Go to step ${i + 1}: ${s.label}`}
-            className="flex-1 group flex flex-col items-center gap-1"
+            className="flex-1 group flex flex-col items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6239BF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0F] rounded-lg p-0.5"
           >
             <div className={`w-full h-[3px] rounded-full transition-all duration-400 ${
               i <= step ? 'bg-[#6239BF]' : 'bg-white/10'
@@ -109,9 +120,9 @@ export default function HeroJourney() {
             transition={quick(reduced)}
             className="absolute inset-0 flex flex-col items-center justify-center text-center px-1"
           >
-            <h3 className="font-['Fraunces',_serif] text-xl sm:text-2xl font-semibold text-white mb-1 leading-tight">
+            <p className="font-['Bebas_Neue',_sans-serif] text-2xl sm:text-3xl font-normal text-white mb-1 leading-none tracking-wide">
               {STEPS[step].heading}
-            </h3>
+            </p>
             <p className="text-xs sm:text-[13px] text-white/50 leading-relaxed max-w-[360px] mx-auto">
               {STEPS[step].sub}
             </p>
@@ -190,9 +201,9 @@ export default function HeroJourney() {
           </div>
 
           {/* Title */}
-          <h4 className="font-['Fraunces',_serif] text-[15px] sm:text-base font-semibold text-white leading-snug mb-1">
+          <p className="font-['Bebas_Neue',_sans-serif] text-lg sm:text-xl font-normal text-white leading-tight mb-1 tracking-wide">
             AFTERLIGHT
-          </h4>
+          </p>
           <p className="text-[10px] text-white/40 mb-2.5">Pune</p>
 
           {/* Roles needed / Crew count */}
@@ -315,7 +326,7 @@ export default function HeroJourney() {
           onClick={prevStep}
           disabled={step === 0}
           aria-label="Previous step"
-          className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full border flex items-center justify-center transition-all duration-200 ${
+          className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full border flex items-center justify-center transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6239BF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0F] ${
             step === 0
               ? 'border-white/5 text-white/15 cursor-not-allowed'
               : 'border-white/15 text-white/60 hover:border-[#6239BF]/50 hover:text-white hover:bg-[#6239BF]/10'
@@ -342,7 +353,7 @@ export default function HeroJourney() {
         <button
           onClick={nextStep}
           aria-label={step === 3 ? 'Replay journey' : 'Next step'}
-          className="w-8 h-8 sm:w-9 sm:h-9 rounded-full border border-white/15 text-white/60 hover:border-[#6239BF]/50 hover:text-white hover:bg-[#6239BF]/10 flex items-center justify-center transition-all duration-200"
+          className="w-8 h-8 sm:w-9 sm:h-9 rounded-full border border-white/15 text-white/60 hover:border-[#6239BF]/50 hover:text-white hover:bg-[#6239BF]/10 flex items-center justify-center transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6239BF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0F]"
         >
           {step === 3 ? (
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>

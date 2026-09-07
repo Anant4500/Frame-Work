@@ -6,6 +6,9 @@ import {
   getNotificationTitle,
   getNotificationDestination,
   formatNotificationTime,
+  mergeNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
 } from '../utils/notifications'
 
 function Header() {
@@ -14,11 +17,15 @@ function Header() {
   const [profileOpen, setProfileOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
   const [notifications, setNotifications] = useState([])
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [notifError, setNotifError] = useState(false)
+  const [markingAllRead, setMarkingAllRead] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
   const { user, logout } = useAuth()
   const dropdownRef = useRef(null)
   const notifRef = useRef(null)
+  const bellRef = useRef(null)
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20)
@@ -32,32 +39,54 @@ function Header() {
     setNotifOpen(false)
   }, [location])
 
-  // Scroll to #creators when on homepage, or navigate if elsewhere
-  useEffect(() => {
-    if (location.hash === '#creators') {
-      const timer = setTimeout(() => {
-        const element = document.getElementById('creators')
-        if (element) {
-          element.scrollIntoView({ behavior: 'smooth' })
-        }
-      }, 150)
-      return () => clearTimeout(timer)
+  // Exact unread count query
+  const fetchUnreadCount = useCallback(async () => {
+    if (!user?.id) return
+    try {
+      const { count, error } = await supabase
+        .from('notifications')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('is_read', false)
+      if (!error) {
+        setUnreadCount(count ?? 0)
+      }
+    } catch (err) {
+      console.error('Error fetching unread count:', err)
     }
-  }, [location])
+  }, [user?.id])
 
-  // Fetch notifications
+  // Fetch latest 10 notifications and exact unread count concurrently
   const fetchNotifications = useCallback(async () => {
     if (!user?.id) return
     try {
-      const { data } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(10)
-      setNotifications(data || [])
+      setNotifError(false)
+      const [notifsRes, countRes] = await Promise.all([
+        supabase
+          .from('notifications')
+          .select('id, user_id, project_id, application_id, type, title, message, is_read, created_at')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(10),
+        supabase
+          .from('notifications')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .eq('is_read', false)
+      ])
+
+      if (notifsRes.error || countRes.error) {
+        setNotifError(true)
+        if (notifsRes.error) console.error('Error fetching notifications:', notifsRes.error)
+        if (countRes.error) console.error('Error fetching unread count:', countRes.error)
+        return
+      }
+
+      setNotifications((prev) => mergeNotifications(prev, notifsRes.data || [], 10))
+      setUnreadCount(countRes.count ?? 0)
     } catch (err) {
       console.error('Error fetching notifications:', err)
+      setNotifError(true)
     }
   }, [user?.id])
 
@@ -65,6 +94,7 @@ function Header() {
   useEffect(() => {
     if (!user?.id) {
       setNotifications([])
+      setUnreadCount(0)
       return
     }
 
@@ -82,18 +112,18 @@ function Header() {
         },
         (payload) => {
           if (payload.eventType === 'INSERT') {
-            setNotifications((prev) => {
-              if (prev.some((n) => n.id === payload.new.id)) return prev
-              return [payload.new, ...prev.slice(0, 9)]
-            })
+            setNotifications((prev) => mergeNotifications(prev, [payload.new], 10))
+            fetchUnreadCount()
           } else if (payload.eventType === 'UPDATE') {
             setNotifications((prev) =>
               prev.map((n) => (n.id === payload.new.id ? payload.new : n))
             )
+            fetchUnreadCount()
           } else if (payload.eventType === 'DELETE') {
             setNotifications((prev) =>
               prev.filter((n) => n.id !== payload.old.id)
             )
+            fetchUnreadCount()
           }
         }
       )
@@ -102,43 +132,46 @@ function Header() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [user?.id, fetchNotifications])
+  }, [user?.id, fetchNotifications, fetchUnreadCount])
 
-  const unreadCount = notifications.filter((n) => !n.is_read).length
+  // Escape key closes popover and returns focus to bell
+  useEffect(() => {
+    if (!notifOpen) return
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setNotifOpen(false)
+        bellRef.current?.focus()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [notifOpen])
 
   const markAllRead = async () => {
-    if (unreadCount === 0 || !user?.id) return
-    try {
-      await supabase
-        .from('notifications')
-        .update({ is_read: true })
-        .eq('user_id', user.id)
-        .eq('is_read', false)
+    if (unreadCount === 0 || !user?.id || markingAllRead) return
+    setMarkingAllRead(true)
+    const res = await markAllNotificationsRead(supabase, user.id)
+    if (res.success) {
       setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
-    } catch (err) {
-      console.error('Error marking notifications as read:', err)
+      setUnreadCount(0)
     }
+    setMarkingAllRead(false)
   }
 
-  const handleNotificationClick = async (n) => {
-    try {
-      if (!n.is_read) {
-        await supabase
-          .from('notifications')
-          .update({ is_read: true })
-          .eq('id', n.id)
-        setNotifications((prev) =>
-          prev.map((item) => (item.id === n.id ? { ...item, is_read: true } : item))
-        )
-      }
-    } catch (err) {
-      console.error('Error marking notification read:', err)
-    } finally {
-      setNotifOpen(false)
-      const dest = getNotificationDestination(n)
-      if (dest) {
-        navigate(dest)
-      }
+  const handleNotificationClick = (n) => {
+    setNotifOpen(false)
+    if (!n.is_read && user?.id) {
+      // Optimistically mark as read in local state
+      setNotifications((prev) =>
+        prev.map((item) => (item.id === n.id ? { ...item, is_read: true } : item))
+      )
+      setUnreadCount((prev) => Math.max(0, prev - 1))
+      // Non-blocking mutation with technical error logging
+      markNotificationRead(supabase, user.id, n.id).then((res) => {
+        if (!res.success) {
+          fetchUnreadCount()
+        }
+      })
     }
   }
 
@@ -184,7 +217,7 @@ function Header() {
             aria-hidden="true"
             className="h-7 md:h-8 w-auto object-contain transition-all duration-300 group-hover:drop-shadow-[0_0_12px_rgba(98,57,191,0.6)] group-hover:scale-105"
           />
-          <span className="text-xl font-bold tracking-tight">
+          <span className="font-['Bebas_Neue',_sans-serif] text-2xl tracking-wider">
             Frame<span className="text-purple">Work</span>
           </span>
         </Link>
@@ -221,23 +254,30 @@ function Header() {
               <div className="relative" ref={notifRef}>
                 <button
                   id="notif-bell-btn"
+                  ref={bellRef}
                   onClick={() => { setNotifOpen(!notifOpen); setProfileOpen(false) }}
-                  className="relative p-2 rounded-full transition-all duration-300 hover:bg-white/5"
-                  aria-label="Notifications"
+                  className="relative p-2 rounded-full transition-all duration-300 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6239BF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0F]"
+                  aria-label={unreadCount > 0 ? `Notifications, ${unreadCount > 99 ? '99+' : unreadCount} unread` : 'Notifications'}
+                  aria-expanded={notifOpen}
+                  aria-controls="header-notifications-popover"
                 >
                   <svg className="w-5 h-5 text-white/70" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
                   </svg>
                   {unreadCount > 0 && (
-                    <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center ring-2 ring-black animate-pulse">
-                      {unreadCount > 9 ? '9+' : unreadCount}
+                    <span
+                      aria-hidden="true"
+                      className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center ring-2 ring-black animate-pulse"
+                    >
+                      {unreadCount > 99 ? '99+' : unreadCount}
                     </span>
                   )}
                 </button>
 
                 {/* Notification Dropdown */}
                 <div
-                  className={`absolute right-0 top-full mt-2 w-80 bg-[#111111] border border-white/10 rounded-xl shadow-[0_16px_48px_rgba(0,0,0,0.5)] overflow-hidden transition-all duration-300 origin-top-right ${
+                  id="header-notifications-popover"
+                  className={`absolute right-0 top-full mt-2 w-[calc(100vw-2rem)] max-w-80 sm:w-80 bg-[#111111] border border-white/10 rounded-xl shadow-[0_16px_48px_rgba(0,0,0,0.5)] overflow-hidden transition-all duration-300 origin-top-right ${
                     notifOpen
                       ? 'opacity-100 scale-100 translate-y-0'
                       : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'
@@ -249,61 +289,98 @@ function Header() {
                     {unreadCount > 0 && (
                       <button
                         onClick={markAllRead}
-                        className="text-[11px] font-medium text-purple-light hover:text-white transition-colors"
+                        disabled={markingAllRead}
+                        className="text-[11px] font-medium text-purple-light hover:text-white transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#6239BF] rounded px-1"
                       >
-                        Mark all read
+                        {markingAllRead ? 'Marking...' : 'Mark all read'}
                       </button>
                     )}
                   </div>
 
-                  {/* List */}
+                  {/* List / Error / Empty states */}
                   <div className="max-h-72 overflow-y-auto">
-                    {notifications.length === 0 ? (
+                    {notifError ? (
+                      <div className="px-4 py-6 text-center">
+                        <p className="text-xs text-white/50 mb-2">Unable to load notifications.</p>
+                        <button
+                          onClick={fetchNotifications}
+                          className="text-xs font-semibold text-purple-light hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#6239BF] rounded px-2 py-1"
+                        >
+                          Try again
+                        </button>
+                      </div>
+                    ) : notifications.length === 0 ? (
                       <div className="px-4 py-8 text-center">
-                        <svg className="w-8 h-8 text-white/10 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1}>
+                        <svg className="w-8 h-8 text-white/10 mx-auto mb-2" aria-hidden="true" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
                         </svg>
-                        <p className="text-xs text-white/25">No notifications yet</p>
+                        <p className="text-xs text-white/50">No notifications yet</p>
                       </div>
                     ) : (
-                      notifications.map((n) => {
-                        const title = getNotificationTitle(n)
-                        const timeStr = formatNotificationTime(n.created_at)
-                        const isAccepted = n.type === 'APPLICATION_ACCEPTED'
-                        const isRejected = n.type === 'APPLICATION_REJECTED'
-                        return (
-                          <div
-                            key={n.id}
-                            onClick={() => handleNotificationClick(n)}
-                            className={`px-4 py-3 border-b border-white/[0.04] transition-colors duration-200 cursor-pointer hover:bg-white/[0.06] ${
-                              !n.is_read ? 'bg-purple/[0.07]' : ''
-                            }`}
-                          >
+                      <ul role="list" className="divide-y divide-white/[0.04]">
+                        {notifications.map((n) => {
+                          const title = getNotificationTitle(n)
+                          const dest = getNotificationDestination(n)
+                          const timeStr = formatNotificationTime(n.created_at)
+                          const isAccepted = n.type === 'APPLICATION_ACCEPTED'
+                          const isRejected = n.type === 'APPLICATION_REJECTED'
+
+                          const rowContent = (
                             <div className="flex items-start gap-2.5">
                               <div className="mt-1 shrink-0">
                                 {!n.is_read ? (
-                                  <span className={`w-2 h-2 rounded-full block ${
-                                    isAccepted ? 'bg-emerald-400' : isRejected ? 'bg-rose-400' : 'bg-purple'
-                                  }`} />
+                                  <span
+                                    aria-hidden="true"
+                                    className={`w-2 h-2 rounded-full block ${
+                                      isAccepted ? 'bg-emerald-400' : isRejected ? 'bg-rose-400' : 'bg-purple'
+                                    }`}
+                                  />
                                 ) : (
-                                  <span className="w-2 h-2 rounded-full bg-white/20 block" />
+                                  <span aria-hidden="true" className="w-2 h-2 rounded-full bg-white/20 block" />
                                 )}
                               </div>
-                              <div className="min-w-0 flex-1">
+                              <div className="min-w-0 flex-1 break-words">
                                 <p className={`text-xs font-semibold leading-tight mb-0.5 ${!n.is_read ? 'text-white' : 'text-white/70'}`}>
+                                  {!n.is_read && <span className="sr-only">Unread: </span>}
                                   {title}
                                 </p>
                                 <p className={`text-xs leading-relaxed line-clamp-2 ${!n.is_read ? 'text-white/80' : 'text-white/50'}`}>
                                   {n.message}
                                 </p>
-                                <p className="text-[10px] text-white/30 mt-1 font-medium">
+                                <p className="text-[10px] text-white/50 mt-1 font-medium">
                                   {timeStr}
                                 </p>
                               </div>
                             </div>
-                          </div>
-                        )
-                      })
+                          )
+
+                          return (
+                            <li key={n.id}>
+                              {dest ? (
+                                <Link
+                                  to={dest}
+                                  onClick={() => handleNotificationClick(n)}
+                                  className={`w-full text-left block px-4 py-3 transition-colors duration-200 hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6239BF] focus-visible:ring-inset ${
+                                    !n.is_read ? 'bg-purple/[0.07]' : ''
+                                  }`}
+                                >
+                                  {rowContent}
+                                </Link>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleNotificationClick(n)}
+                                  className={`w-full text-left block px-4 py-3 transition-colors duration-200 hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6239BF] focus-visible:ring-inset ${
+                                    !n.is_read ? 'bg-purple/[0.07]' : ''
+                                  }`}
+                                >
+                                  {rowContent}
+                                </button>
+                              )}
+                            </li>
+                          )
+                        })}
+                      </ul>
                     )}
                   </div>
 
@@ -312,10 +389,10 @@ function Header() {
                     <Link
                       to="/notifications"
                       onClick={() => setNotifOpen(false)}
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-purple-light hover:text-white transition-colors"
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-purple-light hover:text-white transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#6239BF] rounded px-2 py-0.5"
                     >
                       <span>View all notifications</span>
-                      <span className="text-[11px]">&rarr;</span>
+                      <span className="text-[11px]" aria-hidden="true">&rarr;</span>
                     </Link>
                   </div>
                 </div>
@@ -326,7 +403,7 @@ function Header() {
               <button
                 id="profile-avatar-btn"
                 onClick={() => setProfileOpen(!profileOpen)}
-                className="flex items-center gap-2.5 pl-3 pr-1 py-1 rounded-full transition-all duration-300 hover:bg-white/5"
+                className="flex items-center gap-2.5 pl-3 pr-1 py-1 rounded-full transition-all duration-300 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6239BF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0F]"
               >
                 <span className="text-sm font-medium text-white/80 max-w-[100px] truncate">
                   {user.name}
@@ -419,7 +496,7 @@ function Header() {
         {/* Mobile Menu Button */}
         <button
           id="mobile-menu-toggle"
-          className="md:hidden flex flex-col gap-1.5 p-2"
+          className="md:hidden flex flex-col gap-1.5 p-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6239BF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0F]"
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
           aria-label="Toggle menu"
         >
@@ -454,7 +531,7 @@ function Header() {
                 <span>Notifications</span>
                 {unreadCount > 0 && (
                   <span className="px-2 py-0.5 text-[10px] font-bold bg-purple text-white rounded-full">
-                    {unreadCount > 9 ? '9+' : unreadCount}
+                    {unreadCount > 99 ? '99+' : unreadCount}
                   </span>
                 )}
               </Link>

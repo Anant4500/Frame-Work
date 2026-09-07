@@ -7,11 +7,12 @@
   --color-purple-glow: rgba(98, 57, 191, 0.4);
   --color-purple-glow-strong: rgba(98, 57, 191, 0.6);
   /* Typography system */
-  --font-display: 'Fraunces', serif;
-  --font-ui: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-family-display: 'Fraunces', serif;
-  --font-family-hero: 'Fraunces', serif;
-  --font-family-ui: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: 'Bebas Neue', sans-serif;
+  --font-ui: 'DM Sans', sans-serif;
+  --font-family-display: 'Bebas Neue', sans-serif;
+  --font-family-hero: 'Bebas Neue', sans-serif;
+  --font-family-ui: 'DM Sans', sans-serif;
+  --font-sans: 'DM Sans', sans-serif;
 }
 
 html {
@@ -19,12 +20,16 @@ html {
 }
 
 body {
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background-color: #000000;
+  font-family: 'DM Sans', sans-serif;
+  background-color: #0A0A0F;
   color: #ffffff;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+.font-display {
+  font-family: 'Bebas Neue', sans-serif;
 }
 
 /* Custom scrollbar */
@@ -83,15 +88,8 @@ body {
   animation: pulseGlow 2s ease-in-out infinite;
 }
 
-/* Stagger delays */
-.delay-100 { animation-delay: 0.1s; }
-.delay-200 { animation-delay: 0.2s; }
-.delay-300 { animation-delay: 0.3s; }
-.delay-400 { animation-delay: 0.4s; }
-.delay-500 { animation-delay: 0.5s; }
-.delay-600 { animation-delay: 0.6s; }
-.delay-700 { animation-delay: 0.7s; }
-.delay-800 { animation-delay: 0.8s; }
+/* Animation stagger delays (non-conflicting with Tailwind transition delay-*) */
+.animation-delay-100 { animation-delay: 0.1s; }
 
 /* Gradient text */
 .gradient-text {
@@ -132,15 +130,15 @@ body {
   animation: toastSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* Reveal on scroll */
-.reveal {
+/* Reveal on scroll — progressive enhancement */
+.js-reveal .reveal {
   opacity: 0;
-  transform: translateY(30px);
-  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1),
-              transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translateY(2rem);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.reveal.is-visible {
+.js-reveal .reveal.is-visible {
   opacity: 1;
   transform: translateY(0);
 }
@@ -217,64 +215,43 @@ body {
 
 /* Filmstrip — tablet: reduce opacity */
 @media (max-width: 1024px) and (min-width: 768px) {
-  .homepage-filmstrip,
-  .howitworks-filmstrip {
+  .homepage-filmstrip {
     opacity: 0.5;
   }
 }
 
-/* Reduced motion — disable gradient drift */
+/* ===== Reduced Motion System ===== */
 @media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .js-reveal .reveal,
+  .reveal {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  .animate-fade-in-up,
+  .animate-fade-in,
+  .toast-enter {
+    opacity: 1 !important;
+    transform: none !important;
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .animate-spin-around,
+  .animate-shimmer-slide,
   .homepage-blob-1,
   .homepage-blob-2,
-  .homepage-blob-3 {
-    animation: none;
-  }
-}
-
-/* ===== Hero Background — Blob Drift ===== */
-@keyframes hero-blob-drift-center {
-  0%   { transform: translate(-50%, -54%); }
-  50%  { transform: translate(calc(-50% + 18px), calc(-54% - 12px)); }
-  100% { transform: translate(-50%, -54%); }
-}
-
-@keyframes hero-blob-drift-left {
-  0%   { transform: translate(0, 0); }
-  50%  { transform: translate(15px, 20px); }
-  100% { transform: translate(0, 0); }
-}
-
-@keyframes hero-blob-drift-right {
-  0%   { transform: translate(0, 0); }
-  50%  { transform: translate(-20px, -15px); }
-  100% { transform: translate(0, 0); }
-}
-
-.hero-blob-center {
-  animation: hero-blob-drift-center 19s ease-in-out infinite;
-}
-
-.hero-blob-left {
-  animation: hero-blob-drift-left 17s ease-in-out infinite;
-}
-
-.hero-blob-right {
-  animation: hero-blob-drift-right 21s ease-in-out infinite;
-}
-
-/* Hero filmstrip — tablet: reduce opacity */
-@media (max-width: 1024px) and (min-width: 768px) {
-  .hero-filmstrip {
-    opacity: 0.5;
-  }
-}
-
-/* Hero blobs — reduced motion */
-@media (prefers-reduced-motion: reduce) {
+  .homepage-blob-3,
   .hero-blob-center,
   .hero-blob-left,
-  .hero-blob-right {
-    animation: none;
+  .hero-blob-right,
+  .animate-pulse-glow,
+  .animate-pulse {
+    animation: none !important;
   }
 }

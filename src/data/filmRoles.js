@@ -1,6 +1,6 @@
 /**
  * Official FrameWork Professional Filmmaking Role Catalog
- * 9 Filmmaking Departments, 73 Canonical Roles
+ * 10 Filmmaking Departments, 81 Canonical Roles
  */
 
 export const FILM_ROLE_CATEGORIES = [
@@ -341,6 +341,43 @@ export const FILM_ROLE_CATEGORIES = [
       },
     ],
   },
+  {
+    category: 'Cast & Performance',
+    roles: [
+      {
+        name: 'Actor',
+        aliases: ['Screen Actor', 'Cast Member', 'Talent'],
+      },
+      {
+        name: 'Lead Actor',
+        aliases: ['Lead', 'Protagonist', 'Principal Actor', 'Star'],
+      },
+      {
+        name: 'Supporting Actor',
+        aliases: ['Supporting', 'Featured Actor', 'Day Player'],
+      },
+      {
+        name: 'Background Actor / Extra',
+        aliases: ['Extra', 'Background Performer', 'Background Talent', 'Atmosphere'],
+      },
+      {
+        name: 'Voice Actor',
+        aliases: ['Voiceover Artist', 'Voice-over Artist', 'Voice Talent', 'VO', 'Voiceover', 'Voice-Over'],
+      },
+      {
+        name: 'Child Actor',
+        aliases: ['Young Actor', 'Youth Actor', 'Minor Actor', 'Kid Actor'],
+      },
+      {
+        name: 'Stunt Performer',
+        aliases: ['Stunt Double', 'Stunt Person', 'Stunt Actor', 'Stuntman', 'Stuntwoman'],
+      },
+      {
+        name: 'Dancer / Performer',
+        aliases: ['Dancer', 'Choreographed Performer'],
+      },
+    ],
+  },
 ]
 
 /**
@@ -374,12 +411,18 @@ export function filterRolesCatalog(categories, query) {
 
 // Build lookup maps once at module initialization for O(1) resolution
 const CANONICAL_ROLE_TO_CATEGORY = new Map()
+const CANONICAL_NAME_TO_ROLE = new Map()
+const CANONICAL_ROLE_ALIASES = new Map()
 const ALIAS_CATEGORY_SETS = new Map()
+const ALIAS_TO_CANONICAL_ROLES = new Map()
 
 for (const dept of FILM_ROLE_CATEGORIES) {
   for (const roleObj of dept.roles) {
     if (roleObj?.name) {
-      CANONICAL_ROLE_TO_CATEGORY.set(roleObj.name.trim().toLowerCase(), dept.category)
+      const canonKey = roleObj.name.trim().toLowerCase()
+      CANONICAL_ROLE_TO_CATEGORY.set(canonKey, dept.category)
+      CANONICAL_NAME_TO_ROLE.set(canonKey, roleObj.name)
+      CANONICAL_ROLE_ALIASES.set(canonKey, Array.isArray(roleObj.aliases) ? roleObj.aliases : [])
     }
     if (Array.isArray(roleObj.aliases)) {
       for (const alias of roleObj.aliases) {
@@ -389,18 +432,35 @@ for (const dept of FILM_ROLE_CATEGORIES) {
           ALIAS_CATEGORY_SETS.set(aliasKey, new Set())
         }
         ALIAS_CATEGORY_SETS.get(aliasKey).add(dept.category)
+
+        if (!ALIAS_TO_CANONICAL_ROLES.has(aliasKey)) {
+          ALIAS_TO_CANONICAL_ROLES.set(aliasKey, new Set())
+        }
+        if (roleObj?.name) {
+          ALIAS_TO_CANONICAL_ROLES.get(aliasKey).add(roleObj.name)
+        }
       }
     }
   }
 }
 
-// Build unambiguous alias map (only aliases that resolve to exactly 1 category)
+// Build unambiguous alias maps (only aliases that resolve to exactly 1 category / role)
 const UNIQUE_ALIAS_TO_CATEGORY = new Map()
 for (const [aliasKey, categorySet] of ALIAS_CATEGORY_SETS.entries()) {
   if (categorySet.size === 1) {
     const singleCategory = Array.from(categorySet)[0]
     if (!CANONICAL_ROLE_TO_CATEGORY.has(aliasKey) || CANONICAL_ROLE_TO_CATEGORY.get(aliasKey) === singleCategory) {
       UNIQUE_ALIAS_TO_CATEGORY.set(aliasKey, singleCategory)
+    }
+  }
+}
+
+const UNIQUE_ALIAS_TO_CANONICAL = new Map()
+for (const [aliasKey, roleSet] of ALIAS_TO_CANONICAL_ROLES.entries()) {
+  if (roleSet.size === 1) {
+    const singleRole = Array.from(roleSet)[0]
+    if (!CANONICAL_NAME_TO_ROLE.has(aliasKey) || CANONICAL_NAME_TO_ROLE.get(aliasKey) === singleRole) {
+      UNIQUE_ALIAS_TO_CANONICAL.set(aliasKey, singleRole)
     }
   }
 }
@@ -428,4 +488,58 @@ export function getRoleCategory(roleName) {
 
   return null
 }
+
+/**
+ * Canonicalize a role name to its official canonical project role.
+ * - Exact canonical match returns the official canonical name.
+ * - Unique alias match returns the official canonical role.
+ * - Ambiguous alias returns the original trimmed string (rule 3: do not guess).
+ * - Unknown / legacy role returns the trimmed string (rule 4: preserved as legacy).
+ * Returns null if input is not a non-empty string.
+ *
+ * @param {string} roleName
+ * @returns {string|null}
+ */
+export function canonicalizeRole(roleName) {
+  if (!roleName || typeof roleName !== 'string') return null
+  const trimmed = roleName.trim()
+  if (!trimmed) return null
+  const key = trimmed.toLowerCase()
+
+  // 1. Exact canonical name match (case-insensitive)
+  if (CANONICAL_NAME_TO_ROLE.has(key)) {
+    return CANONICAL_NAME_TO_ROLE.get(key)
+  }
+
+  // 2. Unambiguous unique alias match
+  if (UNIQUE_ALIAS_TO_CANONICAL.has(key)) {
+    return UNIQUE_ALIAS_TO_CANONICAL.get(key)
+  }
+
+  // 3. Ambiguous alias or unknown/legacy role -> preserve original trimmed string
+  return trimmed
+}
+
+/**
+ * Retrieve aliases for a canonical role name.
+ *
+ * @param {string} roleName
+ * @returns {string[]}
+ */
+export function getRoleAliases(roleName) {
+  if (!roleName || typeof roleName !== 'string') return []
+  return CANONICAL_ROLE_ALIASES.get(roleName.trim().toLowerCase()) || []
+}
+
+/**
+ * Check if a role name is an exact canonical role.
+ *
+ * @param {string} roleName
+ * @returns {boolean}
+ */
+export function isCanonicalRole(roleName) {
+  if (!roleName || typeof roleName !== 'string') return false
+  return CANONICAL_NAME_TO_ROLE.has(roleName.trim().toLowerCase())
+}
+
 

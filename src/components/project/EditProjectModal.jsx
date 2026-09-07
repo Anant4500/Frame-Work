@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabaseClient'
 import RolePickerModal from './RolePickerModal'
 import { getRoleOccupancy } from './projectRoleUtils'
 
-export function clampToMaxNonWhitespace(text, maxNonWhitespace = 1000) {
+function clampToMaxNonWhitespace(text, maxNonWhitespace = 1000) {
   if (!text) return ''
   let count = 0
   let result = ''
@@ -20,7 +20,7 @@ export function clampToMaxNonWhitespace(text, maxNonWhitespace = 1000) {
   return result
 }
 
-export function extractPosterStoragePath(posterUrl, creatorId) {
+function extractPosterStoragePath(posterUrl, creatorId) {
   if (!posterUrl || typeof posterUrl !== 'string' || !creatorId) {
     return null
   }
@@ -86,6 +86,7 @@ export default function EditProjectModal({ isOpen, onClose, project, onSaveSucce
   const [newPosterPreview, setNewPosterPreview] = useState(null)
   const [posterError, setPosterError] = useState('')
   const posterInputRef = useRef(null)
+  const posterBlobUrlRef = useRef(null)
 
   useEffect(() => {
     if (project && isOpen) {
@@ -104,8 +105,9 @@ export default function EditProjectModal({ isOpen, onClose, project, onSaveSucce
       }
 
       // Reset poster selection
-      if (newPosterPreview) {
-        URL.revokeObjectURL(newPosterPreview)
+      if (posterBlobUrlRef.current) {
+        URL.revokeObjectURL(posterBlobUrlRef.current)
+        posterBlobUrlRef.current = null
       }
       setNewPosterFile(null)
       setNewPosterPreview(null)
@@ -117,12 +119,13 @@ export default function EditProjectModal({ isOpen, onClose, project, onSaveSucce
       const raw = Array.isArray(project.rawRoles) ? project.rawRoles : []
       setRolesList(raw.map((r) => {
         const { acceptedCount } = getRoleOccupancy(r, project.applicants)
+        const expVal = r.experience_level !== undefined ? r.experience_level : (r.experience !== undefined ? r.experience : null)
         return {
           id: r.id,
           role: r.role,
           positions_needed: Math.max(acceptedCount || 1, Number(r.positions_needed) || 1),
           positions_filled: acceptedCount,
-          experience: r.experience_level || r.experience || 'Intermediate',
+          experience: expVal,
           isNew: false
         }
       }))
@@ -131,14 +134,15 @@ export default function EditProjectModal({ isOpen, onClose, project, onSaveSucce
     }
   }, [project, isOpen])
 
-  // Revoke object URL on unmount or before new preview
+  // Revoke object URL on unmount
   useEffect(() => {
     return () => {
-      if (newPosterPreview) {
-        URL.revokeObjectURL(newPosterPreview)
+      if (posterBlobUrlRef.current) {
+        URL.revokeObjectURL(posterBlobUrlRef.current)
+        posterBlobUrlRef.current = null
       }
     }
-  }, [newPosterPreview])
+  }, [])
 
   const handlePosterFileChange = (e) => {
     const file = e.target.files?.[0]
@@ -160,18 +164,21 @@ export default function EditProjectModal({ isOpen, onClose, project, onSaveSucce
       return
     }
 
-    if (newPosterPreview) {
-      URL.revokeObjectURL(newPosterPreview)
+    if (posterBlobUrlRef.current) {
+      URL.revokeObjectURL(posterBlobUrlRef.current)
+      posterBlobUrlRef.current = null
     }
 
     const previewUrl = URL.createObjectURL(file)
+    posterBlobUrlRef.current = previewUrl
     setNewPosterFile(file)
     setNewPosterPreview(previewUrl)
   }
 
   const handleCancelPoster = () => {
-    if (newPosterPreview) {
-      URL.revokeObjectURL(newPosterPreview)
+    if (posterBlobUrlRef.current) {
+      URL.revokeObjectURL(posterBlobUrlRef.current)
+      posterBlobUrlRef.current = null
     }
     setNewPosterFile(null)
     setNewPosterPreview(null)
@@ -241,8 +248,9 @@ export default function EditProjectModal({ isOpen, onClose, project, onSaveSucce
   }
 
   const handleRoleExperienceChange = (index, newExp) => {
+    const normalized = (!newExp || newExp === 'Any experience') ? null : newExp
     setRolesList((prev) =>
-      prev.map((r, i) => (i === index ? { ...r, experience: newExp } : r))
+      prev.map((r, i) => (i === index ? { ...r, experience: normalized } : r))
     )
   }
 
@@ -468,6 +476,7 @@ export default function EditProjectModal({ isOpen, onClose, project, onSaveSucce
               .from('project_roles')
               .update({
                 positions_needed: count,
+                experience_level: r.experience ? r.experience : null,
               })
               .eq('id', r.id)
               .eq('project_id', project.id)
@@ -484,7 +493,8 @@ export default function EditProjectModal({ isOpen, onClose, project, onSaveSucce
           project_id: project.id,
           role: r.role.trim(),
           positions_needed: Math.max(1, Number(r.positions_needed) || 1),
-          positions_filled: 0
+          positions_filled: 0,
+          experience_level: r.experience ? r.experience : null,
         }))
 
         const { error: insErr } = await supabase
@@ -494,8 +504,9 @@ export default function EditProjectModal({ isOpen, onClose, project, onSaveSucce
         if (insErr) throw insErr
       }
 
-      if (newPosterPreview) {
-        URL.revokeObjectURL(newPosterPreview)
+      if (posterBlobUrlRef.current) {
+        URL.revokeObjectURL(posterBlobUrlRef.current)
+        posterBlobUrlRef.current = null
       }
       setNewPosterFile(null)
       setNewPosterPreview(null)
@@ -959,7 +970,7 @@ export default function EditProjectModal({ isOpen, onClose, project, onSaveSucce
                 rolesList.map((r, idx) => {
                   const count = Number(r.positions_needed) || 1
                   const minAllowed = Math.max(1, Number(r.positions_filled) || 0)
-                  const experience = r.experience || 'Intermediate'
+                  const experience = r.experience ?? ''
 
                   return (
                     <div
@@ -1037,6 +1048,9 @@ export default function EditProjectModal({ isOpen, onClose, project, onSaveSucce
                               onChange={(e) => handleRoleExperienceChange(idx, e.target.value)}
                               className="w-full appearance-none px-3 py-1.5 bg-[#0C0C11] border border-white/[0.10] rounded-lg text-xs text-white outline-none transition-all focus:border-purple cursor-pointer pr-8"
                             >
+                              <option value="" className="bg-[#111118]">
+                                Any experience
+                              </option>
                               {['Beginner', 'Student', 'Intermediate', 'Professional'].map((lvl) => (
                                 <option key={lvl} value={lvl} className="bg-[#111118]">
                                   {lvl}

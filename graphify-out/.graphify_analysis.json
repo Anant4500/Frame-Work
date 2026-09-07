@@ -1,0 +1,436 @@
+{
+  "communities": {
+    "0": [
+      "src_components_project_rolecategoryimage",
+      "src_components_project_rolecategoryimage_rolecategoryimage",
+      "src_components_project_rolepickermodal",
+      "src_components_project_rolepickermodal_rolepickermodal",
+      "src_components_ui_interactivehoverbutton",
+      "src_components_ui_interactivehoverbutton_cn",
+      "src_components_ui_interactivehoverbutton_interactivehoverbutton",
+      "src_data_filmroles",
+      "src_data_filmroles_alias_category_sets",
+      "src_data_filmroles_alias_to_canonical_roles",
+      "src_data_filmroles_canonical_name_to_role",
+      "src_data_filmroles_canonical_role_aliases",
+      "src_data_filmroles_canonical_role_to_category",
+      "src_data_filmroles_canonicalizerole",
+      "src_data_filmroles_film_role_categories",
+      "src_data_filmroles_filterrolescatalog",
+      "src_data_filmroles_getrolealiases",
+      "src_data_filmroles_getrolecategory",
+      "src_data_filmroles_iscanonicalrole",
+      "src_data_filmroles_unique_alias_to_canonical",
+      "src_data_filmroles_unique_alias_to_category",
+      "src_data_rolecategoryimages",
+      "src_data_rolecategoryimages_getrolecategoryimage",
+      "src_data_rolecategoryimages_role_category_images",
+      "src_pages_exploreprojects",
+      "src_pages_exploreprojects_exploreprojects",
+      "src_pages_exploreprojects_filtergroup",
+      "src_pages_exploreprojects_formatrelativedate",
+      "src_pages_exploreprojects_genres",
+      "src_pages_exploreprojects_locations",
+      "src_pages_exploreprojects_projectcard",
+      "src_pages_exploreprojects_projectcardskeleton",
+      "src_pages_exploreprojects_rolefiltergroup"
+    ],
+    "1": [
+      "src_components_register_collaboratorregistrationform",
+      "src_components_register_collaboratorregistrationform_availability_options",
+      "src_components_register_collaboratorregistrationform_experience_levels",
+      "src_components_register_collaboratorregistrationform_popular_collaborator_skills",
+      "src_components_register_creatorregistrationform",
+      "src_components_register_creatorregistrationform_creatorregistrationform",
+      "src_data_profileskills",
+      "src_data_profileskills_all_collaborator_skills",
+      "src_data_profileskills_availability_options",
+      "src_data_profileskills_collaborator_departments",
+      "src_data_profileskills_collaborator_skill_groups",
+      "src_data_profileskills_creator_disciplines",
+      "src_data_profileskills_experience_options",
+      "src_data_profileskills_max_avatar_size",
+      "src_data_profileskills_max_bio_length",
+      "src_data_profileskills_max_collaborator_skills",
+      "src_data_profileskills_max_creator_skills",
+      "src_data_profileskills_max_resume_size",
+      "src_data_profileskills_popular_creator_disciplines",
+      "src_data_profileskills_rationale_4",
+      "src_data_profileskills_remaining_creator_disciplines",
+      "src_pages_profilepage",
+      "src_pages_profilepage_accountdocumentscard",
+      "src_pages_profilepage_collaboratorcreditssection",
+      "src_pages_profilepage_creatorproductionssection",
+      "src_pages_profilepage_editprofilemodal",
+      "src_pages_profilepage_profileherocard",
+      "src_pages_profilepage_resumeviewermodal",
+      "src_utils_profilehelpers",
+      "src_utils_profilehelpers_parseownedavatarpath",
+      "src_utils_profilehelpers_parseownedresumepath",
+      "src_utils_profilehelpers_validateavatarfile",
+      "src_utils_profilehelpers_validateresumefile"
+    ],
+    "2": [
+      "src_app",
+      "src_app_app",
+      "src_app_appcontent",
+      "src_app_authprofileerrorstate",
+      "src_app_authprofilemissingstate",
+      "src_app_scrolltotop",
+      "src_components_errorboundary",
+      "src_components_errorboundary_errorboundary",
+      "src_components_errorboundary_errorboundary_componentdidcatch",
+      "src_components_errorboundary_errorboundary_constructor",
+      "src_components_errorboundary_errorboundary_getderivedstatefromerror",
+      "src_components_errorboundary_errorboundary_handlegohome",
+      "src_components_errorboundary_errorboundary_handlereload",
+      "src_components_errorboundary_errorboundary_render",
+      "src_components_footer",
+      "src_components_footer_footer",
+      "src_context_authcontext",
+      "src_context_authcontext_authprovider",
+      "src_context_authcontext_db_role_to_frontend",
+      "src_context_authcontext_frontend_role_to_db",
+      "src_context_authcontext_maproletodb",
+      "src_context_authcontext_maproletofrontend",
+      "src_context_authcontext_processpendingskills",
+      "src_main",
+      "src_pages_notfoundpage",
+      "src_pages_notfoundpage_notfoundpage"
+    ],
+    "3": [
+      "src_components_calltoaction",
+      "src_components_calltoaction_calltoaction",
+      "src_components_featuredcreators",
+      "src_components_featuredcreators_featuredcreators",
+      "src_components_featuredprojects_featuredprojects",
+      "src_components_hero",
+      "src_components_hero_hero",
+      "src_components_howitworks",
+      "src_components_howitworks_flowchartsteps",
+      "src_components_howitworks_howitworks",
+      "src_components_ui_shimmerbutton",
+      "src_components_ui_shimmerbutton_cn",
+      "src_components_ui_shimmerbutton_shimmerbutton",
+      "src_context_authcontext_authcontext",
+      "src_context_useauth",
+      "src_context_useauth_useauth",
+      "src_pages_createprojectpage",
+      "src_pages_createprojectpage_clamptomaxnonwhitespace",
+      "src_pages_createprojectpage_createprojectpage",
+      "src_pages_createprojectpage_genreoptions",
+      "src_pages_createprojectpage_locationoptions",
+      "src_pages_createprojectpage_summaryrow",
+      "src_pages_homepage",
+      "src_pages_homepage_homepage",
+      "src_pages_myprojectspage_myprojectspage",
+      "src_pages_profilepage_profilepage"
+    ],
+    "4": [
+      "eslint",
+      "eslint_js",
+      "eslint_plugin_react_hooks",
+      "eslint_plugin_react_refresh",
+      "globals",
+      "package_devdependencies",
+      "package_devdependencies_eslint",
+      "package_devdependencies_eslint_js",
+      "package_devdependencies_eslint_plugin_react_hooks",
+      "package_devdependencies_eslint_plugin_react_refresh",
+      "package_devdependencies_globals",
+      "package_devdependencies_tailwindcss",
+      "package_devdependencies_tailwindcss_vite",
+      "package_devdependencies_types_react",
+      "package_devdependencies_types_react_dom",
+      "package_devdependencies_vite",
+      "package_devdependencies_vitejs_plugin_react",
+      "tailwindcss",
+      "tailwindcss_vite",
+      "types_react",
+      "types_react_dom",
+      "vite",
+      "vitejs_plugin_react"
+    ],
+    "5": [
+      "src_components_project_applicantcard",
+      "src_components_project_applicantcard_applicantcard",
+      "src_components_project_applymodal",
+      "src_components_project_applymodal_applymodal",
+      "src_components_project_collaboratorprojectview",
+      "src_components_project_collaboratorprojectview_collaboratorprojectview",
+      "src_components_project_creatorprojectcard",
+      "src_components_project_creatorprojectcard_creatorprojectcard",
+      "src_components_project_creatorprojectview",
+      "src_components_project_creatorprojectview_creatorprojectview",
+      "src_components_project_creatorprojectview_valid_tabs",
+      "src_components_project_editprojectmodal",
+      "src_components_project_editprojectmodal_clamptomaxnonwhitespace",
+      "src_components_project_editprojectmodal_editprojectmodal",
+      "src_components_project_editprojectmodal_extractposterstoragepath",
+      "src_components_project_projectroleutils",
+      "src_components_project_projectroleutils_getroleoccupancy",
+      "src_components_project_projectroleutils_status_colors",
+      "src_lib_supabaseclient",
+      "src_lib_supabaseclient_supabase",
+      "src_pages_projectdetailpage",
+      "src_pages_projectdetailpage_projectdetailpage"
+    ],
+    "6": [
+      "motion",
+      "package",
+      "package_dependencies",
+      "package_dependencies_motion",
+      "package_dependencies_react",
+      "package_dependencies_react_dom",
+      "package_dependencies_react_router_dom",
+      "package_dependencies_supabase_supabase_js",
+      "package_name",
+      "package_private",
+      "package_scripts",
+      "package_scripts_build",
+      "package_scripts_dev",
+      "package_scripts_lint",
+      "package_scripts_preview",
+      "package_type",
+      "package_version",
+      "react",
+      "react_dom",
+      "react_router_dom",
+      "supabase_supabase_js"
+    ],
+    "7": [
+      "src_components_project_collaboratorapplicationcard",
+      "src_components_project_collaboratorapplicationcard_collaboratorapplicationcard",
+      "src_components_project_joinedproductioncard",
+      "src_components_project_joinedproductioncard_joinedproductioncard",
+      "src_pages_myprojectspage",
+      "src_pages_myprojectspage_app_status",
+      "src_pages_myprojectspage_applicationstab",
+      "src_pages_myprojectspage_collaboratorapplicationstab",
+      "src_pages_myprojectspage_collaboratorjoinedtab",
+      "src_pages_myprojectspage_creatormetriccard",
+      "src_pages_myprojectspage_creatorprojectstab",
+      "src_pages_myprojectspage_emptystate",
+      "src_pages_myprojectspage_iconbolt",
+      "src_pages_myprojectspage_iconfilm",
+      "src_pages_myprojectspage_iconinbox",
+      "src_pages_myprojectspage_iconsend",
+      "src_pages_myprojectspage_icontrophy",
+      "src_pages_myprojectspage_iconusers",
+      "src_pages_myprojectspage_joinedtab",
+      "src_pages_myprojectspage_status_styles"
+    ],
+    "8": [
+      "src_components_register_collaboratorregistrationform_collaboratorregistrationform",
+      "src_components_register_roleselection",
+      "src_components_register_roleselection_roleselection",
+      "src_hooks_usepagetitle",
+      "src_hooks_usepagetitle_usepagetitle",
+      "src_pages_loginpage",
+      "src_pages_loginpage_getloginerrormessage",
+      "src_pages_loginpage_getsafereturndestination",
+      "src_pages_loginpage_loginpage",
+      "src_pages_publicprofilepage",
+      "src_pages_publicprofilepage_getstatusbadgeclass",
+      "src_pages_publicprofilepage_handleavatarerror",
+      "src_pages_publicprofilepage_handlepostererror",
+      "src_pages_publicprofilepage_normalizecreditstatus",
+      "src_pages_publicprofilepage_normalizeprojectstatus",
+      "src_pages_publicprofilepage_publicprofilepage",
+      "src_pages_registerpage",
+      "src_pages_registerpage_getregistererrormessage",
+      "src_pages_registerpage_registerpage"
+    ],
+    "9": [
+      "src_components_header",
+      "src_components_header_header",
+      "src_pages_notificationspage",
+      "src_pages_notificationspage_notificationspage",
+      "src_utils_notifications",
+      "src_utils_notifications_formatnotificationtime",
+      "src_utils_notifications_getnotificationdestination",
+      "src_utils_notifications_getnotificationtitle",
+      "src_utils_notifications_markallnotificationsread",
+      "src_utils_notifications_marknotificationread",
+      "src_utils_notifications_mergenotifications"
+    ],
+    "10": [
+      "src_components_featuredprojects",
+      "src_components_ui_featuredprojectscarousel",
+      "src_components_ui_featuredprojectscarousel_carouselcard",
+      "src_components_ui_featuredprojectscarousel_featuredprojectscarousel",
+      "src_components_ui_featuredprojectscarousel_formatroles",
+      "src_components_ui_featuredprojectscarousel_getdims",
+      "src_components_ui_featuredprojectscarousel_useresponsivedimensions"
+    ],
+    "11": [
+      "src_components_home_herojourney",
+      "src_components_home_herojourney_herojourney",
+      "src_components_home_herojourney_quick",
+      "src_components_home_herojourney_roles",
+      "src_components_home_herojourney_stagger",
+      "src_components_home_herojourney_steps",
+      "src_components_home_herojourney_usereducedmotion"
+    ],
+    "12": [
+      "index_html_root_entry",
+      "readme_collaboration_workflow",
+      "readme_creator_roles",
+      "readme_framework_platform"
+    ],
+    "13": [
+      "vercel",
+      "vercel_rewrites",
+      "vercel_schema"
+    ],
+    "14": [
+      "eslint_config"
+    ],
+    "15": [
+      "public_favicon"
+    ],
+    "16": [
+      "public_images_auth_bg"
+    ],
+    "17": [
+      "public_images_hero_bg"
+    ],
+    "18": [
+      "vite_config"
+    ]
+  },
+  "cohesion": {
+    "0": 0.0928030303030303,
+    "1": 0.11363636363636363,
+    "2": 0.10153846153846154,
+    "3": 0.12923076923076923,
+    "4": 0.08695652173913043,
+    "5": 0.18614718614718614,
+    "6": 0.09523809523809523,
+    "7": 0.1,
+    "8": 0.18128654970760233,
+    "9": 0.6181818181818182,
+    "10": 0.47619047619047616,
+    "11": 0.42857142857142855,
+    "12": 0.5,
+    "13": 0.6666666666666666,
+    "14": 1.0,
+    "15": 1.0,
+    "16": 1.0,
+    "17": 1.0,
+    "18": 1.0
+  },
+  "gods": [
+    {
+      "id": "src_context_useauth_useauth",
+      "label": "useAuth()",
+      "degree": 29
+    },
+    {
+      "id": "src_lib_supabaseclient_supabase",
+      "label": "supabase",
+      "degree": 14
+    },
+    {
+      "id": "src_components_project_projectroleutils_getroleoccupancy",
+      "label": "getRoleOccupancy()",
+      "degree": 9
+    },
+    {
+      "id": "src_components_header_header",
+      "label": "Header()",
+      "degree": 8
+    },
+    {
+      "id": "src_pages_notificationspage_notificationspage",
+      "label": "NotificationsPage()",
+      "degree": 8
+    },
+    {
+      "id": "src_components_errorboundary_errorboundary",
+      "label": "ErrorBoundary",
+      "degree": 8
+    },
+    {
+      "id": "src_hooks_usepagetitle_usepagetitle",
+      "label": "usePageTitle()",
+      "degree": 7
+    },
+    {
+      "id": "src_pages_publicprofilepage_publicprofilepage",
+      "label": "PublicProfilePage()",
+      "degree": 6
+    },
+    {
+      "id": "src_pages_profilepage_editprofilemodal",
+      "label": "EditProfileModal()",
+      "degree": 5
+    },
+    {
+      "id": "src_data_filmroles_getrolecategory",
+      "label": "getRoleCategory()",
+      "degree": 5
+    }
+  ],
+  "surprises": [
+    {
+      "source": "HTML Root Entry",
+      "target": "FrameWork Platform",
+      "source_files": [
+        "index.html",
+        "README.md"
+      ],
+      "confidence": "INFERRED",
+      "relation": "references",
+      "why": "inferred connection - not explicitly stated in source; connects across different repos/directories"
+    },
+    {
+      "source": "AppContent()",
+      "target": "useAuth()",
+      "source_files": [
+        "src/App.jsx",
+        "src/context/useAuth.js"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "bridges separate communities; peripheral node `AppContent()` unexpectedly reaches hub `useAuth()`"
+    },
+    {
+      "source": "ProfilePage()",
+      "target": "useAuth()",
+      "source_files": [
+        "src/pages/ProfilePage.jsx",
+        "src/context/useAuth.js"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "peripheral node `ProfilePage()` unexpectedly reaches hub `useAuth()`"
+    },
+    {
+      "source": "ExploreProjects()",
+      "target": "useAuth()",
+      "source_files": [
+        "src/pages/ExploreProjects.jsx",
+        "src/context/useAuth.js"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "bridges separate communities"
+    },
+    {
+      "source": "Header()",
+      "target": "useAuth()",
+      "source_files": [
+        "src/components/Header.jsx",
+        "src/context/useAuth.js"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "calls",
+      "why": "bridges separate communities"
+    }
+  ],
+  "tokens": {
+    "input": 0,
+    "output": 0
+  }
+}

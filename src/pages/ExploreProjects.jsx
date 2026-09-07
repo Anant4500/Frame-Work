@@ -1,86 +1,157 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/useAuth'
+import { usePageTitle } from '../hooks/usePageTitle'
 import { supabase } from '../lib/supabaseClient'
 import InteractiveHoverButton from '../components/ui/InteractiveHoverButton'
+import {
+  FILM_ROLE_CATEGORIES,
+  getRoleCategory,
+  canonicalizeRole,
+  getRoleAliases,
+} from '../data/filmRoles'
 
 const locations = ['Mumbai', 'Pune', 'Delhi', 'Bangalore', 'Hyderabad', 'Chennai', 'Kolkata']
 const genres = ['Drama', 'Thriller', 'Comedy', 'Sci-Fi', 'Action', 'Horror', 'Romance', 'Mystery', 'Documentary']
-const roles = ['Actor', 'Editor', 'DOP', 'Director', 'Writer', 'Composer', 'VFX Artist', 'Sound Designer', 'Cinematographer']
 
 function ExploreProjects() {
+  usePageTitle('Explore Projects | FrameWork')
   const [projects, setProjects] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const { user } = useAuth()
   const [search, setSearch] = useState('')
-  const [sortBy, setSortBy] = useState('newest')
   const [selectedLocations, setSelectedLocations] = useState([])
   const [selectedGenres, setSelectedGenres] = useState([])
   const [selectedRoles, setSelectedRoles] = useState([])
   const [visibleCount, setVisibleCount] = useState(6)
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
+  const [roleSearch, setRoleSearch] = useState('')
+
+  const triggerRef = useRef(null)
+  const drawerRef = useRef(null)
+  const closeButtonRef = useRef(null)
 
   useEffect(() => {
     window.scrollTo(0, 0)
   }, [])
 
+  // Body scroll lock when mobile filter drawer is open
   useEffect(() => {
-    let isMounted = true
+    if (!mobileFiltersOpen) return
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prevOverflow
+    }
+  }, [mobileFiltersOpen])
 
-    const fetchProjects = async () => {
-      try {
-        setLoading(true)
-        setError(null)
+  // Focus management & focus trap for mobile filter modal
+  useEffect(() => {
+    if (!mobileFiltersOpen) return
 
-        const { data, error: fetchError } = await supabase
-          .from('projects')
-          .select('*, creator:profiles(name, profile_photo_url, location), roles:project_roles(role, positions_needed, positions_filled)')
-          .eq('status', 'OPEN')
-          .order('created_at', { ascending: false })
+    // Save triggering element to restore focus when closed
+    triggerRef.current = document.activeElement
 
-        if (fetchError) throw fetchError
+    // Move initial focus to the Close button inside the modal
+    const timer = setTimeout(() => {
+      closeButtonRef.current?.focus()
+    }, 0)
 
-        if (isMounted) {
-          const mapped = (data || []).map((p) => ({
-            id: p.id,
-            title: p.title || 'Untitled Project',
-            logline: p.logline || '',
-            description: p.description || '',
-            genre: p.genre || 'Drama',
-            location: p.location || 'Remote',
-            budget: p.budget,
-            timeline: p.timeline,
-            thumbnail: p.poster_url || '/images/hero-bg.png',
-            poster_url: p.poster_url,
-            status: p.status === 'OPEN' ? 'Open' : p.status === 'IN_PRODUCTION' ? 'In Production' : p.status === 'COMPLETED' ? 'Completed' : p.status,
-            date: p.created_at ? p.created_at.split('T')[0] : '',
-            created_at: p.created_at,
-            popular: false,
-            creator: p.creator ? {
-              name: p.creator.name,
-              avatar: p.creator.profile_photo_url,
-              location: p.creator.location,
-            } : null,
-            roles: Array.isArray(p.roles) ? p.roles.map((r) => r.role) : [],
-            rawRoles: p.roles || [],
-          }))
-          setProjects(mapped)
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        setMobileFiltersOpen(false)
+        return
+      }
+
+      if (e.key === 'Tab' && drawerRef.current) {
+        const focusableElements = drawerRef.current.querySelectorAll(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+        const focusable = Array.from(focusableElements).filter(
+          (el) => el.offsetWidth > 0 || el.offsetHeight > 0 || el.getClientRects().length > 0
+        )
+
+        if (focusable.length === 0) {
+          e.preventDefault()
+          return
         }
-      } catch (err) {
-        console.error('Error fetching explore projects:', err)
-        if (isMounted) setError(err.message)
-      } finally {
-        if (isMounted) setLoading(false)
+
+        const firstElement = focusable[0]
+        const lastElement = focusable[focusable.length - 1]
+
+        if (e.shiftKey) {
+          if (document.activeElement === firstElement || !drawerRef.current.contains(document.activeElement)) {
+            e.preventDefault()
+            lastElement.focus()
+          }
+        } else {
+          if (document.activeElement === lastElement) {
+            e.preventDefault()
+            firstElement.focus()
+          }
+        }
       }
     }
 
-    fetchProjects()
+    window.addEventListener('keydown', handleKeyDown)
 
     return () => {
-      isMounted = false
+      clearTimeout(timer)
+      window.removeEventListener('keydown', handleKeyDown)
+      if (triggerRef.current && typeof triggerRef.current.focus === 'function' && document.body.contains(triggerRef.current)) {
+        triggerRef.current.focus()
+      }
+    }
+  }, [mobileFiltersOpen])
+
+  // Reset visibleCount whenever discovery filters/search materially change
+  useEffect(() => {
+    setVisibleCount(6)
+  }, [search, selectedLocations, selectedGenres, selectedRoles])
+
+  // Targeted data fetch with safe error state & retry capability
+  const fetchProjects = useCallback(async () => {
+    try {
+      setLoading(true)
+      setError(null)
+
+      const { data, error: fetchError } = await supabase
+        .from('projects')
+        .select('id, title, logline, genre, location, poster_url, status, created_at, creator:profiles(name, profile_photo_url), roles:project_roles(role)')
+        .eq('status', 'OPEN')
+        .order('created_at', { ascending: false })
+
+      if (fetchError) throw fetchError
+
+      const mapped = (data || []).map((p) => ({
+        id: p.id,
+        title: p.title || 'Untitled Project',
+        logline: p.logline || '',
+        genre: p.genre || 'Drama',
+        location: p.location || 'Remote',
+        poster_url: p.poster_url || '/images/hero-bg.png',
+        status: p.status === 'OPEN' ? 'Open' : p.status,
+        created_at: p.created_at,
+        creator: p.creator ? {
+          name: p.creator.name,
+          avatar: p.creator.profile_photo_url,
+        } : null,
+        roles: Array.isArray(p.roles) ? p.roles.map((r) => r.role).filter(Boolean) : [],
+      }))
+      setProjects(mapped)
+    } catch (err) {
+      console.error('Error fetching explore projects:', err)
+      setError('Unable to load projects right now.')
+    } finally {
+      setLoading(false)
     }
   }, [])
+
+  useEffect(() => {
+    fetchProjects()
+  }, [fetchProjects])
 
   const toggleFilter = (value, list, setter) => {
     setter(list.includes(value) ? list.filter((v) => v !== value) : [...list, value])
@@ -95,14 +166,77 @@ function ExploreProjects() {
 
   const activeFilterCount = selectedLocations.length + selectedGenres.length + selectedRoles.length
 
+  // Dynamically derive available role options from roles actually present on fetched OPEN projects
+  const availableRoles = useMemo(() => {
+    const roleSet = new Set()
+    for (const p of projects) {
+      if (Array.isArray(p.roles)) {
+        for (const rawRole of p.roles) {
+          const canonical = canonicalizeRole(rawRole)
+          if (canonical) {
+            roleSet.add(canonical)
+          }
+        }
+      }
+    }
+    return Array.from(roleSet)
+  }, [projects])
+
+  // Group available roles by canonical department categories (with "Other Roles" fallback)
+  const groupedAvailableRoles = useMemo(() => {
+    const categoryMap = new Map()
+    for (const dept of FILM_ROLE_CATEGORIES) {
+      categoryMap.set(dept.category, [])
+    }
+    categoryMap.set('Other Roles', [])
+
+    for (const role of availableRoles) {
+      const cat = getRoleCategory(role) || 'Other Roles'
+      if (!categoryMap.has(cat)) {
+        categoryMap.set(cat, [])
+      }
+      categoryMap.get(cat).push(role)
+    }
+
+    const result = []
+    for (const [category, rList] of categoryMap.entries()) {
+      if (rList.length > 0) {
+        result.push({
+          category,
+          roles: rList.sort((a, b) => a.localeCompare(b)),
+        })
+      }
+    }
+    return result
+  }, [availableRoles])
+
+  // Filter available grouped roles by role-search input within the sidebar filter
+  const displayedGroupedRoles = useMemo(() => {
+    const q = roleSearch.trim().toLowerCase()
+    if (!q) return groupedAvailableRoles
+
+    return groupedAvailableRoles
+      .map((group) => ({
+        category: group.category,
+        roles: group.roles.filter((roleName) => {
+          if (roleName.toLowerCase().includes(q)) return true
+          const aliases = getRoleAliases(roleName)
+          return aliases.some((a) => a.toLowerCase().includes(q))
+        }),
+      }))
+      .filter((group) => group.roles.length > 0)
+  }, [groupedAvailableRoles, roleSearch])
+
+  // Combined client-side filtering logic
   const filtered = useMemo(() => {
     let result = [...projects]
 
     if (search.trim()) {
-      const q = search.toLowerCase()
+      const q = search.trim().toLowerCase()
       result = result.filter(
         (p) =>
           (p.title && p.title.toLowerCase().includes(q)) ||
+          (p.logline && p.logline.toLowerCase().includes(q)) ||
           (p.genre && p.genre.toLowerCase().includes(q)) ||
           (p.location && p.location.toLowerCase().includes(q)) ||
           (p.roles && p.roles.some((r) => r.toLowerCase().includes(q)))
@@ -116,17 +250,21 @@ function ExploreProjects() {
       result = result.filter((p) => p.genre && selectedGenres.includes(p.genre))
     }
     if (selectedRoles.length > 0) {
-      result = result.filter((p) => p.roles && p.roles.some((r) => selectedRoles.includes(r)))
+      result = result.filter(
+        (p) =>
+          Array.isArray(p.roles) &&
+          p.roles.some((r) => {
+            const canon = canonicalizeRole(r)
+            return selectedRoles.includes(canon) || selectedRoles.includes(r)
+          })
+      )
     }
 
-    if (sortBy === 'newest') {
-      result.sort((a, b) => new Date(b.created_at || b.date || 0) - new Date(a.created_at || a.date || 0))
-    } else {
-      result.sort((a, b) => (b.popular === a.popular ? 0 : b.popular ? 1 : -1))
-    }
+    // Default newest first
+    result.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
 
     return result
-  }, [search, selectedLocations, selectedGenres, selectedRoles, sortBy, projects])
+  }, [search, selectedLocations, selectedGenres, selectedRoles, projects])
 
   const visible = filtered.slice(0, visibleCount)
   const hasMore = visibleCount < filtered.length
@@ -134,10 +272,10 @@ function ExploreProjects() {
   return (
     <section className="min-h-screen pt-28 pb-20 px-4 sm:px-6">
       <div className="max-w-7xl mx-auto">
-        {/* Page Title */}
+        {/* Page Title Header */}
         <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between mb-10 gap-4">
           <div>
-            <h1 className="font-['Fraunces',_serif] text-4xl sm:text-5xl font-semibold tracking-[-0.02em] leading-[1.15] mb-3">
+            <h1 className="font-['Bebas_Neue',_sans-serif] text-5xl sm:text-6xl font-normal tracking-wide leading-none mb-3">
               Explore <span className="gradient-text">Projects</span>
             </h1>
             <p className="text-white/50 text-lg max-w-xl">
@@ -149,7 +287,7 @@ function ExploreProjects() {
               to="/create-project"
               className="inline-flex items-center gap-2 px-6 py-3 bg-purple text-white text-sm font-semibold rounded-full transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_30px_rgba(98,57,191,0.4)] hover:scale-[1.02] active:scale-95 shrink-0"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
               </svg>
               Create Project
@@ -159,11 +297,16 @@ function ExploreProjects() {
 
         {/* Mobile Filter Toggle */}
         <button
+          ref={triggerRef}
           id="mobile-filter-toggle"
-          className="lg:hidden flex items-center gap-2 px-5 py-3 mb-6 glass-card rounded-xl text-sm font-medium text-white/70 hover:text-white transition-colors"
+          type="button"
+          aria-expanded={mobileFiltersOpen}
+          aria-controls="mobile-filter-drawer"
+          aria-label={`Open filters${activeFilterCount > 0 ? `, ${activeFilterCount} active` : ''}`}
+          className="lg:hidden flex items-center gap-2 px-5 py-3 mb-6 glass-card rounded-xl text-sm font-medium text-white/70 hover:text-white transition-colors cursor-pointer"
           onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
           </svg>
           Filters
@@ -177,18 +320,26 @@ function ExploreProjects() {
         <div className="flex gap-8">
           {/* ─── Filters Sidebar ─── */}
           <aside
+            ref={drawerRef}
+            id="mobile-filter-drawer"
+            role={mobileFiltersOpen ? 'dialog' : undefined}
+            aria-modal={mobileFiltersOpen ? 'true' : undefined}
+            aria-labelledby="filter-sidebar-title"
             className={`
-              ${mobileFiltersOpen ? 'fixed inset-0 z-40 bg-black/95 backdrop-blur-xl p-6 pt-20 overflow-y-auto' : 'hidden'}
+              ${mobileFiltersOpen ? 'fixed inset-0 z-40 bg-black/95 backdrop-blur-xl p-6 pt-20 overflow-y-auto flex flex-col justify-between' : 'hidden'}
               lg:block lg:static lg:bg-transparent lg:backdrop-blur-none lg:p-0 lg:pt-0
               w-full lg:w-64 lg:min-w-[256px] shrink-0
             `}
           >
             {/* Mobile close button */}
             <button
-              className="lg:hidden absolute top-6 right-6 w-10 h-10 rounded-full glass flex items-center justify-center text-white/60 hover:text-white"
+              ref={closeButtonRef}
+              type="button"
+              aria-label="Close filters"
+              className="lg:hidden absolute top-6 right-6 w-10 h-10 rounded-full glass flex items-center justify-center text-white/60 hover:text-white cursor-pointer"
               onClick={() => setMobileFiltersOpen(false)}
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
@@ -196,14 +347,15 @@ function ExploreProjects() {
             <div className="glass-card rounded-2xl p-6 sticky top-28">
               {/* Sidebar Header */}
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-bold flex items-center gap-2">
-                  <svg className="w-5 h-5 text-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <h2 id="filter-sidebar-title" className="text-lg font-bold flex items-center gap-2">
+                  <svg className="w-5 h-5 text-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                   </svg>
                   Filters
                 </h2>
                 {activeFilterCount > 0 && (
                   <button
+                    type="button"
                     onClick={clearFilters}
                     className="text-xs text-purple hover:text-purple-light transition-colors"
                   >
@@ -212,8 +364,9 @@ function ExploreProjects() {
                 )}
               </div>
 
-              {/* Location */}
+              {/* Location Filter */}
               <FilterGroup
+                id="filter-location"
                 title="Location"
                 items={locations}
                 selected={selectedLocations}
@@ -222,8 +375,9 @@ function ExploreProjects() {
 
               <div className="h-px bg-white/5 my-5" />
 
-              {/* Genre */}
+              {/* Genre Filter */}
               <FilterGroup
+                id="filter-genre"
                 title="Genre"
                 items={genres}
                 selected={selectedGenres}
@@ -232,23 +386,40 @@ function ExploreProjects() {
 
               <div className="h-px bg-white/5 my-5" />
 
-              {/* Roles Needed */}
-              <FilterGroup
-                title="Roles Needed"
-                items={roles}
-                selected={selectedRoles}
-                onToggle={(v) => toggleFilter(v, selectedRoles, setSelectedRoles)}
+              {/* Roles Needed Filter (Grouped + Searchable) */}
+              <RoleFilterGroup
+                groupedRoles={displayedGroupedRoles}
+                selectedRoles={selectedRoles}
+                onToggleRole={(v) => toggleFilter(v, selectedRoles, setSelectedRoles)}
+                roleSearch={roleSearch}
+                onRoleSearchChange={setRoleSearch}
+                totalAvailableRolesCount={availableRoles.length}
               />
             </div>
+
+            {/* Mobile Bottom Sticky Action */}
+            {mobileFiltersOpen && (
+              <div className="lg:hidden sticky bottom-0 left-0 right-0 pt-4 pb-2 bg-gradient-to-t from-black via-black/95 to-transparent mt-6">
+                <button
+                  type="button"
+                  onClick={() => setMobileFiltersOpen(false)}
+                  className="w-full py-3.5 px-6 bg-purple text-white text-sm font-semibold rounded-xl transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_20px_rgba(98,57,191,0.4)] active:scale-98"
+                >
+                  View {filtered.length} {filtered.length === 1 ? 'Project' : 'Projects'}
+                </button>
+              </div>
+            )}
           </aside>
 
           {/* ─── Main Content ─── */}
           <div className="flex-1 min-w-0">
-            {/* Top Bar: Search + Sort */}
-            <div className="flex flex-col sm:flex-row gap-4 mb-8">
-              {/* Search */}
-              <div className="relative flex-1">
-                <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+            {/* Top Bar: Full-width Search */}
+            <div className="mb-8">
+              <div className="relative w-full">
+                <label htmlFor="search-input" className="sr-only">
+                  Search projects
+                </label>
+                <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
                 <input
@@ -256,35 +427,21 @@ function ExploreProjects() {
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search by role, genre, or location..."
-                  className="w-full pl-12 pr-4 py-3.5 bg-white/[0.04] border border-white/10 rounded-xl text-sm text-white placeholder-white/30 outline-none transition-all duration-300 focus:border-purple/50 focus:bg-white/[0.06] focus:shadow-[0_0_20px_rgba(98,57,191,0.1)]"
+                  placeholder="Search by title, role, genre, or location..."
+                  className="w-full pl-12 pr-10 py-3.5 bg-white/[0.04] border border-white/10 rounded-xl text-sm text-white placeholder-white/30 outline-none transition-all duration-300 focus:border-purple/50 focus:bg-white/[0.06] focus:shadow-[0_0_20px_rgba(98,57,191,0.1)]"
                 />
                 {search && (
                   <button
+                    type="button"
                     onClick={() => setSearch('')}
+                    aria-label="Clear search"
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white transition-colors"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
                 )}
-              </div>
-
-              {/* Sort */}
-              <div className="relative">
-                <select
-                  id="sort-select"
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="appearance-none w-full sm:w-48 px-4 py-3.5 pr-10 bg-white/[0.04] border border-white/10 rounded-xl text-sm text-white outline-none transition-all duration-300 focus:border-purple/50 cursor-pointer"
-                >
-                  <option value="newest" className="bg-[#111]">Newest</option>
-                  <option value="popular" className="bg-[#111]">Popular</option>
-                </select>
-                <svg className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                </svg>
               </div>
             </div>
 
@@ -298,6 +455,8 @@ function ExploreProjects() {
                   >
                     {f}
                     <button
+                      type="button"
+                      aria-label={`Remove ${f} filter`}
                       onClick={() => {
                         if (selectedLocations.includes(f)) toggleFilter(f, selectedLocations, setSelectedLocations)
                         else if (selectedGenres.includes(f)) toggleFilter(f, selectedGenres, setSelectedGenres)
@@ -305,7 +464,7 @@ function ExploreProjects() {
                       }}
                       className="hover:text-white transition-colors"
                     >
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3} aria-hidden="true">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                       </svg>
                     </button>
@@ -314,21 +473,42 @@ function ExploreProjects() {
               </div>
             )}
 
-            {/* Results Count (only when projects exist) */}
-            {projects.length > 0 && (
-              <p className="text-white/30 text-sm mb-6">
+            {/* Results Count (only when projects exist and not loading/error) */}
+            {!loading && !error && projects.length > 0 && (
+              <p className="text-white/50 text-sm mb-6" aria-live="polite">
                 {filtered.length} project{filtered.length !== 1 ? 's' : ''} found
               </p>
             )}
 
-            {/* Project Grid, Loading, or Empty State */}
+            {/* Project Grid, Skeletons, Error, or Empty State */}
             {loading ? (
-              <div className="flex flex-col items-center justify-center py-28 text-center">
-                <svg className="w-10 h-10 text-purple animate-spin mb-4" viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
-                  <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" />
-                </svg>
-                <p className="text-white/40 text-sm">Loading live projects...</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6" aria-busy="true" aria-label="Loading projects">
+                {Array.from({ length: 6 }).map((_, idx) => (
+                  <ProjectCardSkeleton key={idx} />
+                ))}
+              </div>
+            ) : error ? (
+              /* ERROR STATE — Safe visitor-facing error with retry */
+              <div className="text-center py-20 glass-card rounded-2xl p-8 max-w-lg mx-auto border border-white/[0.08]" role="alert">
+                <div className="w-16 h-16 rounded-2xl bg-purple/10 border border-purple/20 flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-8 h-8 text-purple-light" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5} aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 7.5h.008v.008H12v-.008z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-bold text-white mb-2">Unable to Load Projects</h3>
+                <p className="text-white/50 text-sm mb-6 max-w-sm mx-auto">
+                  We couldn't retrieve projects right now. Please check your connection and try again.
+                </p>
+                <button
+                  type="button"
+                  onClick={fetchProjects}
+                  className="inline-flex items-center gap-2 px-6 py-2.5 bg-purple text-white text-sm font-semibold rounded-full transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_20px_rgba(98,57,191,0.4)] hover:scale-[1.02] active:scale-95 cursor-pointer"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                  </svg>
+                  Try Again
+                </button>
               </div>
             ) : visible.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -337,10 +517,10 @@ function ExploreProjects() {
                 ))}
               </div>
             ) : projects.length === 0 ? (
-              /* STATE A — No projects exist at all */
+              /* STATE A — Genuine empty database (0 projects total) */
               <div className="text-center py-20">
                 <div className="w-20 h-20 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-center mx-auto mb-6">
-                  <svg className="w-10 h-10 text-white/15" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                  <svg className="w-10 h-10 text-white/15" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5} aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m-3.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-1.5A1.125 1.125 0 0118 18.375" />
                   </svg>
                 </div>
@@ -350,25 +530,26 @@ function ExploreProjects() {
                   to="/create-project"
                   className="inline-flex items-center gap-2 px-6 py-3 bg-purple text-white text-sm font-semibold rounded-full transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_30px_rgba(98,57,191,0.4)] hover:scale-[1.02] active:scale-95"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                   </svg>
                   Start a Project
                 </Link>
               </div>
             ) : (
-              /* STATE B — Projects exist, but current filters return 0 results */
+              /* STATE B — Projects exist, but current filters/search return 0 results */
               <div className="text-center py-20">
                 <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-8 h-8 text-white/20" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                  <svg className="w-8 h-8 text-white/20" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5} aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
                   </svg>
                 </div>
-                <p className="text-white/40 text-lg font-medium mb-2">No projects match your filters.</p>
-                <p className="text-white/20 text-sm">Try adjusting your filters or search query.</p>
+                <p className="text-white/50 text-lg font-medium mb-2">No projects match your filters.</p>
+                <p className="text-white/30 text-sm">Try adjusting your filters or search query.</p>
                 <button
+                  type="button"
                   onClick={clearFilters}
-                  className="mt-4 px-5 py-2 text-sm text-purple hover:text-purple-light transition-colors"
+                  className="mt-4 px-5 py-2 text-sm text-purple hover:text-purple-light transition-colors cursor-pointer"
                 >
                   Clear Filters
                 </button>
@@ -376,12 +557,13 @@ function ExploreProjects() {
             )}
 
             {/* Load More */}
-            {hasMore && (
+            {!loading && !error && hasMore && (
               <div className="text-center mt-12">
                 <button
                   id="load-more-btn"
+                  type="button"
                   onClick={() => setVisibleCount((c) => c + 6)}
-                  className="px-8 py-3.5 border border-white/10 rounded-full text-sm font-medium text-white/60 hover:text-white hover:border-purple/40 hover:bg-purple/5 transition-all duration-300"
+                  className="px-8 py-3.5 border border-white/10 rounded-full text-sm font-medium text-white/60 hover:text-white hover:border-purple/40 hover:bg-purple/5 transition-all duration-300 cursor-pointer"
                 >
                   Load More Projects
                 </button>
@@ -394,14 +576,18 @@ function ExploreProjects() {
   )
 }
 
-/* ─── Filter Group Component ─── */
-function FilterGroup({ title, items, selected, onToggle }) {
+/* ─── Filter Group Component (Generic multi-select) ─── */
+function FilterGroup({ id, title, items, selected, onToggle }) {
   const [expanded, setExpanded] = useState(true)
+  const panelId = `${id}-panel`
 
   return (
     <div>
       <button
-        className="flex items-center justify-between w-full mb-3 group"
+        type="button"
+        aria-expanded={expanded}
+        aria-controls={panelId}
+        className="flex items-center justify-between w-full mb-3 group cursor-pointer"
         onClick={() => setExpanded(!expanded)}
       >
         <span className="text-sm font-semibold text-white/70 group-hover:text-white transition-colors">
@@ -409,13 +595,16 @@ function FilterGroup({ title, items, selected, onToggle }) {
         </span>
         <svg
           className={`w-4 h-4 text-white/30 transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`}
-          fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}
+          fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true"
         >
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
         </svg>
       </button>
 
-      <div className={`overflow-hidden transition-all duration-300 ${expanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
+      <div
+        id={panelId}
+        className={`overflow-hidden transition-all duration-300 ${expanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}
+      >
         <div className="flex flex-col gap-2.5">
           {items.map((item) => {
             const checked = selected.includes(item)
@@ -432,7 +621,7 @@ function FilterGroup({ title, items, selected, onToggle }) {
                   }`}
                 >
                   {checked && (
-                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
+                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3} aria-hidden="true">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
                   )}
@@ -455,36 +644,220 @@ function FilterGroup({ title, items, selected, onToggle }) {
   )
 }
 
-/* ─── Relative date formatter (no external deps) ─── */
+/* ─── Role Filter Group (Categorized, search-enabled, alias-aware) ─── */
+function RoleFilterGroup({
+  groupedRoles,
+  selectedRoles,
+  onToggleRole,
+  roleSearch,
+  onRoleSearchChange,
+  totalAvailableRolesCount,
+}) {
+  const [expanded, setExpanded] = useState(true)
+  const panelId = 'filter-roles-panel'
+
+  return (
+    <div>
+      <button
+        type="button"
+        aria-expanded={expanded}
+        aria-controls={panelId}
+        className="flex items-center justify-between w-full mb-3 group cursor-pointer"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <span className="text-sm font-semibold text-white/70 group-hover:text-white transition-colors">
+          Roles Needed
+        </span>
+        <svg
+          className={`w-4 h-4 text-white/30 transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`}
+          fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true"
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+
+      <div
+        id={panelId}
+        className={`overflow-hidden transition-all duration-300 ${expanded ? 'max-h-[380px] opacity-100' : 'max-h-0 opacity-0'}`}
+      >
+        {/* Role search input within filter */}
+        <div className="relative mb-3">
+          <label htmlFor="role-filter-search" className="sr-only">Search available roles</label>
+          <input
+            id="role-filter-search"
+            type="text"
+            value={roleSearch}
+            onChange={(e) => onRoleSearchChange(e.target.value)}
+            placeholder="Filter roles..."
+            className="w-full pl-8 pr-7 py-1.5 bg-white/[0.04] border border-white/10 rounded-lg text-xs text-white placeholder-white/30 outline-none focus:border-purple/50 transition-all"
+          />
+          <svg className="w-3.5 h-3.5 text-white/30 absolute left-2.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          {roleSearch && (
+            <button
+              type="button"
+              aria-label="Clear role filter search"
+              onClick={() => onRoleSearchChange('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-white/30 hover:text-white transition-colors"
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
+
+        {/* Roles list with scrollable max height */}
+        <div className="max-h-60 overflow-y-auto pr-1 space-y-3 scrollbar-thin">
+          {totalAvailableRolesCount === 0 ? (
+            <p className="text-xs text-white/30 italic py-1">No open roles found</p>
+          ) : groupedRoles.length === 0 ? (
+            <p className="text-xs text-white/30 italic py-1">No roles match &quot;{roleSearch}&quot;</p>
+          ) : (
+            groupedRoles.map((group) => (
+              <div key={group.category} className="space-y-1.5">
+                <p className="text-[10.5px] font-semibold uppercase tracking-wider text-purple-light/75 px-1 pt-1">
+                  {group.category}
+                </p>
+                <div className="flex flex-col gap-2 pl-1">
+                  {group.roles.map((role) => {
+                    const checked = selectedRoles.includes(role)
+                    return (
+                      <label
+                        key={role}
+                        className="flex items-center gap-3 cursor-pointer group/item"
+                      >
+                        <span
+                          className={`w-4 h-4 rounded border-[1.5px] flex items-center justify-center shrink-0 transition-all duration-200 ${
+                            checked
+                              ? 'bg-purple border-purple shadow-[0_0_8px_rgba(98,57,191,0.3)]'
+                              : 'border-white/20 group-hover/item:border-white/40'
+                          }`}
+                        >
+                          {checked && (
+                            <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3} aria-hidden="true">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </span>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => onToggleRole(role)}
+                          className="sr-only"
+                        />
+                        <span className={`text-xs leading-snug transition-colors duration-200 ${checked ? 'text-white' : 'text-white/50 group-hover/item:text-white/70'}`}>
+                          {role}
+                        </span>
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ─── Defensive relative date formatter ─── */
 function formatRelativeDate(isoString) {
-  if (!isoString) return null
-  const diff = Date.now() - new Date(isoString).getTime()
+  if (!isoString || typeof isoString !== 'string') return null
+  const timestamp = new Date(isoString).getTime()
+  if (isNaN(timestamp)) return null
+
+  const diff = Date.now() - timestamp
+  if (diff < 0) return 'Just now'
+
   const mins = Math.floor(diff / 60000)
   const hours = Math.floor(mins / 60)
   const days = Math.floor(hours / 24)
   const weeks = Math.floor(days / 7)
+
   if (mins < 60) return 'Just now'
   if (hours < 24) return `${hours}h ago`
   if (days === 1) return '1d ago'
   if (days < 7) return `${days}d ago`
   if (weeks === 1) return '1w ago'
   if (weeks < 5) return `${weeks}w ago`
-  return new Date(isoString).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
+
+  try {
+    return new Date(timestamp).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
+  } catch {
+    return null
+  }
 }
 
-/* ─── Project Card Component (Cinematic 2:3 portrait poster redesign) ─── */
+/* ─── Project Card Skeleton (Stable height, restrained dark aesthetics) ─── */
+function ProjectCardSkeleton() {
+  return (
+    <div
+      className="relative flex flex-col w-full h-[620px] bg-[#0A0A0F] border border-white/[0.08] rounded-[20px] overflow-hidden p-5 animate-pulse motion-reduce:animate-none"
+      aria-hidden="true"
+    >
+      {/* Top badges */}
+      <div className="flex items-center justify-between gap-2 mb-36 sm:mb-40">
+        <div className="h-5 w-16 bg-white/[0.05] rounded-full" />
+        <div className="h-5 w-20 bg-white/[0.05] rounded-full" />
+      </div>
+
+      {/* Title */}
+      <div className="h-[58px] sm:h-[66px] flex flex-col justify-end gap-2 w-full">
+        <div className="h-6 w-3/4 bg-white/[0.07] rounded-md" />
+        <div className="h-5 w-1/2 bg-white/[0.05] rounded-md" />
+      </div>
+
+      {/* Location + date */}
+      <div className="flex items-center gap-2 mt-2 h-4">
+        <div className="h-3 w-20 bg-white/[0.04] rounded" />
+        <div className="h-3 w-12 bg-white/[0.04] rounded" />
+      </div>
+
+      {/* Logline */}
+      <div className="mt-2.5 h-[40px] flex flex-col gap-1.5">
+        <div className="h-3.5 w-full bg-white/[0.04] rounded" />
+        <div className="h-3.5 w-4/5 bg-white/[0.04] rounded" />
+      </div>
+
+      {/* Roles Needed */}
+      <div className="mt-4 min-h-[48px]">
+        <div className="h-2.5 w-20 bg-white/[0.04] rounded mb-2" />
+        <div className="flex items-center gap-1.5">
+          <div className="h-6 w-24 bg-white/[0.05] rounded-md" />
+          <div className="h-6 w-28 bg-white/[0.05] rounded-md" />
+        </div>
+      </div>
+
+      {/* Creator */}
+      <div className="flex items-center gap-2 mt-4 min-h-[20px]">
+        <div className="w-5 h-5 rounded-full bg-white/[0.06]" />
+        <div className="h-3 w-24 bg-white/[0.04] rounded" />
+      </div>
+
+      {/* Button CTA */}
+      <div className="mt-auto pt-5">
+        <div className="w-full h-9 rounded-full bg-white/[0.04] border border-white/5" />
+      </div>
+    </div>
+  )
+}
+
+/* ─── Project Card Component (Cinematic 2:3 portrait poster layout) ─── */
 function ProjectCard({ project }) {
   const allRoles = Array.isArray(project.roles) ? project.roles : []
   const visibleRoles = allRoles.slice(0, 2)
   const extraRoles = allRoles.length - visibleRoles.length
-  const posterSrc = project.poster_url || project.thumbnail || '/images/hero-bg.png'
+  const posterSrc = project.poster_url || '/images/hero-bg.png'
   const relDate = formatRelativeDate(project.created_at)
   const creator = project.creator || null
 
   return (
     <Link
       to={`/project/${project.id}`}
-      className="group relative flex flex-col w-full h-full bg-[#0A0A0F] border border-white/[0.08] hover:border-[rgba(98,57,191,0.30)] rounded-[20px] overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_40px_rgba(98,57,191,0.15)]"
+      className="group relative flex flex-col w-full h-full bg-[#0A0A0F] border border-white/[0.08] hover:border-[rgba(98,57,191,0.30)] rounded-[20px] overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_40px_rgba(98,57,191,0.15)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6239BF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0F]"
     >
       {/* ── LAYER 1: POSTER IMAGE (Isolated GPU layer with overscan) ── */}
       <div className="absolute top-0 left-0 right-0 w-full h-[400px] sm:h-[420px] overflow-hidden pointer-events-none z-0">
@@ -492,6 +865,7 @@ function ProjectCard({ project }) {
           src={posterSrc}
           alt={`${project.title || 'Project'} poster`}
           loading="lazy"
+          decoding="async"
           onError={(e) => {
             if (e.currentTarget.src !== '/images/hero-bg.png') {
               e.currentTarget.src = '/images/hero-bg.png'
@@ -507,7 +881,6 @@ function ProjectCard({ project }) {
 
       {/* ── LAYER 2: DARK OVERLAY & FILM GRAIN ── */}
       <div className="absolute top-0 left-0 right-0 w-full h-[400px] sm:h-[420px] overflow-hidden pointer-events-none z-10">
-        {/* Film grain overlay */}
         <div
           className="absolute inset-0 pointer-events-none opacity-[0.035] mix-blend-overlay"
           style={{
@@ -515,7 +888,6 @@ function ProjectCard({ project }) {
             backgroundSize: '180px 180px',
           }}
         />
-        {/* General subtle dark tint */}
         <div className="absolute inset-0 bg-black/15" />
       </div>
 
@@ -538,16 +910,8 @@ function ProjectCard({ project }) {
           ) : <div />}
 
           {project.status && (
-            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase backdrop-blur-md rounded-full border ${
-              project.status === 'Open'
-                ? 'border-purple/35 text-purple-light bg-purple/15'
-                : project.status === 'In Production'
-                ? 'border-amber-500/35 text-amber-400 bg-amber-500/15'
-                : 'border-emerald-500/35 text-emerald-400 bg-emerald-500/15'
-            }`}>
-              {project.status === 'Open' && (
-                <span className="w-1.5 h-1.5 rounded-full bg-purple animate-pulse" />
-              )}
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase backdrop-blur-md rounded-full border border-purple/35 text-purple-light bg-purple/15">
+              <span className="w-1.5 h-1.5 rounded-full bg-purple animate-pulse motion-reduce:animate-none" />
               {project.status}
             </span>
           )}
@@ -555,16 +919,16 @@ function ProjectCard({ project }) {
 
         {/* Title — Fixed 2-line height area, bottom-aligned */}
         <div className="h-[58px] sm:h-[66px] flex items-end w-full">
-          <h3 className="font-['Fraunces',_serif] text-[22px] sm:text-[24px] font-semibold text-white leading-snug line-clamp-2 w-full group-hover:text-purple-light transition-colors duration-300">
+          <h3 className="font-['Bebas_Neue',_sans-serif] text-2xl sm:text-[26px] font-normal tracking-wide text-white leading-tight line-clamp-2 w-full group-hover:text-purple-light transition-colors duration-300">
             {project.title || 'Untitled Project'}
           </h3>
         </div>
 
         {/* Location + Posted date */}
-        <div className="flex items-center gap-2 mt-2 text-[11px] text-white/40 font-medium tracking-wide h-4">
+        <div className="flex items-center gap-2 mt-2 text-[11px] text-white/50 font-medium tracking-wide h-4">
           {project.location && (
             <>
-              <svg className="w-3 h-3 shrink-0 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <svg className="w-3 h-3 shrink-0 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
@@ -572,7 +936,7 @@ function ProjectCard({ project }) {
             </>
           )}
           {project.location && relDate && (
-            <span className="text-white/20 shrink-0">•</span>
+            <span className="text-white/30 shrink-0">•</span>
           )}
           {relDate && <span className="shrink-0">{relDate}</span>}
         </div>
@@ -584,12 +948,12 @@ function ProjectCard({ project }) {
 
         {/* Roles needed — strictly one row */}
         <div className="mt-4 min-h-[48px]">
-          <p className="text-[9.5px] font-semibold tracking-[0.14em] uppercase text-white/30 mb-2">Roles Needed</p>
+          <p className="text-[9.5px] font-semibold tracking-[0.14em] uppercase text-white/50 mb-2">Roles Needed</p>
           {allRoles.length > 0 ? (
             <div className="flex items-center gap-1.5 overflow-hidden flex-nowrap w-full">
               {visibleRoles.map((role, idx) => (
                 <span
-                  key={role}
+                  key={`${role}-${idx}`}
                   title={role}
                   className={`px-2.5 py-[3px] text-[11px] font-medium text-white/65 border border-white/[0.1] rounded-md bg-white/[0.03] transition-all duration-300 group-hover:border-purple/30 group-hover:text-purple-light whitespace-nowrap truncate min-w-0 ${
                     idx === 0 ? 'max-w-[130px] sm:max-w-[150px]' : 'max-w-[160px] sm:max-w-[180px]'
@@ -599,13 +963,13 @@ function ProjectCard({ project }) {
                 </span>
               ))}
               {extraRoles > 0 && (
-                <span className="shrink-0 px-2 py-[3px] text-[11px] font-medium text-white/35 border border-white/[0.07] rounded-md bg-white/[0.02] whitespace-nowrap">
+                <span className="shrink-0 px-2 py-[3px] text-[11px] font-medium text-white/50 border border-white/[0.07] rounded-md bg-white/[0.02] whitespace-nowrap">
                   +{extraRoles}
                 </span>
               )}
             </div>
           ) : (
-            <p className="text-[11px] text-white/20 italic py-[3px]">No open roles</p>
+            <p className="text-[11px] text-white/50 italic py-[3px]">No open roles</p>
           )}
         </div>
 
@@ -620,7 +984,7 @@ function ProjectCard({ project }) {
                   <span className="text-[9px] font-bold text-purple-light">{creator.name.charAt(0).toUpperCase()}</span>
                 )}
               </div>
-              <span className="text-[11px] text-white/35 truncate">by <span className="text-white/50">{creator.name}</span></span>
+              <span className="text-[11px] text-white/50 truncate">by <span className="text-white/70">{creator.name}</span></span>
             </>
           ) : (
             <div className="h-5" />

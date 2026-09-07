@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useParams, Link, useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/useAuth'
+import { usePageTitle } from '../hooks/usePageTitle'
 import { supabase } from '../lib/supabaseClient'
 import CreatorProjectView from '../components/project/CreatorProjectView'
 import CollaboratorProjectView from '../components/project/CollaboratorProjectView'
@@ -11,12 +12,18 @@ import { getRoleOccupancy } from '../components/project/projectRoleUtils'
 function ProjectDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
+  const location = useLocation()
+  const [searchParams, setSearchParams] = useSearchParams()
   const initialTab = searchParams.get('tab')
   const { user } = useAuth()
   const [project, setProject] = useState(null)
   const [signedScriptUrl, setSignedScriptUrl] = useState(null)
+  const [signedScriptExpiresAt, setSignedScriptExpiresAt] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [notFound, setNotFound] = useState(false)
+  const [fetchError, setFetchError] = useState(null)
+  const [applicationsLoading, setApplicationsLoading] = useState(false)
+  const [applicationsError, setApplicationsError] = useState(false)
   const [toast, setToast] = useState(null)
   const [applyModalOpen, setApplyModalOpen] = useState(false)
   const [editModalOpen, setEditModalOpen] = useState(false)
@@ -25,82 +32,231 @@ function ProjectDetailPage() {
   const [isSubmittingApplication, setIsSubmittingApplication] = useState(false)
   const [processingApplicantId, setProcessingApplicantId] = useState(null)
 
+  const pageTitle = notFound
+    ? 'Project Not Found | FrameWork'
+    : (project?.title ? `${project.title} | FrameWork` : 'Project Details | FrameWork')
+  usePageTitle(pageTitle)
+
   useEffect(() => {
     window.scrollTo(0, 0)
+    setProject(null)
+    setSignedScriptUrl(null)
+    setSignedScriptExpiresAt(null)
+    setNotFound(false)
+    setFetchError(null)
+    setApplicationsError(false)
   }, [id])
+
+  const fetchApplications = useCallback(async (projectId) => {
+    if (!projectId) return null
+    try {
+      setApplicationsLoading(true)
+      setApplicationsError(false)
+
+      const { data: appData, error: appErr } = await supabase
+        .from('applications')
+        .select(`
+          id,
+          project_id,
+          project_role_id,
+          applicant_id,
+          message,
+          status,
+          created_at,
+          applicant:profiles(
+            id,
+            name,
+            profile_photo_url,
+            location,
+            resume_url
+          ),
+          role:project_roles(
+            role
+          )
+        `)
+        .eq('project_id', projectId)
+
+      if (appErr) throw appErr
+
+      const projectApplicants = (appData || []).map((a) => ({
+        id: a.id,
+        applicant_id: a.applicant_id,
+        project_role_id: a.project_role_id,
+        name: a.applicant?.name || 'Applicant',
+        role: a.role?.role || 'Collaborator',
+        message: a.message || '',
+        status: (a.status || 'pending').toLowerCase(),
+        avatar: a.applicant?.profile_photo_url || null,
+        resumeUrl: a.applicant?.resume_url || null,
+        location: a.applicant?.location || null,
+      }))
+
+      setProject((prev) => (prev ? { ...prev, applicants: projectApplicants } : prev))
+      setApplicationsError(false)
+      return projectApplicants
+    } catch (appErr) {
+      console.error('Error fetching applications for project:', appErr)
+      setApplicationsError(true)
+      setProject((prev) => (prev ? { ...prev, applicants: null } : prev))
+      return null
+    } finally {
+      setApplicationsLoading(false)
+    }
+  }, [])
+
+  const ensureScriptSignedUrl = useCallback(async (forceRefresh = false) => {
+    if (!project?.script_url) {
+      setSignedScriptUrl(null)
+      setSignedScriptExpiresAt(null)
+      return null
+    }
+
+    // Reuse existing signed URL if still fresh (60-second buffer)
+    if (
+      !forceRefresh &&
+      signedScriptUrl &&
+      signedScriptExpiresAt &&
+      Date.now() < signedScriptExpiresAt - 60 * 1000
+    ) {
+      return signedScriptUrl
+    }
+
+    try {
+      const { data: signedData, error: signedError } = await supabase
+        .storage
+        .from('scripts')
+        .createSignedUrl(project.script_url, 15 * 60) // 15-minute lifetime (900s)
+
+      if (!signedError && signedData?.signedUrl) {
+        setSignedScriptUrl(signedData.signedUrl)
+        setSignedScriptExpiresAt(Date.now() + 15 * 60 * 1000)
+        return signedData.signedUrl
+      } else {
+        setSignedScriptUrl(null)
+        setSignedScriptExpiresAt(null)
+        if (signedError) {
+          console.warn('[Storage] Script access denied or unavailable:', signedError.message)
+        }
+        return null
+      }
+    } catch (storageErr) {
+      console.warn('[Storage] Exception requesting signed script URL:', storageErr)
+      setSignedScriptUrl(null)
+      setSignedScriptExpiresAt(null)
+      return null
+    }
+  }, [project?.script_url, signedScriptUrl, signedScriptExpiresAt])
 
   const fetchProject = useCallback(async (showLoading = true) => {
     try {
       if (showLoading) setLoading(true)
+      setFetchError(null)
+      setNotFound(false)
       setSignedScriptUrl(null)
+      setSignedScriptExpiresAt(null)
 
-      const { data, error: fetchError } = await supabase
+      const { data, error: queryError } = await supabase
         .from('projects')
-        .select('*, creator:profiles(*), roles:project_roles(*)')
+        .select(`
+          id,
+          creator_id,
+          title,
+          logline,
+          description,
+          genre,
+          status,
+          location,
+          budget,
+          timeline,
+          poster_url,
+          script_url,
+          script_visibility,
+          created_at,
+          updated_at,
+          creator:profiles(
+            id,
+            name,
+            role,
+            profile_photo_url,
+            bio,
+            location
+          ),
+          roles:project_roles(
+            id,
+            project_id,
+            role,
+            positions_needed,
+            positions_filled,
+            experience_level
+          )
+        `)
         .eq('id', id)
         .single()
 
-      if (fetchError) throw fetchError
+      if (queryError) {
+        if (queryError.code === 'PGRST116' || queryError.code === '22P02') {
+          setNotFound(true)
+          setProject(null)
+          return
+        }
+        throw queryError
+      }
 
-      if (data) {
-        // Fetch applications for this project
-        let projectApplicants = []
+      if (!data) {
+        setNotFound(true)
+        setProject(null)
+        return
+      }
+
+      const mapped = {
+        id: data.id,
+        title: data.title || 'Untitled Project',
+        logline: data.logline || '',
+        description: data.description || '',
+        genre: data.genre || 'Drama',
+        location: data.location || 'Remote',
+        budget: data.budget,
+        timeline: data.timeline,
+        rawStatus: data.status,
+        status:
+          data.status === 'OPEN'
+            ? 'Open'
+            : data.status === 'IN_PRODUCTION'
+            ? 'In Production'
+            : data.status === 'COMPLETED'
+            ? 'Completed'
+            : data.status === 'CLOSED'
+            ? 'Closed'
+            : data.status,
+        thumbnail: data.poster_url || '/images/hero-bg.png',
+        poster_url: data.poster_url,
+        script_url: data.script_url || null,
+        script_visibility: data.script_visibility || 'ACCEPTED_TEAM',
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+        creator_id: data.creator_id,
+        creator: data.creator
+          ? {
+              id: data.creator.id,
+              name: data.creator.name || 'Creator',
+              role: data.creator.role === 'CREATOR' ? 'Director' : data.creator.role || 'Creator',
+              avatar: data.creator.profile_photo_url || null,
+              bio: data.creator.bio || '',
+              location: data.creator.location || data.location,
+            }
+          : null,
+        roles: Array.isArray(data.roles) ? data.roles.map((r) => r.role) : [],
+        rawRoles: data.roles || [],
+        applicants: null,
+      }
+      setProject(mapped)
+
+      // Fetch applications separately
+      await fetchApplications(id)
+
+      // Generate signed URL for private script if uploaded and authorized
+      if (data.script_url) {
         try {
-          const { data: appData } = await supabase
-            .from('applications')
-            .select('*, applicant:profiles(id, name, profile_photo_url, location, resume_url), role:project_roles(role)')
-            .eq('project_id', id)
-
-          if (appData) {
-            projectApplicants = appData.map((a) => ({
-              id: a.id,
-              applicant_id: a.applicant_id,
-              project_role_id: a.project_role_id,
-              name: a.applicant?.name || 'Applicant',
-              role: a.role?.role || 'Collaborator',
-              message: a.message || '',
-              status: (a.status || 'pending').toLowerCase(),
-              avatar: a.applicant?.profile_photo_url || null,
-              resumeUrl: a.applicant?.resume_url || null,
-              location: a.applicant?.location || null,
-            }))
-          }
-        } catch (appErr) {
-          console.error('Error fetching applications for project:', appErr)
-        }
-
-        const mapped = {
-          id: data.id,
-          title: data.title || 'Untitled Project',
-          logline: data.logline || '',
-          description: data.description || '',
-          genre: data.genre || 'Drama',
-          location: data.location || 'Remote',
-          budget: data.budget,
-          timeline: data.timeline,
-          status: data.status === 'OPEN' ? 'Open' : data.status === 'IN_PRODUCTION' ? 'In Production' : data.status === 'COMPLETED' ? 'Completed' : data.status,
-          thumbnail: data.poster_url || '/images/hero-bg.png',
-          poster_url: data.poster_url,
-          script_url: data.script_url || null,
-          script_visibility: data.script_visibility || 'ACCEPTED_TEAM',
-          created_at: data.created_at,
-          creator_id: data.creator_id,
-          creator: data.creator ? {
-            id: data.creator.id,
-            name: data.creator.name || 'Creator',
-            role: data.creator.role === 'CREATOR' ? 'Director' : (data.creator.role || 'Creator'),
-            avatar: data.creator.profile_photo_url || null,
-            bio: data.creator.bio || '',
-            location: data.creator.location || data.location,
-          } : null,
-          roles: Array.isArray(data.roles) ? data.roles.map((r) => r.role) : [],
-          rawRoles: data.roles || [],
-          applicants: projectApplicants
-        }
-        setProject(mapped)
-
-        // Generate signed URL for private script if uploaded and authorized
-        if (data.script_url) {
           const { data: signedData, error: signedError } = await supabase
             .storage
             .from('scripts')
@@ -108,24 +264,30 @@ function ProjectDetailPage() {
 
           if (!signedError && signedData?.signedUrl) {
             setSignedScriptUrl(signedData.signedUrl)
+            setSignedScriptExpiresAt(Date.now() + 15 * 60 * 1000)
           } else {
-            // Unauthorized or unavailable
             setSignedScriptUrl(null)
+            setSignedScriptExpiresAt(null)
             if (signedError) {
               console.warn('[Storage] Script access denied or unavailable:', signedError.message)
             }
           }
-        } else {
+        } catch {
           setSignedScriptUrl(null)
+          setSignedScriptExpiresAt(null)
         }
+      } else {
+        setSignedScriptUrl(null)
+        setSignedScriptExpiresAt(null)
       }
     } catch (err) {
       console.error('Error fetching project detail:', err)
+      setFetchError('Unable to load project.')
       setProject(null)
     } finally {
       if (showLoading) setLoading(false)
     }
-  }, [id])
+  }, [id, fetchApplications])
 
   useEffect(() => {
     if (id) {
@@ -149,17 +311,48 @@ function ProjectDetailPage() {
     )
   )
 
+  // Handle creator ?edit=true deep-link
+  useEffect(() => {
+    if (isCreatorOwner && searchParams.get('edit') === 'true') {
+      setEditModalOpen(true)
+    }
+  }, [isCreatorOwner, searchParams])
+
+  const handleCloseEditModal = useCallback(() => {
+    setEditModalOpen(false)
+    if (searchParams.get('edit') === 'true') {
+      const nextParams = new URLSearchParams(searchParams)
+      nextParams.delete('edit')
+      setSearchParams(nextParams, { replace: true })
+    }
+  }, [searchParams, setSearchParams])
+
   const handleApplyRole = (role) => {
     if (!user) {
-      navigate('/login')
+      navigate('/login', {
+        state: {
+          from: `${location.pathname}${location.search}${location.hash}`
+        }
+      })
       return
     }
     if (isCreatorOwner) return
 
+    const rawStatus = String(project?.rawStatus || project?.status || '').toUpperCase()
+    if (rawStatus !== 'OPEN') {
+      setToast({ type: 'error', text: 'Applications are closed for this project.' })
+      return
+    }
+
+    if (applicationsError) {
+      setToast({ type: 'error', text: 'Application status is unavailable. Please retry loading applications.' })
+      return
+    }
+
     const roleObj = Array.isArray(project?.rawRoles)
       ? project.rawRoles.find((r) => r.role === role)
       : null
-    const { isFilled } = getRoleOccupancy(roleObj, project?.applicants)
+    const { isFilled } = getRoleOccupancy(roleObj, project?.applicants || [])
     if (isFilled) {
       setToast({ type: 'error', text: 'This role has already been filled.' })
       return
@@ -174,11 +367,34 @@ function ProjectDetailPage() {
       setToast({ type: 'error', text: 'Please write a short message' })
       return
     }
+
+    const rawStatus = String(project?.rawStatus || project?.status || '').toUpperCase()
+    if (rawStatus !== 'OPEN') {
+      setToast({ type: 'error', text: 'Applications are closed for this project.' })
+      setApplyModalOpen(false)
+      return
+    }
+
+    if (applicationsError) {
+      setToast({ type: 'error', text: 'Application status is unavailable. Please retry loading applications.' })
+      return
+    }
+
     const { data: { session } } = await supabase.auth.getSession()
     const activeUserId = session?.user?.id || user?.id
 
     if (!activeUserId) {
-      navigate('/login')
+      navigate('/login', {
+        state: {
+          from: `${location.pathname}${location.search}${location.hash}`
+        }
+      })
+      return
+    }
+
+    if (isCreatorOwner || activeUserId === project.creator_id || activeUserId === project.creator?.id) {
+      setToast({ type: 'error', text: 'Creators cannot apply to their own projects.' })
+      setApplyModalOpen(false)
       return
     }
 
@@ -187,7 +403,7 @@ function ProjectDetailPage() {
       : null
     const projectRoleId = roleObj?.id || null
 
-    const { isFilled } = getRoleOccupancy(roleObj, project?.applicants)
+    const { isFilled } = getRoleOccupancy(roleObj, project?.applicants || [])
     if (isFilled) {
       setToast({ type: 'error', text: 'This role has already been filled.' })
       setApplyModalOpen(false)
@@ -206,7 +422,7 @@ function ProjectDetailPage() {
       if (liveAccepted != null && liveAccepted >= reqCount) {
         setToast({ type: 'error', text: 'This role has already been filled.' })
         setApplyModalOpen(false)
-        await fetchProject(false)
+        await fetchApplications(project.id)
         return
       }
     }
@@ -222,7 +438,17 @@ function ProjectDetailPage() {
           message: applyMessage.trim(),
           status: 'PENDING',
         })
-        .select('*, applicant:profiles(id, name, profile_photo_url), role:project_roles(role)')
+        .select(`
+          id,
+          project_id,
+          project_role_id,
+          applicant_id,
+          message,
+          status,
+          created_at,
+          applicant:profiles(id, name, profile_photo_url),
+          role:project_roles(role)
+        `)
         .single()
 
       if (insertError) {
@@ -256,8 +482,9 @@ function ProjectDetailPage() {
       setApplyRole('')
       setToast({ type: 'success', text: `Applied for ${applyRole} successfully!` })
 
-      // Refetch project to re-evaluate script access if visibility was APPLICANTS
-      await fetchProject(false)
+      // Refetch applications to sync database state & script access if visibility was APPLICANTS
+      await fetchApplications(project.id)
+      await ensureScriptSignedUrl(true)
     } catch (err) {
       console.error('Error submitting application:', err)
       setToast({ type: 'error', text: err.message || 'Failed to submit application. Please try again.' })
@@ -278,7 +505,7 @@ function ProjectDetailPage() {
         )
       : null
 
-    const { requiredCount, acceptedCount } = getRoleOccupancy(roleObj, project?.applicants)
+    const { requiredCount, acceptedCount } = getRoleOccupancy(roleObj, project?.applicants || [])
     if (acceptedCount >= requiredCount) {
       setToast({ type: 'error', text: 'This role is already filled.' })
       return
@@ -299,7 +526,7 @@ function ProjectDetailPage() {
       if (rpcRes && !rpcRes.success) {
         setToast({ type: 'error', text: rpcRes.error || 'This role is already filled.' })
         setProcessingApplicantId(null)
-        await fetchProject(false)
+        await fetchApplications(project.id)
         return
       }
 
@@ -338,7 +565,7 @@ function ProjectDetailPage() {
       })
 
       setToast({ type: 'success', text: 'Applicant accepted!' })
-      await fetchProject(false)
+      await fetchApplications(project.id)
     } catch (err) {
       console.error('Error accepting applicant:', err)
       setToast({ type: 'error', text: err.message || 'Failed to accept applicant' })
@@ -366,7 +593,7 @@ function ProjectDetailPage() {
         applicants: (prev.applicants || []).map((a) => a.id === applicantId ? { ...a, status: 'rejected' } : a)
       } : prev)
       setToast({ type: 'info', text: 'Application rejected.' })
-      await fetchProject(false)
+      await fetchApplications(project.id)
     } catch (err) {
       console.error('Error rejecting applicant:', err)
       setToast({ type: 'error', text: err.message || 'Failed to reject applicant' })
@@ -383,26 +610,51 @@ function ProjectDetailPage() {
             <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
             <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="opacity-75" />
           </svg>
-          <p className="text-white/40 text-sm font-medium">Loading project details...</p>
+          <p className="text-white/50 text-sm font-medium">Loading project details...</p>
         </div>
       </section>
     )
   }
 
-  if (!project) {
+  if (fetchError) {
     return (
-      <section className="min-h-screen flex items-center justify-center">
+      <section className="min-h-screen flex items-center justify-center pt-28 pb-20 px-4">
+        <div className="text-center max-w-md mx-auto p-8 bg-[#111116] border border-white/[0.08] rounded-2xl shadow-xl">
+          <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto mb-5 text-red-400">
+            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+            </svg>
+          </div>
+          <h2 className="font-['Bebas_Neue',_sans-serif] text-3xl font-normal tracking-wide text-white mb-2">Unable to Load Project</h2>
+          <p className="text-white/50 text-sm mb-6 leading-relaxed">
+            We encountered an issue loading this production. Please check your connection and try again.
+          </p>
+          <button
+            type="button"
+            onClick={() => fetchProject(true)}
+            className="px-6 py-2.5 bg-purple text-white text-xs font-semibold rounded-xl transition-all duration-200 hover:bg-purple-dark hover:shadow-[0_0_20px_rgba(98,57,191,0.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0F]"
+          >
+            Try Again
+          </button>
+        </div>
+      </section>
+    )
+  }
+
+  if (notFound || !project) {
+    return (
+      <section className="min-h-screen flex items-center justify-center pt-28 pb-20 px-4">
         <div className="text-center">
           <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-6">
-            <svg className="w-10 h-10 text-white/20" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+            <svg className="w-10 h-10 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h1.5C5.496 19.5 6 18.996 6 18.375m-3.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-1.5A1.125 1.125 0 0118 18.375" />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold mb-2">Project Not Found</h2>
-          <p className="text-white/40 mb-6">This project may have been removed or is not available yet.</p>
+          <h2 className="font-['Bebas_Neue',_sans-serif] text-3xl font-normal tracking-wide text-white mb-2">Project Not Found</h2>
+          <p className="text-white/50 mb-6 text-sm">This project may have been removed or is not available yet.</p>
           <Link
             to="/explore"
-            className="px-6 py-3 bg-purple text-white text-sm font-semibold rounded-full transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_30px_rgba(98,57,191,0.4)]"
+            className="px-6 py-3 bg-purple text-white text-sm font-semibold rounded-full transition-all duration-300 hover:bg-purple-dark hover:shadow-[0_0_30px_rgba(98,57,191,0.4)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0F]"
           >
             Explore Projects
           </Link>
@@ -423,6 +675,10 @@ function ProjectDetailPage() {
             onReject={handleReject}
             processingApplicantId={processingApplicantId}
             initialTab={initialTab}
+            applicationsLoading={applicationsLoading}
+            applicationsError={applicationsError}
+            onRetryApplications={() => fetchApplications(project.id)}
+            onEnsureScriptUrl={ensureScriptSignedUrl}
           />
         ) : (
           <CollaboratorProjectView
@@ -430,9 +686,13 @@ function ProjectDetailPage() {
             user={user}
             signedScriptUrl={signedScriptUrl}
             onApplyRole={handleApplyRole}
+            applicationsError={applicationsError}
+            onRetryApplications={() => fetchApplications(project.id)}
+            onEnsureScriptUrl={ensureScriptSignedUrl}
           />
         )}
       </div>
+
 
       {/* ─── Apply Modal (Collaborator) ─── */}
       <ApplyModal
@@ -449,11 +709,13 @@ function ProjectDetailPage() {
       {/* ─── Edit Project Modal (Creator) ─── */}
       <EditProjectModal
         isOpen={editModalOpen}
-        onClose={() => setEditModalOpen(false)}
+        onClose={handleCloseEditModal}
         project={project}
         onSaveSuccess={() => {
-          setEditModalOpen(false)
+          handleCloseEditModal()
           setToast({ type: 'success', text: 'Project & roles updated successfully!' })
+          setSignedScriptUrl(null)
+          setSignedScriptExpiresAt(null)
           fetchProject(false)
         }}
       />
