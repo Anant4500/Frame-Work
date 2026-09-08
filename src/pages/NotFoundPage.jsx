@@ -5,11 +5,11 @@ function NotFoundPage() {
   usePageTitle('Page Not Found | FrameWork')
 
   return (
-    <section aria-labelledby="not-found-heading" className="min-h-[calc(100vh-160px)] flex items-center justify-center px-4 py-20 sm:py-28 relative overflow-hidden bg-[#0A0A0F] text-white">
+    <section aria-labelledby="not-found-heading" className="min-h-[calc(100vh-160px)] flex items-center justify-center px-4 py-20 sm:py-28 relative overflow-hidden bg-[#000000] text-white">
       {/* Background ambient lighting */}
       <div className="fixed inset-0 pointer-events-none -z-10" aria-hidden="true">
         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-[#6239BF]/12 rounded-full blur-[140px]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_transparent_0%,_#0A0A0F_80%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_transparent_0%,_#000000_80%)]" />
       </div>
 
       <div className="w-full max-w-lg mx-auto text-center px-4">

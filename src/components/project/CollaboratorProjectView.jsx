@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { getRoleOccupancy } from './projectRoleUtils'
+import ProjectDetailsCard from './ProjectDetailsCard'
+import { formatBudgetRange } from '../../utils/projectDetailsFormatters'
 
 function RoleIcon({ role }) {
   const r = (role || '').toLowerCase()
@@ -154,9 +156,11 @@ export default function CollaboratorProjectView({
     let openCount = 0
 
     rawRoles.forEach((r) => {
-      const { requiredCount, acceptedCount, isFilled } = getRoleOccupancy(r, applicants)
+      const { requiredCount, acceptedCount, isFilled, isAvailable } = getRoleOccupancy(r, applicants)
       reqSum += requiredCount
-      fillSum += acceptedCount
+      if (isAvailable && acceptedCount != null) {
+        fillSum += acceptedCount
+      }
       if (!isFilled) openCount++
     })
 
@@ -219,8 +223,7 @@ export default function CollaboratorProjectView({
     }
   }, [project?.status, project?.rawStatus])
 
-  const numBudget = Number(project?.budget)
-  const hasBudget = project?.budget != null && project?.budget !== '' && !isNaN(numBudget) && numBudget > 0
+  const formattedBudgetRange = formatBudgetRange(project?.budget_min, project?.budget_max, project?.budget)
 
   return (
     <div className="space-y-12 sm:space-y-16 animate-fade-in">
@@ -321,10 +324,16 @@ export default function CollaboratorProjectView({
               )}
 
               {/* Production Budget Pill (Preserved when available) */}
-              {hasBudget && (
+              {formattedBudgetRange && (
                 <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#000000] border border-white/10 rounded-full text-xs text-white/70 font-medium">
-                  <span className="text-emerald-400 font-semibold">₹</span>
-                  <span>{numBudget.toLocaleString('en-IN')}</span>
+                  {formattedBudgetRange.startsWith('₹') ? (
+                    <>
+                      <span className="text-emerald-400 font-semibold">₹</span>
+                      <span>{formattedBudgetRange.slice(1)}</span>
+                    </>
+                  ) : (
+                    <span>{formattedBudgetRange}</span>
+                  )}
                 </span>
               )}
 
@@ -361,134 +370,9 @@ export default function CollaboratorProjectView({
           )}
         </div>
 
-        {/* Right Column: New Project Details Card */}
+        {/* Right Column: Project Details Card */}
         <div className="min-w-0">
-          <div className="rounded-[18px] bg-[#111111] border border-white/[0.08] overflow-hidden">
-            {/* Card Header */}
-            <div className="flex items-center gap-2.5 px-6 py-4 border-b border-white/[0.08]">
-              <svg
-                className="w-4 h-4 text-white/40 shrink-0"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                strokeWidth={1.5}
-                aria-hidden="true"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-              </svg>
-              <h3 className="font-['DM_Sans',_sans-serif] text-xs font-semibold uppercase tracking-[0.14em] text-white/40">
-                PROJECT DETAILS
-              </h3>
-            </div>
-
-            {/* Field Rows */}
-            <div className="divide-y divide-white/[0.06]">
-              {/* 1. FORMAT */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-4 py-3.5 px-6 min-h-[58px]">
-                <span className="font-['DM_Sans',_sans-serif] text-[12px] font-normal uppercase text-white/40 leading-snug break-words">
-                  FORMAT
-                </span>
-                <div className="font-['DM_Sans',_sans-serif] text-sm sm:text-base text-white/90 sm:text-right min-w-0">
-                  {project?.format ? (
-                    <span className="font-semibold text-white">{project.format}</span>
-                  ) : null}
-                </div>
-              </div>
-
-              {/* 2. COMPENSATION */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-4 py-3.5 px-6 min-h-[58px]">
-                <span className="font-['DM_Sans',_sans-serif] text-[12px] font-normal uppercase text-white/40 leading-snug break-words">
-                  COMPENSATION
-                </span>
-                <div className="font-['DM_Sans',_sans-serif] text-sm sm:text-base text-white/90 sm:text-right min-w-0">
-                  {project?.compensation ? (
-                    <span className="font-semibold text-white">{project.compensation}</span>
-                  ) : null}
-                </div>
-              </div>
-
-              {/* 3. SHOOT DATES */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-4 py-3.5 px-6 min-h-[58px]">
-                <span className="font-['DM_Sans',_sans-serif] text-[12px] font-normal uppercase text-white/40 leading-snug break-words">
-                  SHOOT DATES
-                </span>
-                <div className="font-['DM_Sans',_sans-serif] text-sm sm:text-base text-white/90 sm:text-right min-w-0">
-                  {(project?.shoot_dates || project?.timeline) ? (
-                    <span className="font-medium text-white">{project.shoot_dates || project.timeline}</span>
-                  ) : null}
-                </div>
-              </div>
-
-              {/* 4. LOCATIONS */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-4 py-3.5 px-6 min-h-[58px]">
-                <span className="font-['DM_Sans',_sans-serif] text-[12px] font-normal uppercase text-white/40 leading-snug break-words">
-                  LOCATIONS
-                </span>
-                <div className="font-['DM_Sans',_sans-serif] text-sm sm:text-base text-white/90 sm:text-right min-w-0">
-                  {project?.location ? (
-                    <span className="font-medium text-white">{project.location}</span>
-                  ) : null}
-                </div>
-              </div>
-
-              {/* 5. LANGUAGE */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-4 py-3.5 px-6 min-h-[58px]">
-                <span className="font-['DM_Sans',_sans-serif] text-[12px] font-normal uppercase text-white/40 leading-snug break-words">
-                  LANGUAGE
-                </span>
-                <div className="font-['DM_Sans',_sans-serif] text-sm sm:text-base text-white/90 sm:text-right min-w-0">
-                  {project?.language ? (
-                    <span className="font-semibold text-white">{project.language}</span>
-                  ) : null}
-                </div>
-              </div>
-
-              {/* 6. BUDGET RANGE */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-4 py-3.5 px-6 min-h-[58px]">
-                <span className="font-['DM_Sans',_sans-serif] text-[12px] font-normal uppercase text-white/40 leading-snug break-words">
-                  BUDGET RANGE
-                </span>
-                <div className="font-['DM_Sans',_sans-serif] text-sm sm:text-base text-white/90 sm:text-right min-w-0">
-                  {hasBudget ? (
-                    <span className="font-bold text-white">₹{numBudget.toLocaleString('en-IN')}</span>
-                  ) : null}
-                </div>
-              </div>
-
-              {/* 7. TARGET */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-4 py-3.5 px-6 min-h-[58px]">
-                <span className="font-['DM_Sans',_sans-serif] text-[12px] font-normal uppercase text-white/40 leading-snug break-words">
-                  TARGET
-                </span>
-                <div className="font-['DM_Sans',_sans-serif] text-sm sm:text-base text-white/90 sm:text-right min-w-0">
-                  {project?.target ? (
-                    <span className="font-semibold text-white">{project.target}</span>
-                  ) : null}
-                </div>
-              </div>
-
-              {/* 8. TAGS */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-4 py-3.5 px-6 min-h-[58px]">
-                <span className="font-['DM_Sans',_sans-serif] text-[12px] font-normal uppercase text-white/40 leading-snug break-words">
-                  TAGS
-                </span>
-                <div className="font-['DM_Sans',_sans-serif] text-sm text-white/90 sm:text-right min-w-0">
-                  {Array.isArray(project?.tags) && project.tags.length > 0 ? (
-                    <div className="flex flex-wrap gap-1.5 sm:justify-end">
-                      {project.tags.map((tag) => (
-                        <span
-                          key={tag}
-                          className="px-3 py-1 bg-[#181818] border border-white/10 rounded-full text-xs text-white/70 font-['DM_Sans',_sans-serif] font-normal"
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-          </div>
+          <ProjectDetailsCard project={project} />
         </div>
       </section>
 
@@ -710,11 +594,11 @@ export default function CollaboratorProjectView({
                   const rawRole = Array.isArray(project.rawRoles)
                     ? project.rawRoles.find((r) => r.role === role)
                     : null
-                  const { requiredCount, acceptedCount, isFilled } = getRoleOccupancy(
+                  const { requiredCount, acceptedCount, isFilled, isAvailable } = getRoleOccupancy(
                     rawRole,
                     applicants
                   )
-                  const percentage = requiredCount > 0
+                  const percentage = isAvailable && acceptedCount != null && requiredCount > 0
                     ? Math.min(100, Math.max(0, Math.round((acceptedCount / requiredCount) * 100)))
                     : 0
                   const experience = rawRole?.experience_level || rawRole?.experience || null
@@ -731,7 +615,7 @@ export default function CollaboratorProjectView({
                     : null
 
                   const appStatus = (userApplication?.status || '').toLowerCase()
-                  const isRoleOpen = !isFilled && isProjectOpen && !userApplication && !applicationsError
+                  const isRoleOpen = isAvailable !== false && !isFilled && isProjectOpen && !userApplication && !applicationsError
 
                   return (
                     <div
@@ -780,7 +664,7 @@ export default function CollaboratorProjectView({
                               {requiredCount} {requiredCount === 1 ? 'slot' : 'slots'}
                             </span>
 
-                            {applicationsError ? (
+                            {applicationsError || !isAvailable || acceptedCount == null ? (
                               <span className="text-white/40">· Occupancy unavailable</span>
                             ) : (
                               <>
@@ -851,7 +735,7 @@ export default function CollaboratorProjectView({
                               </button>
                             </>
                           )
-                        ) : applicationsError ? (
+                        ) : applicationsError || !isAvailable ? (
                           <>
                             <span className="px-3 py-1 rounded-full text-[11px] font-semibold tracking-wider uppercase bg-white/[0.05] text-white/40 border border-white/10">
                               UNAVAILABLE

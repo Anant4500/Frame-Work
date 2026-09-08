@@ -4,9 +4,10 @@ import { useAuth } from '../context/useAuth'
 import { usePageTitle } from '../hooks/usePageTitle'
 import { supabase } from '../lib/supabaseClient'
 import RolePickerModal from '../components/project/RolePickerModal'
+import LocationInput from '../components/project/LocationInput'
+import { formatOptions, formatShootDates, formatBudgetRange, MAX_TAGS, validateNewTag, normalizeTags } from '../utils/projectDetailsFormatters'
 
 const genreOptions = ['Drama', 'Thriller', 'Comedy', 'Sci-Fi', 'Action', 'Horror', 'Romance', 'Mystery', 'Documentary']
-const locationOptions = ['Mumbai', 'Pune', 'Delhi', 'Bangalore', 'Hyderabad', 'Chennai', 'Kolkata']
 
 function clampToMaxNonWhitespace(text, maxNonWhitespace = 1000) {
   if (!text) return ''
@@ -34,6 +35,8 @@ function CreateProjectPage() {
   const [loading, setLoading] = useState(false)
   const [currentStep, setCurrentStep] = useState(1)
   const [isRolePickerOpen, setIsRolePickerOpen] = useState(false)
+  const [tagInput, setTagInput] = useState('')
+  const [tagError, setTagError] = useState('')
   const publishingRef = useRef(false)
   const thumbnailPreviewRef = useRef(null)
   const navTimerRef = useRef(null)
@@ -44,8 +47,15 @@ function CreateProjectPage() {
     description: '',
     genre: '',
     location: '',
+    format: '',
+    shootStartDate: '',
+    shootEndDate: '',
+    language: '',
+    budgetMin: '',
+    budgetMax: '',
+    target: '',
+    tags: [],
     budget: '',
-    timeline: '',
     roles: [],
     scriptFile: null,
     scriptFileName: '',
@@ -198,6 +208,37 @@ function CreateProjectPage() {
   const handleDescriptionChange = (e) => {
     const clamped = clampToMaxNonWhitespace(e.target.value, 1000)
     setForm((f) => ({ ...f, description: clamped }))
+  }
+
+  const handleAddTag = (e) => {
+    if (e) e.preventDefault()
+    if (!tagInput.trim()) return
+    const validation = validateNewTag(tagInput, form.tags)
+    if (!validation.valid) {
+      setTagError(validation.error)
+      return
+    }
+    setTagError('')
+    setForm((f) => ({
+      ...f,
+      tags: [...f.tags, validation.tag],
+    }))
+    setTagInput('')
+  }
+
+  const handleRemoveTag = (indexToRemove) => {
+    setForm((f) => ({
+      ...f,
+      tags: f.tags.filter((_, i) => i !== indexToRemove),
+    }))
+    setTagError('')
+  }
+
+  const handleTagKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleAddTag()
+    }
   }
 
   const handleAddRole = (roleName) => {
@@ -363,8 +404,8 @@ function CreateProjectPage() {
         }
         return false
       }
-      if (!form.location) {
-        setToast({ type: 'error', text: 'Please select a location' })
+      if (!form.location || !form.location.trim()) {
+        setToast({ type: 'error', text: 'Please enter a location' })
         if (currentStep !== 1) {
           setCurrentStep(1)
           setTimeout(() => focusField('create-location'), 60)
@@ -372,6 +413,61 @@ function CreateProjectPage() {
           focusField('create-location')
         }
         return false
+      }
+      if (form.shootStartDate && form.shootEndDate && form.shootEndDate < form.shootStartDate) {
+        setToast({ type: 'error', text: 'Shoot end date must not be earlier than start date' })
+        if (currentStep !== 1) {
+          setCurrentStep(1)
+          setTimeout(() => focusField('create-shoot-end-date'), 60)
+        } else {
+          focusField('create-shoot-end-date')
+        }
+        return false
+      }
+      if (form.budgetMin !== '' && form.budgetMin != null) {
+        const minNum = Number(form.budgetMin)
+        if (isNaN(minNum) || !isFinite(minNum) || minNum < 0) {
+          setToast({ type: 'error', text: 'Minimum budget must be a valid positive number' })
+          if (currentStep !== 1) {
+            setCurrentStep(1)
+            setTimeout(() => focusField('create-budget-min'), 60)
+          } else {
+            focusField('create-budget-min')
+          }
+          return false
+        }
+      }
+      if (form.budgetMax !== '' && form.budgetMax != null) {
+        const maxNum = Number(form.budgetMax)
+        if (isNaN(maxNum) || !isFinite(maxNum) || maxNum < 0) {
+          setToast({ type: 'error', text: 'Maximum budget must be a valid positive number' })
+          if (currentStep !== 1) {
+            setCurrentStep(1)
+            setTimeout(() => focusField('create-budget-max'), 60)
+          } else {
+            focusField('create-budget-max')
+          }
+          return false
+        }
+      }
+      if (
+        form.budgetMin !== '' &&
+        form.budgetMin != null &&
+        form.budgetMax !== '' &&
+        form.budgetMax != null
+      ) {
+        const minNum = Number(form.budgetMin)
+        const maxNum = Number(form.budgetMax)
+        if (maxNum < minNum) {
+          setToast({ type: 'error', text: 'Maximum budget must not be less than minimum budget' })
+          if (currentStep !== 1) {
+            setCurrentStep(1)
+            setTimeout(() => focusField('create-budget-max'), 60)
+          } else {
+            focusField('create-budget-max')
+          }
+          return false
+        }
       }
       if (form.budget !== '' && form.budget != null) {
         const budgetNum = Number(form.budget)
@@ -504,6 +600,10 @@ function CreateProjectPage() {
       }
 
       // Step 2: Insert project record into public.projects
+      const bMin = form.budgetMin !== '' && form.budgetMin != null ? Number(form.budgetMin) : null
+      const bMax = form.budgetMax !== '' && form.budgetMax != null ? Number(form.budgetMax) : null
+      const legacyB = (bMin == null && bMax == null && form.budget !== '' && form.budget != null) ? Number(form.budget) : null
+
       const projectData = {
         creator_id: activeUserId,
         title: form.title.trim(),
@@ -511,8 +611,16 @@ function CreateProjectPage() {
         description: form.description.trim(),
         genre: form.genre,
         location: form.location,
-        budget: form.budget === '' || form.budget == null ? null : Number(form.budget),
-        timeline: form.timeline.trim() || null,
+        format: form.format || null,
+        shoot_start_date: form.shootStartDate || null,
+        shoot_end_date: form.shootEndDate || null,
+        language: form.language?.trim() || null,
+        budget_min: bMin,
+        budget_max: bMax,
+        budget: legacyB,
+        timeline: null,
+        target: form.target?.trim() || null,
+        tags: normalizeTags(form.tags),
         poster_url: posterUrl,
         script_url: scriptPath,
         script_visibility: form.scriptVisibility || 'ACCEPTED_TEAM',
@@ -652,7 +760,7 @@ function CreateProjectPage() {
   ]
 
   return (
-    <section className="relative min-h-screen pt-28 pb-20 px-4 sm:px-6 bg-[#08080D] overflow-hidden">
+    <section className="relative min-h-screen pt-28 pb-20 px-4 sm:px-6 bg-[#000000] overflow-hidden">
       {/* Subtle purple radial atmosphere behind card */}
       <div
         className="absolute top-[42%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] sm:w-[900px] h-[500px] sm:h-[650px] pointer-events-none -z-0"
@@ -792,6 +900,29 @@ function CreateProjectPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div>
+                  <label htmlFor="create-format" className="block text-sm font-medium text-white/70 mb-2">
+                    Format <span className="text-white/50 text-xs font-normal">(Optional)</span>
+                  </label>
+                  <div className="relative">
+                    <select
+                      id="create-format"
+                      name="format"
+                      value={form.format}
+                      onChange={handleChange}
+                      className="w-full appearance-none px-4 py-3.5 pr-10 bg-[#0C0C11] border border-white/[0.11] rounded-xl text-sm text-white outline-none transition-all duration-300 focus:border-purple focus:ring-1 focus:ring-purple/20 focus:shadow-[0_0_15px_rgba(98,57,191,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2 focus-visible:ring-offset-[#0C0C11] cursor-pointer"
+                    >
+                      <option value="" className="bg-[#0C0C11]">Select format</option>
+                      {formatOptions.map((f) => (
+                        <option key={f} value={f} className="bg-[#0C0C11]">{f}</option>
+                      ))}
+                    </select>
+                    <svg className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+
+                <div>
                   <label htmlFor="create-genre" className="block text-sm font-medium text-white/70 mb-2">
                     Genre <span className="text-purple-light" aria-hidden="true">*</span>
                   </label>
@@ -815,65 +946,191 @@ function CreateProjectPage() {
                     </svg>
                   </div>
                 </div>
-
-                <div>
-                  <label htmlFor="create-location" className="block text-sm font-medium text-white/70 mb-2">
-                    Location <span className="text-purple-light" aria-hidden="true">*</span>
-                  </label>
-                  <div className="relative">
-                    <select
-                      id="create-location"
-                      name="location"
-                      value={form.location}
-                      onChange={handleChange}
-                      required
-                      aria-required="true"
-                      className="w-full appearance-none px-4 py-3.5 pr-10 bg-[#0C0C11] border border-white/[0.11] rounded-xl text-sm text-white outline-none transition-all duration-300 focus:border-purple focus:ring-1 focus:ring-purple/20 focus:shadow-[0_0_15px_rgba(98,57,191,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2 focus-visible:ring-offset-[#0C0C11] cursor-pointer"
-                    >
-                      <option value="" className="bg-[#0C0C11]">Select location</option>
-                      {locationOptions.map((l) => (
-                        <option key={l} value={l} className="bg-[#0C0C11]">{l}</option>
-                      ))}
-                    </select>
-                    <svg className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </div>
-                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div>
-                  <label htmlFor="create-budget" className="block text-sm font-medium text-white/70 mb-2">
-                    Budget (₹) <span className="text-white/50 text-xs font-normal">(Optional)</span>
+                  <label htmlFor="create-location" className="block text-sm font-medium text-white/70 mb-2">
+                    Location <span className="text-purple-light" aria-hidden="true">*</span>
                   </label>
-                  <input
-                    id="create-budget"
-                    type="number"
-                    name="budget"
-                    value={form.budget}
+                  <LocationInput
+                    id="create-location"
+                    name="location"
+                    value={form.location}
                     onChange={handleChange}
-                    placeholder="e.g. 500000"
-                    min="0"
-                    step="any"
-                    className="w-full px-4 py-3.5 bg-[#0C0C11] border border-white/[0.11] rounded-xl text-sm text-white placeholder-white/40 outline-none transition-all duration-300 focus:border-purple focus:ring-1 focus:ring-purple/20 focus:shadow-[0_0_15px_rgba(98,57,191,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2 focus-visible:ring-offset-[#0C0C11]"
+                    placeholder="e.g. Mumbai, Pune or Remote"
+                    required
+                    className="w-full px-4 py-3.5 bg-[#0C0C11] border border-white/[0.11] rounded-xl text-sm text-white placeholder-white/40 outline-none transition-all duration-300 focus:border-purple focus:ring-1 focus:ring-purple/20 focus:shadow-[0_0_15px_rgba(98,57,191,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2 focus-visible:ring-offset-[#0C0C11] pr-10"
                   />
                 </div>
 
                 <div>
-                  <label htmlFor="create-timeline" className="block text-sm font-medium text-white/70 mb-2">
-                    Timeline <span className="text-white/50 text-xs font-normal">(Optional)</span>
+                  <label htmlFor="create-language" className="block text-sm font-medium text-white/70 mb-2">
+                    Language <span className="text-white/50 text-xs font-normal">(Optional)</span>
                   </label>
                   <input
-                    id="create-timeline"
+                    id="create-language"
                     type="text"
-                    name="timeline"
-                    value={form.timeline}
+                    name="language"
+                    value={form.language}
                     onChange={handleChange}
-                    placeholder="e.g. Shooting Nov 2026 / 3 Months"
+                    placeholder="e.g. Hindi, English"
                     className="w-full px-4 py-3.5 bg-[#0C0C11] border border-white/[0.11] rounded-xl text-sm text-white placeholder-white/40 outline-none transition-all duration-300 focus:border-purple focus:ring-1 focus:ring-purple/20 focus:shadow-[0_0_15px_rgba(98,57,191,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2 focus-visible:ring-offset-[#0C0C11]"
                   />
                 </div>
+              </div>
+
+              <div>
+                <span className="block text-sm font-medium text-white/70 mb-2">
+                  Shoot Dates <span className="text-white/50 text-xs font-normal">(Optional)</span>
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <div>
+                    <label htmlFor="create-shoot-start-date" className="block text-xs text-white/50 mb-1">
+                      Start Date
+                    </label>
+                    <input
+                      id="create-shoot-start-date"
+                      type="date"
+                      name="shootStartDate"
+                      value={form.shootStartDate}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3.5 bg-[#0C0C11] border border-white/[0.11] rounded-xl text-sm text-white placeholder-white/40 outline-none transition-all duration-300 focus:border-purple focus:ring-1 focus:ring-purple/20 focus:shadow-[0_0_15px_rgba(98,57,191,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2 focus-visible:ring-offset-[#0C0C11] [color-scheme:dark]"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="create-shoot-end-date" className="block text-xs text-white/50 mb-1">
+                      End Date
+                    </label>
+                    <input
+                      id="create-shoot-end-date"
+                      type="date"
+                      name="shootEndDate"
+                      value={form.shootEndDate}
+                      onChange={handleChange}
+                      min={form.shootStartDate || undefined}
+                      className="w-full px-4 py-3.5 bg-[#0C0C11] border border-white/[0.11] rounded-xl text-sm text-white placeholder-white/40 outline-none transition-all duration-300 focus:border-purple focus:ring-1 focus:ring-purple/20 focus:shadow-[0_0_15px_rgba(98,57,191,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2 focus-visible:ring-offset-[#0C0C11] [color-scheme:dark]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <span className="block text-sm font-medium text-white/70 mb-2">
+                  Budget Range (₹) <span className="text-white/50 text-xs font-normal">(Optional)</span>
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <div>
+                    <label htmlFor="create-budget-min" className="block text-xs text-white/50 mb-1">
+                      Minimum Budget (₹)
+                    </label>
+                    <input
+                      id="create-budget-min"
+                      type="number"
+                      name="budgetMin"
+                      value={form.budgetMin}
+                      onChange={handleChange}
+                      placeholder="e.g. 100000"
+                      min="0"
+                      step="any"
+                      className="w-full px-4 py-3.5 bg-[#0C0C11] border border-white/[0.11] rounded-xl text-sm text-white placeholder-white/40 outline-none transition-all duration-300 focus:border-purple focus:ring-1 focus:ring-purple/20 focus:shadow-[0_0_15px_rgba(98,57,191,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2 focus-visible:ring-offset-[#0C0C11]"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="create-budget-max" className="block text-xs text-white/50 mb-1">
+                      Maximum Budget (₹)
+                    </label>
+                    <input
+                      id="create-budget-max"
+                      type="number"
+                      name="budgetMax"
+                      value={form.budgetMax}
+                      onChange={handleChange}
+                      placeholder="e.g. 500000"
+                      min="0"
+                      step="any"
+                      className="w-full px-4 py-3.5 bg-[#0C0C11] border border-white/[0.11] rounded-xl text-sm text-white placeholder-white/40 outline-none transition-all duration-300 focus:border-purple focus:ring-1 focus:ring-purple/20 focus:shadow-[0_0_15px_rgba(98,57,191,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2 focus-visible:ring-offset-[#0C0C11]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="create-target" className="block text-sm font-medium text-white/70 mb-2">
+                  Target <span className="text-white/50 text-xs font-normal">(Optional)</span>
+                </label>
+                <input
+                  id="create-target"
+                  type="text"
+                  name="target"
+                  value={form.target}
+                  onChange={handleChange}
+                  placeholder="e.g. Film festivals, streaming, theatrical"
+                  className="w-full px-4 py-3.5 bg-[#0C0C11] border border-white/[0.11] rounded-xl text-sm text-white placeholder-white/40 outline-none transition-all duration-300 focus:border-purple focus:ring-1 focus:ring-purple/20 focus:shadow-[0_0_15px_rgba(98,57,191,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2 focus-visible:ring-offset-[#0C0C11]"
+                />
+              </div>
+
+              {/* Tags Field */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label htmlFor="create-tag-input" className="block text-sm font-medium text-white/70">
+                    Tags <span className="text-white/50 text-xs font-normal">(Optional)</span>
+                  </label>
+                  <span className="text-xs text-white/40">
+                    {form.tags.length}/{MAX_TAGS}
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    id="create-tag-input"
+                    type="text"
+                    value={tagInput}
+                    onChange={(e) => {
+                      setTagInput(e.target.value)
+                      if (tagError) setTagError('')
+                    }}
+                    onKeyDown={handleTagKeyDown}
+                    placeholder="e.g. Student Film, Independent, Festival"
+                    className="flex-1 px-4 py-3.5 bg-[#0C0C11] border border-white/[0.11] rounded-xl text-sm text-white placeholder-white/40 outline-none transition-all duration-300 focus:border-purple focus:ring-1 focus:ring-purple/20 focus:shadow-[0_0_15px_rgba(98,57,191,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple focus-visible:ring-offset-2 focus-visible:ring-offset-[#0C0C11]"
+                  />
+                  <button
+                    type="button"
+                    id="create-add-tag-btn"
+                    onClick={handleAddTag}
+                    disabled={!tagInput.trim() || form.tags.length >= MAX_TAGS}
+                    className="px-5 py-3.5 bg-white/[0.06] hover:bg-white/[0.12] disabled:opacity-40 disabled:cursor-not-allowed border border-white/[0.12] text-white text-sm font-medium rounded-xl transition-all duration-200"
+                  >
+                    Add
+                  </button>
+                </div>
+
+                {tagError && (
+                  <p className="text-xs text-red-400 mt-2">{tagError}</p>
+                )}
+
+                {/* Tag Pills */}
+                {form.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    {form.tags.map((tag, idx) => (
+                      <span
+                        key={`${tag}-${idx}`}
+                        className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#181818] border border-white/10 rounded-full text-xs text-white/80 font-['DM_Sans',_sans-serif]"
+                      >
+                        <span>{tag}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveTag(idx)}
+                          className="w-4 h-4 rounded-full flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 transition-colors"
+                          aria-label={`Remove ${tag} tag`}
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1132,10 +1389,20 @@ function CreateProjectPage() {
                   <SummaryRow label="Title" value={form.title} />
                   <SummaryRow label="Logline" value={form.logline} />
                   <SummaryRow label="Description" value={form.description} />
+                  {form.format && <SummaryRow label="Format" value={form.format} />}
                   <SummaryRow label="Genre" value={form.genre} />
                   <SummaryRow label="Location" value={form.location} />
-                  {form.budget && <SummaryRow label="Budget" value={`₹${Number(form.budget).toLocaleString('en-IN')}`} />}
-                  {form.timeline && <SummaryRow label="Timeline" value={form.timeline} />}
+                  {form.language && <SummaryRow label="Language" value={form.language} />}
+                  {formatShootDates(form.shootStartDate, form.shootEndDate) && (
+                    <SummaryRow label="Shoot Dates" value={formatShootDates(form.shootStartDate, form.shootEndDate)} />
+                  )}
+                  {formatBudgetRange(form.budgetMin, form.budgetMax, form.budget) && (
+                    <SummaryRow label="Budget" value={formatBudgetRange(form.budgetMin, form.budgetMax, form.budget)} />
+                  )}
+                  {form.target && <SummaryRow label="Target" value={form.target} />}
+                  {form.tags && form.tags.length > 0 && (
+                    <SummaryRow label="Tags" value={form.tags.join(', ')} />
+                  )}
                   <SummaryRow label="Roles" value={form.roles.map(r => typeof r === 'string' ? r : (r.count > 1 ? `${r.role} (×${r.count})` : r.role)).join(', ')} />
                   <SummaryRow label="Script" value={form.scriptFileName || 'Default sample'} />
                   <SummaryRow label="Script Access" value={form.scriptVisibility === 'PUBLIC' ? 'Anyone Viewing Project' : form.scriptVisibility === 'APPLICANTS' ? 'Applicants & Team' : 'Accepted Team Only'} />

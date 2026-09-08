@@ -54,7 +54,7 @@ function FeaturedCreators() {
   }, [fetchCreators])
 
   return (
-    <section id="creators" className="relative pt-16 md:pt-24 pb-12 md:pb-14 px-4 sm:px-6">
+    <section id="creators" className="relative pt-16 md:pt-24 pb-12 md:pb-14 px-4 sm:px-6" style={{ backgroundColor: '#000000' }}>
       {/* Subtle top divider */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
 

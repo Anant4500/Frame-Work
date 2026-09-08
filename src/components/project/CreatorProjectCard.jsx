@@ -41,7 +41,7 @@ export default function CreatorProjectCard({ project }) {
   if (location && location !== 'Remote') metaParts.push(location)
 
   return (
-    <div className="bg-[#111116] border border-white/[0.08] hover:border-white/[0.16] rounded-2xl p-4 sm:p-5 transition-all duration-300 flex flex-col sm:flex-row gap-4 sm:gap-5 group shadow-lg hover:shadow-[0_12px_36px_rgba(0,0,0,0.5)]">
+    <div className="bg-[#111111] border border-white/[0.08] hover:border-white/[0.16] rounded-2xl p-4 sm:p-5 transition-all duration-300 flex flex-col sm:flex-row gap-4 sm:gap-5 group shadow-lg hover:shadow-[0_12px_36px_rgba(0,0,0,0.5)]">
       {/* 2:3 Aspect Portrait Poster */}
       <div className="w-24 sm:w-32 md:w-36 shrink-0 aspect-[2/3] rounded-xl overflow-hidden border border-white/10 bg-[#1A1A22] relative group/poster self-start">
         <img

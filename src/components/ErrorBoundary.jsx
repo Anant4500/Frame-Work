@@ -34,11 +34,11 @@ class ErrorBoundary extends React.Component {
         document.title = 'Something Went Wrong | FrameWork'
       }
       return (
-        <div className="min-h-screen bg-[#0A0A0F] text-white flex items-center justify-center px-4 py-16 relative overflow-hidden">
+        <div className="min-h-screen bg-[#000000] text-white flex items-center justify-center px-4 py-16 relative overflow-hidden">
           {/* Background ambient lighting */}
           <div className="fixed inset-0 pointer-events-none -z-10" aria-hidden="true">
             <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-[#6239BF]/15 rounded-full blur-[120px]" />
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_transparent_0%,_#0A0A0F_75%)]" />
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_transparent_0%,_#000000_75%)]" />
           </div>
 
           <main

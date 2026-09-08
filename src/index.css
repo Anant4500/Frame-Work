@@ -17,11 +17,12 @@
 
 html {
   scroll-behavior: smooth;
+  background-color: #000000;
 }
 
 body {
   font-family: 'DM Sans', sans-serif;
-  background-color: #0A0A0F;
+  background-color: #000000;
   color: #ffffff;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
@@ -220,10 +221,34 @@ body {
   }
 }
 
+/* Hero Journey Positioning Wrapper */
+@media (min-width: 768px) {
+  .hero-journey-position {
+    translate: -15% 10%;
+  }
+}
+@media (min-width: 1024px) {
+  .hero-journey-position {
+    translate: -25% 15%;
+  }
+}
+
+/* Homepage scroll-based section fade transitions */
+.homepage-section-fade {
+  will-change: opacity;
+  transition: opacity 0.15s ease-out;
+}
+
 /* ===== Reduced Motion System ===== */
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
+  }
+
+  .homepage-section-fade {
+    opacity: 1 !important;
+    transition: none !important;
+    will-change: auto !important;
   }
 
   .js-reveal .reveal,

@@ -194,7 +194,7 @@ export default function NotificationsPage() {
   if (!user) return null
 
   return (
-    <section className="min-h-screen pt-28 pb-20 px-4 sm:px-6 bg-[#0A0A0F]">
+    <section className="min-h-screen pt-28 pb-20 px-4 sm:px-6 bg-[#000000]">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8 pb-6 border-b border-white/[0.08]">

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, memo } from 'react'
 import { FILM_ROLE_CATEGORIES, filterRolesCatalog } from '../../data/filmRoles'
 
 /**
@@ -9,7 +9,7 @@ import { FILM_ROLE_CATEGORIES, filterRolesCatalog } from '../../data/filmRoles'
  * @param {function} onSelectRole - Callback when a canonical role is chosen: (roleName: string) => void
  * @param {Array<string>} selectedRoleNames - Array of already selected canonical role names (to prevent duplicates)
  */
-export default function RolePickerModal({
+const RolePickerModal = memo(function RolePickerModal({
   isOpen,
   onClose,
   onSelectRole,
@@ -277,4 +277,6 @@ export default function RolePickerModal({
       </div>
     </div>
   )
-}
+})
+
+export default RolePickerModal

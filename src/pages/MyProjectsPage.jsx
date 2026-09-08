@@ -818,7 +818,7 @@ function CreatorProjectsTab({
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 px-4 text-center border border-red-500/20 rounded-2xl bg-red-500/[0.02]" role="alert">
+      <div className="flex flex-col items-center justify-center py-16 px-4 text-center border border-red-500/20 rounded-2xl bg-[#111111]" role="alert">
         <div className="w-14 h-14 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4 text-red-400">
           <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5} aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
@@ -892,7 +892,7 @@ function CreatorProjectsTab({
           ))}
         </div>
       ) : (
-        <div className="py-16 text-center border border-white/5 border-dashed rounded-2xl bg-white/[0.01]">
+        <div className="py-16 text-center border border-white/5 border-dashed rounded-2xl bg-[#111111]">
           <p className="text-white/50 text-sm mb-1">
             No {statusFilter.replace('_', ' ')} productions found.
           </p>
@@ -931,7 +931,7 @@ function CollaboratorApplicationsTab({
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 px-4 text-center border border-red-500/20 rounded-2xl bg-red-500/[0.02]" role="alert">
+      <div className="flex flex-col items-center justify-center py-16 px-4 text-center border border-red-500/20 rounded-2xl bg-[#111111]" role="alert">
         <div className="w-14 h-14 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4 text-red-400">
           <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5} aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
@@ -994,7 +994,7 @@ function CollaboratorApplicationsTab({
           ))}
         </div>
       ) : (
-        <div className="py-16 text-center border border-white/5 border-dashed rounded-2xl bg-white/[0.01]">
+        <div className="py-16 text-center border border-white/5 border-dashed rounded-2xl bg-[#111111]">
           <div className="w-14 h-14 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-center mx-auto mb-4 text-white/20" aria-hidden="true">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5} aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
@@ -1051,7 +1051,7 @@ function CollaboratorJoinedTab({ productions = [], loading = false, error = null
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 px-4 text-center border border-red-500/20 rounded-2xl bg-red-500/[0.02]" role="alert">
+      <div className="flex flex-col items-center justify-center py-16 px-4 text-center border border-red-500/20 rounded-2xl bg-[#111111]" role="alert">
         <div className="w-14 h-14 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4 text-red-400">
           <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5} aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
@@ -1074,7 +1074,7 @@ function CollaboratorJoinedTab({ productions = [], loading = false, error = null
 
   if (productions.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-center border border-white/5 border-dashed rounded-2xl bg-white/[0.01]">
+      <div className="flex flex-col items-center justify-center py-20 text-center border border-white/5 border-dashed rounded-2xl bg-[#111111]">
         <div className="w-16 h-16 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-center mb-5 text-white/20" aria-hidden="true">
           <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5} aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
@@ -1107,9 +1107,9 @@ function CollaboratorJoinedTab({ productions = [], loading = false, error = null
 /* ─── Metric Card (Shared for Creator & Collaborator) ─── */
 function CreatorMetricCard({ label, value, icon, subtitle, highlight = false }) {
   return (
-    <div className={`group bg-[#111116] border rounded-2xl p-5 transition-all duration-300 ${
+    <div className={`group bg-[#111111] border rounded-2xl p-5 transition-all duration-300 ${
       highlight
-        ? 'border-purple/40 shadow-[0_0_24px_rgba(98,57,191,0.15)] bg-gradient-to-b from-[#161224] to-[#111116]'
+        ? 'border-purple/40 shadow-[0_0_24px_rgba(98,57,191,0.15)]'
         : 'border-white/[0.08] hover:border-white/[0.15]'
     }`}>
       <div className="flex items-center justify-between gap-3 mb-3">
@@ -1148,10 +1148,10 @@ function JoinedTab({ projects = [] }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
       {projects.map((p) => (
-        <div key={p.id} className="group bg-[#111116] border border-white/5 rounded-2xl overflow-hidden transition-all duration-500 hover:translate-y-[-4px] hover:shadow-[0_12px_40px_rgba(0,0,0,0.5)] hover:border-white/10">
+        <div key={p.id} className="group bg-[#111111] border border-white/5 rounded-2xl overflow-hidden transition-all duration-500 hover:translate-y-[-4px] hover:shadow-[0_12px_40px_rgba(0,0,0,0.5)] hover:border-white/10">
           <div className="relative h-40 overflow-hidden">
             <img src={p.poster} alt={p.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#111116] via-black/40 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#111111] via-black/40 to-transparent" />
             <span className={`absolute top-3 right-3 px-2.5 py-1 text-[10px] font-bold backdrop-blur-sm rounded-full border ${STATUS_STYLES[p.status] || STATUS_STYLES['Open']}`}>
               {p.status}
             </span>
@@ -1226,7 +1226,7 @@ function ApplicationsTab({ applications = [], isCreator = false, loading = false
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {applications.map((app) => (
-        <div key={app.id} className="bg-[#111116] border border-white/5 rounded-2xl p-6 transition-all duration-300 hover:border-white/10 flex flex-col justify-between">
+        <div key={app.id} className="bg-[#111111] border border-white/5 rounded-2xl p-6 transition-all duration-300 hover:border-white/10 flex flex-col justify-between">
           <div>
             {/* Header: Applicant info + Status */}
             <div className="flex items-start justify-between gap-3 mb-4">
@@ -1308,7 +1308,7 @@ function ApplicationsTab({ applications = [], isCreator = false, loading = false
 /* ─── Shared Empty State ─── */
 function EmptyState({ icon, title, subtitle, btnLabel, btnLink }) {
   return (
-    <div className="flex flex-col items-center justify-center py-20 text-center">
+    <div className="flex flex-col items-center justify-center py-20 text-center border border-white/5 border-dashed rounded-2xl bg-[#111111]">
       <div className="w-20 h-20 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-center mb-6 text-white/15" aria-hidden="true">
         {icon}
       </div>

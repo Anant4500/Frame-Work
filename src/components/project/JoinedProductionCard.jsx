@@ -22,7 +22,7 @@ export default function JoinedProductionCard({ production }) {
     : { badge: 'border-purple/30 text-purple-light bg-purple/10', dot: 'bg-purple' }
 
   return (
-    <div className="group bg-[#111118] border border-white/[0.08] hover:border-purple/30 rounded-2xl p-4 sm:p-4.5 transition-all duration-300 hover:shadow-[0_12px_40px_rgba(0,0,0,0.45)] hover:-translate-y-0.5 flex flex-col justify-between h-full">
+    <div className="group bg-[#111111] border border-white/[0.08] hover:border-purple/30 rounded-2xl p-4 sm:p-4.5 transition-all duration-300 hover:shadow-[0_12px_40px_rgba(0,0,0,0.45)] hover:-translate-y-0.5 flex flex-col justify-between h-full">
       {/* ── Upper Content Area ── */}
       <div>
         {/* ── Top Section: Poster (Left) + Role & Status (Right) ── */}

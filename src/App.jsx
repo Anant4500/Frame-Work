@@ -28,11 +28,11 @@ function ScrollToTop() {
 
 function AuthProfileErrorState({ onRetry, onSignOut }) {
   return (
-    <div className="min-h-screen bg-[#0A0A0F] text-white flex items-center justify-center px-4 py-16 relative overflow-hidden">
+    <div className="min-h-screen bg-[#000000] text-white flex items-center justify-center px-4 py-16 relative overflow-hidden">
       {/* Subtle background glow */}
       <div className="fixed inset-0 pointer-events-none -z-10">
         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-[#6239BF]/15 rounded-full blur-[120px]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_transparent_0%,_#0A0A0F_75%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_transparent_0%,_#000000_75%)]" />
       </div>
 
       <main
@@ -76,11 +76,11 @@ function AuthProfileErrorState({ onRetry, onSignOut }) {
 
 function AuthProfileMissingState({ onRetry, onSignOut }) {
   return (
-    <div className="min-h-screen bg-[#0A0A0F] text-white flex items-center justify-center px-4 py-16 relative overflow-hidden">
+    <div className="min-h-screen bg-[#000000] text-white flex items-center justify-center px-4 py-16 relative overflow-hidden">
       {/* Subtle background glow */}
       <div className="fixed inset-0 pointer-events-none -z-10">
         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-[#6239BF]/15 rounded-full blur-[120px]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_transparent_0%,_#0A0A0F_75%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_transparent_0%,_#000000_75%)]" />
       </div>
 
       <main
@@ -204,7 +204,7 @@ function AppContent() {
   // 1. Show loading screen while restoring Supabase session or retrying profile
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#0A0A0F] flex items-center justify-center">
+      <div className="min-h-screen bg-[#000000] flex items-center justify-center">
         <div role="status" aria-live="polite" className="flex flex-col items-center gap-4">
           <svg className="w-8 h-8 animate-spin text-purple motion-reduce:animate-none" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
@@ -228,7 +228,7 @@ function AppContent() {
 
   // 4. Normal application shell
   return (
-    <div className="min-h-screen bg-[#0A0A0F] text-white">
+    <div className="min-h-screen bg-[#000000] text-white">
       <ScrollToTop />
       <Header />
       <main>

@@ -10,9 +10,11 @@ import {
   canonicalizeRole,
   getRoleAliases,
 } from '../data/filmRoles'
+import { formatProjectStatus } from '../components/project/projectRoleUtils'
+import { DEFAULT_LOCATION_SUGGESTIONS } from '../utils/projectDetailsFormatters'
 
-const locations = ['Mumbai', 'Pune', 'Delhi', 'Bangalore', 'Hyderabad', 'Chennai', 'Kolkata']
 const genres = ['Drama', 'Thriller', 'Comedy', 'Sci-Fi', 'Action', 'Horror', 'Romance', 'Mystery', 'Documentary']
+const statuses = ['Open', 'In Production', 'Completed', 'Closed']
 
 function ExploreProjects() {
   usePageTitle('Explore Projects | FrameWork')
@@ -24,9 +26,23 @@ function ExploreProjects() {
   const [selectedLocations, setSelectedLocations] = useState([])
   const [selectedGenres, setSelectedGenres] = useState([])
   const [selectedRoles, setSelectedRoles] = useState([])
+  const [selectedStatuses, setSelectedStatuses] = useState([])
+  const [openSections, setOpenSections] = useState({
+    location: false,
+    genre: false,
+    roles: false,
+    status: false,
+  })
   const [visibleCount, setVisibleCount] = useState(6)
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const [roleSearch, setRoleSearch] = useState('')
+
+  const toggleSection = (sectionKey) => {
+    setOpenSections((prev) => ({
+      ...prev,
+      [sectionKey]: !prev[sectionKey],
+    }))
+  }
 
   const triggerRef = useRef(null)
   const drawerRef = useRef(null)
@@ -109,7 +125,7 @@ function ExploreProjects() {
   // Reset visibleCount whenever discovery filters/search materially change
   useEffect(() => {
     setVisibleCount(6)
-  }, [search, selectedLocations, selectedGenres, selectedRoles])
+  }, [search, selectedLocations, selectedGenres, selectedRoles, selectedStatuses])
 
   // Targeted data fetch with safe error state & retry capability
   const fetchProjects = useCallback(async () => {
@@ -120,7 +136,6 @@ function ExploreProjects() {
       const { data, error: fetchError } = await supabase
         .from('projects')
         .select('id, title, logline, genre, location, poster_url, status, created_at, creator:profiles(name, profile_photo_url), roles:project_roles(role)')
-        .eq('status', 'OPEN')
         .order('created_at', { ascending: false })
 
       if (fetchError) throw fetchError
@@ -132,7 +147,8 @@ function ExploreProjects() {
         genre: p.genre || 'Drama',
         location: p.location || 'Remote',
         poster_url: p.poster_url || '/images/hero-bg.png',
-        status: p.status === 'OPEN' ? 'Open' : p.status,
+        rawStatus: p.status,
+        status: formatProjectStatus(p.status),
         created_at: p.created_at,
         creator: p.creator ? {
           name: p.creator.name,
@@ -157,14 +173,57 @@ function ExploreProjects() {
     setter(list.includes(value) ? list.filter((v) => v !== value) : [...list, value])
   }
 
+  const handleStatusChange = (statusVal) => {
+    if (statusVal === 'All' || statusVal === 'ALL') {
+      setSelectedStatuses([])
+      return
+    }
+    setSelectedStatuses((prev) => {
+      if (prev.includes(statusVal)) {
+        return prev.filter((s) => s !== statusVal)
+      } else {
+        return [...prev, statusVal]
+      }
+    })
+  }
+
   const clearFilters = () => {
     setSelectedLocations([])
     setSelectedGenres([])
     setSelectedRoles([])
+    setSelectedStatuses([])
     setSearch('')
   }
 
-  const activeFilterCount = selectedLocations.length + selectedGenres.length + selectedRoles.length
+  const activeFilterCount =
+    selectedLocations.length +
+    selectedGenres.length +
+    selectedRoles.length +
+    selectedStatuses.length
+
+  // Dynamically derive available location options from actual project data
+  const availableLocations = useMemo(() => {
+    const locSet = new Set()
+    for (const p of projects) {
+      if (p.location && typeof p.location === 'string') {
+        const trimmed = p.location.trim()
+        if (trimmed) {
+          if (trimmed.includes(',')) {
+            trimmed.split(',').forEach((part) => {
+              const clean = part.trim()
+              if (clean) locSet.add(clean)
+            })
+          } else {
+            locSet.add(trimmed)
+          }
+        }
+      }
+    }
+    if (locSet.size === 0) {
+      return DEFAULT_LOCATION_SUGGESTIONS
+    }
+    return Array.from(locSet).sort((a, b) => a.localeCompare(b))
+  }, [projects])
 
   // Dynamically derive available role options from roles actually present on fetched OPEN projects
   const availableRoles = useMemo(() => {
@@ -244,7 +303,18 @@ function ExploreProjects() {
     }
 
     if (selectedLocations.length > 0) {
-      result = result.filter((p) => p.location && selectedLocations.includes(p.location))
+      result = result.filter((p) => {
+        if (!p.location) return false
+        const locLower = p.location.toLowerCase()
+        return selectedLocations.some((sel) => {
+          const s = sel.toLowerCase().trim()
+          if (!s) return false
+          if (locLower === s) return true
+          const parts = p.location.split(/[,/]+/).map((part) => part.trim().toLowerCase())
+          if (parts.includes(s)) return true
+          return locLower.includes(s)
+        })
+      })
     }
     if (selectedGenres.length > 0) {
       result = result.filter((p) => p.genre && selectedGenres.includes(p.genre))
@@ -259,12 +329,18 @@ function ExploreProjects() {
           })
       )
     }
+    if (selectedStatuses.length > 0) {
+      result = result.filter((p) => {
+        const displayStatus = p.status || formatProjectStatus(p.rawStatus)
+        return selectedStatuses.includes(displayStatus)
+      })
+    }
 
     // Default newest first
     result.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
 
     return result
-  }, [search, selectedLocations, selectedGenres, selectedRoles, projects])
+  }, [search, selectedLocations, selectedGenres, selectedRoles, selectedStatuses, projects])
 
   const visible = filtered.slice(0, visibleCount)
   const hasMore = visibleCount < filtered.length
@@ -327,8 +403,8 @@ function ExploreProjects() {
             aria-labelledby="filter-sidebar-title"
             className={`
               ${mobileFiltersOpen ? 'fixed inset-0 z-40 bg-black/95 backdrop-blur-xl p-6 pt-20 overflow-y-auto flex flex-col justify-between' : 'hidden'}
-              lg:block lg:static lg:bg-transparent lg:backdrop-blur-none lg:p-0 lg:pt-0
-              w-full lg:w-64 lg:min-w-[256px] shrink-0
+              lg:block lg:sticky lg:top-[88px] lg:self-start lg:bg-transparent lg:backdrop-blur-none lg:p-0 lg:pt-0
+              w-full lg:w-[264px] lg:min-w-[264px] shrink-0
             `}
           >
             {/* Mobile close button */}
@@ -344,57 +420,167 @@ function ExploreProjects() {
               </svg>
             </button>
 
-            <div className="glass-card rounded-2xl p-6 sticky top-28">
+            <div className="bg-[#111111] border border-white/[0.07] rounded-[18px] overflow-hidden">
               {/* Sidebar Header */}
-              <div className="flex items-center justify-between mb-6">
-                <h2 id="filter-sidebar-title" className="text-lg font-bold flex items-center gap-2">
-                  <svg className="w-5 h-5 text-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
+              <div className="flex items-center justify-between pt-[19px] px-[22px] pb-[17px] border-b border-white/[0.07]">
+                <div className="flex items-center gap-[9px]">
+                  <svg className="w-[15px] h-[15px] shrink-0" fill="none" stroke="#8B5CF6" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                   </svg>
-                  Filters
-                </h2>
+                  <h2 id="filter-sidebar-title" className="font-['DM_Sans',_sans-serif] text-[14.5px] font-[700] tracking-[0.2px] text-white">
+                    Filters
+                  </h2>
+                </div>
                 {activeFilterCount > 0 && (
-                  <button
-                    type="button"
-                    onClick={clearFilters}
-                    className="text-xs text-purple hover:text-purple-light transition-colors"
-                  >
-                    Clear all
-                  </button>
+                  <span className="w-5 h-5 rounded-full bg-[#8B5CF6] text-[11px] font-bold text-white flex items-center justify-center">
+                    {activeFilterCount}
+                  </span>
                 )}
               </div>
 
-              {/* Location Filter */}
-              <FilterGroup
-                id="filter-location"
+              {/* 1. Location Filter */}
+              <FilterAccordionSection
+                id="location"
                 title="Location"
-                items={locations}
-                selected={selectedLocations}
-                onToggle={(v) => toggleFilter(v, selectedLocations, setSelectedLocations)}
-              />
+                isOpen={openSections.location}
+                onToggle={() => toggleSection('location')}
+                hasBorderBottom={true}
+              >
+                {availableLocations.map((loc) => (
+                  <FilterCheckboxOption
+                    key={loc}
+                    id={`filter-location-${loc.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
+                    label={loc}
+                    checked={selectedLocations.includes(loc)}
+                    onChange={() => toggleFilter(loc, selectedLocations, setSelectedLocations)}
+                  />
+                ))}
+              </FilterAccordionSection>
 
-              <div className="h-px bg-white/5 my-5" />
-
-              {/* Genre Filter */}
-              <FilterGroup
-                id="filter-genre"
+              {/* 2. Genre Filter */}
+              <FilterAccordionSection
+                id="genre"
                 title="Genre"
-                items={genres}
-                selected={selectedGenres}
-                onToggle={(v) => toggleFilter(v, selectedGenres, setSelectedGenres)}
-              />
+                isOpen={openSections.genre}
+                onToggle={() => toggleSection('genre')}
+                hasBorderBottom={true}
+              >
+                {genres.map((g) => (
+                  <FilterCheckboxOption
+                    key={g}
+                    id={`filter-genre-${g.toLowerCase().replace(/\s+/g, '-')}`}
+                    label={g}
+                    checked={selectedGenres.includes(g)}
+                    onChange={() => toggleFilter(g, selectedGenres, setSelectedGenres)}
+                  />
+                ))}
+              </FilterAccordionSection>
 
-              <div className="h-px bg-white/5 my-5" />
+              {/* 3. Roles Needed Filter (Grouped + Searchable) */}
+              <FilterAccordionSection
+                id="roles"
+                title="Roles Needed"
+                isOpen={openSections.roles}
+                onToggle={() => toggleSection('roles')}
+                hasBorderBottom={true}
+              >
+                {/* Role search input within filter */}
+                <div className="relative mb-2">
+                  <label htmlFor="role-filter-search" className="sr-only">Search available roles</label>
+                  <input
+                    id="role-filter-search"
+                    type="text"
+                    value={roleSearch}
+                    onChange={(e) => setRoleSearch(e.target.value)}
+                    placeholder="Filter roles..."
+                    className="w-full pl-8 pr-7 py-1.5 bg-white/[0.04] border border-white/10 rounded-lg text-[13px] text-white placeholder-white/30 outline-none focus:border-[#8B5CF6]/50 transition-all font-['DM_Sans',_sans-serif]"
+                  />
+                  <svg className="w-3.5 h-3.5 text-white/30 absolute left-2.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  {roleSearch && (
+                    <button
+                      type="button"
+                      aria-label="Clear role filter search"
+                      onClick={() => setRoleSearch('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-white/30 hover:text-white transition-colors cursor-pointer"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
 
-              {/* Roles Needed Filter (Grouped + Searchable) */}
-              <RoleFilterGroup
-                groupedRoles={displayedGroupedRoles}
-                selectedRoles={selectedRoles}
-                onToggleRole={(v) => toggleFilter(v, selectedRoles, setSelectedRoles)}
-                roleSearch={roleSearch}
-                onRoleSearchChange={setRoleSearch}
-                totalAvailableRolesCount={availableRoles.length}
-              />
+                {/* Roles list */}
+                {availableRoles.length === 0 ? (
+                  <p className="text-[12px] text-white/30 italic py-1">No open roles found</p>
+                ) : displayedGroupedRoles.length === 0 ? (
+                  <p className="text-[12px] text-white/30 italic py-1">No roles match &quot;{roleSearch}&quot;</p>
+                ) : (
+                  displayedGroupedRoles.map((group) => (
+                    <div key={group.category} className="space-y-1">
+                      <p className="text-[11px] font-semibold uppercase tracking-wider text-purple-light/75 px-0.5 pt-1.5 pb-0.5">
+                        {group.category}
+                      </p>
+                      <div className="flex flex-col gap-[3px]">
+                        {group.roles.map((role) => (
+                          <FilterCheckboxOption
+                            key={role}
+                            id={`filter-role-${role.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
+                            label={role}
+                            checked={selectedRoles.includes(role)}
+                            onChange={() => toggleFilter(role, selectedRoles, setSelectedRoles)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </FilterAccordionSection>
+
+              {/* 4. Status Filter */}
+              <FilterAccordionSection
+                id="status"
+                title="Status"
+                isOpen={openSections.status}
+                onToggle={() => toggleSection('status')}
+                hasBorderBottom={false}
+              >
+                <FilterCheckboxOption
+                  key="All"
+                  id="filter-status-all"
+                  label="All"
+                  checked={selectedStatuses.length === 0}
+                  onChange={() => handleStatusChange('All')}
+                />
+                {statuses.map((st) => (
+                  <FilterCheckboxOption
+                    key={st}
+                    id={`filter-status-${st.toLowerCase().replace(/\s+/g, '-')}`}
+                    label={st}
+                    checked={selectedStatuses.includes(st)}
+                    onChange={() => handleStatusChange(st)}
+                  />
+                ))}
+              </FilterAccordionSection>
+
+              {/* Footer / Clear All Filters Button */}
+              <div className="border-t border-white/[0.07] pt-[14px] px-[22px] pb-[18px]">
+                <button
+                  type="button"
+                  id="clear-all-filters-btn"
+                  onClick={clearFilters}
+                  disabled={activeFilterCount === 0 && !search}
+                  className={`w-full p-[9px] rounded-[50px] border font-['DM_Sans',_sans-serif] text-[12.5px] font-[500] text-center transition-all duration-200 cursor-pointer ${
+                    activeFilterCount > 0 || search
+                      ? 'border-white/[0.11] bg-transparent text-[#999999] hover:text-white hover:border-[#8B5CF6]/35 active:scale-[0.99]'
+                      : 'border-white/[0.07] bg-transparent text-[#999999]/40 cursor-not-allowed'
+                  }`}
+                >
+                  Clear All Filters
+                </button>
+              </div>
             </div>
 
             {/* Mobile Bottom Sticky Action */}
@@ -448,7 +634,7 @@ function ExploreProjects() {
             {/* Active Filters Pills */}
             {activeFilterCount > 0 && (
               <div className="flex flex-wrap gap-2 mb-6">
-                {[...selectedLocations, ...selectedGenres, ...selectedRoles].map((f) => (
+                {[...selectedLocations, ...selectedGenres, ...selectedRoles, ...selectedStatuses].map((f) => (
                   <span
                     key={f}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-purple/10 border border-purple/20 text-purple-light rounded-full"
@@ -460,9 +646,10 @@ function ExploreProjects() {
                       onClick={() => {
                         if (selectedLocations.includes(f)) toggleFilter(f, selectedLocations, setSelectedLocations)
                         else if (selectedGenres.includes(f)) toggleFilter(f, selectedGenres, setSelectedGenres)
-                        else toggleFilter(f, selectedRoles, setSelectedRoles)
+                        else if (selectedRoles.includes(f)) toggleFilter(f, selectedRoles, setSelectedRoles)
+                        else toggleFilter(f, selectedStatuses, setSelectedStatuses)
                       }}
-                      className="hover:text-white transition-colors"
+                      className="hover:text-white transition-colors cursor-pointer"
                     >
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3} aria-hidden="true">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -482,7 +669,7 @@ function ExploreProjects() {
 
             {/* Project Grid, Skeletons, Error, or Empty State */}
             {loading ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6" aria-busy="true" aria-label="Loading projects">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-[20.4px] sm:max-w-[85%]" aria-busy="true" aria-label="Loading projects">
                 {Array.from({ length: 6 }).map((_, idx) => (
                   <ProjectCardSkeleton key={idx} />
                 ))}
@@ -511,7 +698,7 @@ function ExploreProjects() {
                 </button>
               </div>
             ) : visible.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-[20.4px] sm:max-w-[85%]">
                 {visible.map((project) => (
                   <ProjectCard key={project.id} project={project} />
                 ))}
@@ -576,26 +763,33 @@ function ExploreProjects() {
   )
 }
 
-/* ─── Filter Group Component (Generic multi-select) ─── */
-function FilterGroup({ id, title, items, selected, onToggle }) {
-  const [expanded, setExpanded] = useState(true)
-  const panelId = `${id}-panel`
+/* ─── Filter Accordion Section Component ─── */
+function FilterAccordionSection({ id, title, isOpen, onToggle, hasBorderBottom = true, children }) {
+  const triggerId = `accordion-trigger-${id}`
+  const panelId = `accordion-panel-${id}`
 
   return (
-    <div>
+    <div className={`w-full ${hasBorderBottom ? 'border-b border-white/[0.07]' : ''}`}>
       <button
         type="button"
-        aria-expanded={expanded}
+        id={triggerId}
+        aria-expanded={isOpen}
         aria-controls={panelId}
-        className="flex items-center justify-between w-full mb-3 group cursor-pointer"
-        onClick={() => setExpanded(!expanded)}
+        onClick={onToggle}
+        className="w-full flex items-center justify-between py-[16px] px-[22px] text-left group cursor-pointer bg-transparent border-none"
       >
-        <span className="text-sm font-semibold text-white/70 group-hover:text-white transition-colors">
+        <span className="font-['DM_Sans',_sans-serif] font-[600] text-[13.5px] tracking-[0.2px] text-white leading-normal transition-colors">
           {title}
         </span>
         <svg
-          className={`w-4 h-4 text-white/30 transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`}
-          fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true"
+          className={`w-[14px] h-[14px] shrink-0 transition-transform duration-200 motion-reduce:transition-none ${
+            isOpen ? 'rotate-180' : ''
+          }`}
+          fill="none"
+          stroke={isOpen ? '#8B5CF6' : '#555555'}
+          viewBox="0 0 24 24"
+          strokeWidth={2.2}
+          aria-hidden="true"
         >
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
         </svg>
@@ -603,163 +797,71 @@ function FilterGroup({ id, title, items, selected, onToggle }) {
 
       <div
         id={panelId}
-        className={`overflow-hidden transition-all duration-300 ${expanded ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}
+        role="region"
+        aria-labelledby={triggerId}
+        hidden={!isOpen}
+        className={`overflow-y-auto scrollbar-thin transition-[max-height] duration-300 ease motion-reduce:transition-none ${
+          isOpen ? 'max-h-[320px]' : 'max-h-0 hidden'
+        }`}
       >
-        <div className="flex flex-col gap-2.5">
-          {items.map((item) => {
-            const checked = selected.includes(item)
-            return (
-              <label
-                key={item}
-                className="flex items-center gap-3 cursor-pointer group/item"
-              >
-                <span
-                  className={`w-4.5 h-4.5 rounded border-[1.5px] flex items-center justify-center transition-all duration-200 ${
-                    checked
-                      ? 'bg-purple border-purple shadow-[0_0_8px_rgba(98,57,191,0.3)]'
-                      : 'border-white/20 group-hover/item:border-white/40'
-                  }`}
-                >
-                  {checked && (
-                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3} aria-hidden="true">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  )}
-                </span>
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={() => onToggle(item)}
-                  className="sr-only"
-                />
-                <span className={`text-sm transition-colors duration-200 ${checked ? 'text-white' : 'text-white/50 group-hover/item:text-white/70'}`}>
-                  {item}
-                </span>
-              </label>
-            )
-          })}
+        <div className="pt-0 px-[22px] pb-[16px] flex flex-col gap-[3px]">
+          {children}
         </div>
       </div>
     </div>
   )
 }
 
-/* ─── Role Filter Group (Categorized, search-enabled, alias-aware) ─── */
-function RoleFilterGroup({
-  groupedRoles,
-  selectedRoles,
-  onToggleRole,
-  roleSearch,
-  onRoleSearchChange,
-  totalAvailableRolesCount,
-}) {
-  const [expanded, setExpanded] = useState(true)
-  const panelId = 'filter-roles-panel'
-
+/* ─── Filter Checkbox Option Component ─── */
+function FilterCheckboxOption({ id, label, checked, onChange, count }) {
   return (
-    <div>
-      <button
-        type="button"
-        aria-expanded={expanded}
-        aria-controls={panelId}
-        className="flex items-center justify-between w-full mb-3 group cursor-pointer"
-        onClick={() => setExpanded(!expanded)}
+    <label
+      htmlFor={id}
+      className="flex items-center gap-[10px] py-[6px] px-[2px] cursor-pointer group select-none"
+    >
+      <input
+        type="checkbox"
+        id={id}
+        checked={checked}
+        onChange={onChange}
+        className="sr-only peer"
+      />
+      <span
+        aria-hidden="true"
+        className={`w-[15px] h-[15px] rounded-[4px] border flex items-center justify-center shrink-0 transition-colors duration-150 peer-focus-visible:ring-2 peer-focus-visible:ring-[#8B5CF6] peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-[#111111] ${
+          checked
+            ? 'bg-[#8B5CF6] border-[#8B5CF6]'
+            : 'bg-transparent border-white/[0.11] group-hover:border-white/30'
+        }`}
       >
-        <span className="text-sm font-semibold text-white/70 group-hover:text-white transition-colors">
-          Roles Needed
-        </span>
-        <svg
-          className={`w-4 h-4 text-white/30 transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`}
-          fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
-
-      <div
-        id={panelId}
-        className={`overflow-hidden transition-all duration-300 ${expanded ? 'max-h-[380px] opacity-100' : 'max-h-0 opacity-0'}`}
-      >
-        {/* Role search input within filter */}
-        <div className="relative mb-3">
-          <label htmlFor="role-filter-search" className="sr-only">Search available roles</label>
-          <input
-            id="role-filter-search"
-            type="text"
-            value={roleSearch}
-            onChange={(e) => onRoleSearchChange(e.target.value)}
-            placeholder="Filter roles..."
-            className="w-full pl-8 pr-7 py-1.5 bg-white/[0.04] border border-white/10 rounded-lg text-xs text-white placeholder-white/30 outline-none focus:border-purple/50 transition-all"
-          />
-          <svg className="w-3.5 h-3.5 text-white/30 absolute left-2.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        {checked && (
+          <svg
+            className="w-[9px] h-[9px] text-white shrink-0"
+            viewBox="0 0 10 10"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M2 5.2L4.2 7.5L8.2 2.5" />
           </svg>
-          {roleSearch && (
-            <button
-              type="button"
-              aria-label="Clear role filter search"
-              onClick={() => onRoleSearchChange('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-white/30 hover:text-white transition-colors"
-            >
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          )}
-        </div>
-
-        {/* Roles list with scrollable max height */}
-        <div className="max-h-60 overflow-y-auto pr-1 space-y-3 scrollbar-thin">
-          {totalAvailableRolesCount === 0 ? (
-            <p className="text-xs text-white/30 italic py-1">No open roles found</p>
-          ) : groupedRoles.length === 0 ? (
-            <p className="text-xs text-white/30 italic py-1">No roles match &quot;{roleSearch}&quot;</p>
-          ) : (
-            groupedRoles.map((group) => (
-              <div key={group.category} className="space-y-1.5">
-                <p className="text-[10.5px] font-semibold uppercase tracking-wider text-purple-light/75 px-1 pt-1">
-                  {group.category}
-                </p>
-                <div className="flex flex-col gap-2 pl-1">
-                  {group.roles.map((role) => {
-                    const checked = selectedRoles.includes(role)
-                    return (
-                      <label
-                        key={role}
-                        className="flex items-center gap-3 cursor-pointer group/item"
-                      >
-                        <span
-                          className={`w-4 h-4 rounded border-[1.5px] flex items-center justify-center shrink-0 transition-all duration-200 ${
-                            checked
-                              ? 'bg-purple border-purple shadow-[0_0_8px_rgba(98,57,191,0.3)]'
-                              : 'border-white/20 group-hover/item:border-white/40'
-                          }`}
-                        >
-                          {checked && (
-                            <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3} aria-hidden="true">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
-                          )}
-                        </span>
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => onToggleRole(role)}
-                          className="sr-only"
-                        />
-                        <span className={`text-xs leading-snug transition-colors duration-200 ${checked ? 'text-white' : 'text-white/50 group-hover/item:text-white/70'}`}>
-                          {role}
-                        </span>
-                      </label>
-                    )
-                  })}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-    </div>
+        )}
+      </span>
+      <span
+        className={`font-['DM_Sans',_sans-serif] font-[400] text-[13px] leading-tight transition-colors duration-150 ${
+          checked ? 'text-white' : 'text-[#999999] group-hover:text-white'
+        }`}
+      >
+        {label}
+      </span>
+      {count !== undefined && count !== null && (
+        <span className="ml-auto text-[11px] text-[#555555] font-['DM_Sans',_sans-serif]">
+          {count}
+        </span>
+      )}
+    </label>
   )
 }
 
@@ -795,51 +897,51 @@ function formatRelativeDate(isoString) {
 function ProjectCardSkeleton() {
   return (
     <div
-      className="relative flex flex-col w-full h-[620px] bg-[#0A0A0F] border border-white/[0.08] rounded-[20px] overflow-hidden p-5 animate-pulse motion-reduce:animate-none"
+      className="relative flex flex-col w-full h-[527px] bg-[#0A0A0F] border border-white/[0.08] rounded-[17px] overflow-hidden p-[17px] animate-pulse motion-reduce:animate-none"
       aria-hidden="true"
     >
       {/* Top badges */}
-      <div className="flex items-center justify-between gap-2 mb-36 sm:mb-40">
-        <div className="h-5 w-16 bg-white/[0.05] rounded-full" />
-        <div className="h-5 w-20 bg-white/[0.05] rounded-full" />
+      <div className="flex items-center justify-between gap-[6.8px] mb-[122.4px] sm:mb-[136px]">
+        <div className="h-[17px] w-[54.4px] bg-white/[0.05] rounded-full" />
+        <div className="h-[17px] w-[68px] bg-white/[0.05] rounded-full" />
       </div>
 
       {/* Title */}
-      <div className="h-[58px] sm:h-[66px] flex flex-col justify-end gap-2 w-full">
-        <div className="h-6 w-3/4 bg-white/[0.07] rounded-md" />
-        <div className="h-5 w-1/2 bg-white/[0.05] rounded-md" />
+      <div className="h-[49.3px] sm:h-[56.1px] flex flex-col justify-end gap-[6.8px] w-full">
+        <div className="h-[20.4px] w-3/4 bg-white/[0.07] rounded-[5px]" />
+        <div className="h-[17px] w-1/2 bg-white/[0.05] rounded-[5px]" />
       </div>
 
       {/* Location + date */}
-      <div className="flex items-center gap-2 mt-2 h-4">
-        <div className="h-3 w-20 bg-white/[0.04] rounded" />
-        <div className="h-3 w-12 bg-white/[0.04] rounded" />
+      <div className="flex items-center gap-[6.8px] mt-[6.8px] h-[13.6px]">
+        <div className="h-[10.2px] w-[68px] bg-white/[0.04] rounded" />
+        <div className="h-[10.2px] w-[40.8px] bg-white/[0.04] rounded" />
       </div>
 
       {/* Logline */}
-      <div className="mt-2.5 h-[40px] flex flex-col gap-1.5">
-        <div className="h-3.5 w-full bg-white/[0.04] rounded" />
-        <div className="h-3.5 w-4/5 bg-white/[0.04] rounded" />
+      <div className="mt-[8.5px] h-[34px] flex flex-col gap-[5.1px]">
+        <div className="h-[11.9px] w-full bg-white/[0.04] rounded" />
+        <div className="h-[11.9px] w-4/5 bg-white/[0.04] rounded" />
       </div>
 
       {/* Roles Needed */}
-      <div className="mt-4 min-h-[48px]">
-        <div className="h-2.5 w-20 bg-white/[0.04] rounded mb-2" />
-        <div className="flex items-center gap-1.5">
-          <div className="h-6 w-24 bg-white/[0.05] rounded-md" />
-          <div className="h-6 w-28 bg-white/[0.05] rounded-md" />
+      <div className="mt-[13.6px] min-h-[40.8px]">
+        <div className="h-[8.5px] w-[68px] bg-white/[0.04] rounded mb-[6.8px]" />
+        <div className="flex items-center gap-[5.1px]">
+          <div className="h-[20.4px] w-[81.6px] bg-white/[0.05] rounded-[5px]" />
+          <div className="h-[20.4px] w-[95.2px] bg-white/[0.05] rounded-[5px]" />
         </div>
       </div>
 
       {/* Creator */}
-      <div className="flex items-center gap-2 mt-4 min-h-[20px]">
-        <div className="w-5 h-5 rounded-full bg-white/[0.06]" />
-        <div className="h-3 w-24 bg-white/[0.04] rounded" />
+      <div className="flex items-center gap-[6.8px] mt-[13.6px] min-h-[17px]">
+        <div className="w-[17px] h-[17px] rounded-full bg-white/[0.06]" />
+        <div className="h-[10.2px] w-[81.6px] bg-white/[0.04] rounded" />
       </div>
 
       {/* Button CTA */}
-      <div className="mt-auto pt-5">
-        <div className="w-full h-9 rounded-full bg-white/[0.04] border border-white/5" />
+      <div className="mt-auto pt-[17px]">
+        <div className="w-full h-[30.6px] rounded-full bg-white/[0.04] border border-white/5" />
       </div>
     </div>
   )
@@ -857,10 +959,10 @@ function ProjectCard({ project }) {
   return (
     <Link
       to={`/project/${project.id}`}
-      className="group relative flex flex-col w-full h-full bg-[#0A0A0F] border border-white/[0.08] hover:border-[rgba(98,57,191,0.30)] rounded-[20px] overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_40px_rgba(98,57,191,0.15)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6239BF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0F]"
+      className="group relative flex flex-col w-full h-full bg-[#0A0A0F] border border-white/[0.08] hover:border-[rgba(98,57,191,0.30)] rounded-[17px] overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_12px_40px_rgba(98,57,191,0.15)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6239BF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0F]"
     >
       {/* ── LAYER 1: POSTER IMAGE (Isolated GPU layer with overscan) ── */}
-      <div className="absolute top-0 left-0 right-0 w-full h-[400px] sm:h-[420px] overflow-hidden pointer-events-none z-0">
+      <div className="absolute top-0 left-0 right-0 w-full h-[340px] sm:h-[357px] overflow-hidden pointer-events-none z-0">
         <img
           src={posterSrc}
           alt={`${project.title || 'Project'} poster`}
@@ -880,7 +982,7 @@ function ProjectCard({ project }) {
       </div>
 
       {/* ── LAYER 2: DARK OVERLAY & FILM GRAIN ── */}
-      <div className="absolute top-0 left-0 right-0 w-full h-[400px] sm:h-[420px] overflow-hidden pointer-events-none z-10">
+      <div className="absolute top-0 left-0 right-0 w-full h-[340px] sm:h-[357px] overflow-hidden pointer-events-none z-10">
         <div
           className="absolute inset-0 pointer-events-none opacity-[0.035] mix-blend-overlay"
           style={{
@@ -893,42 +995,62 @@ function ProjectCard({ project }) {
 
       {/* ── LAYER 3: STABILIZED GRADIENT FADE (Extends past poster boundary) ── */}
       <div
-        className="absolute top-0 left-0 right-0 w-full h-[470px] sm:h-[490px] overflow-hidden pointer-events-none z-20"
+        className="absolute top-0 left-0 right-0 w-full h-[399.5px] sm:h-[416.5px] overflow-hidden pointer-events-none z-20"
         style={{
           background: 'linear-gradient(to bottom, rgba(10,10,15,0) 0%, rgba(10,10,15,0.06) 18%, rgba(10,10,15,0.35) 40%, rgba(10,10,15,0.72) 60%, rgba(10,10,15,0.95) 78%, #0A0A0F 88%, #0A0A0F 100%)',
         }}
       />
 
       {/* ── LAYER 4: CARD CONTENT (Floats seamlessly over poster & gradient) ── */}
-      <div className="relative z-30 flex flex-col flex-1 p-5">
+      <div className="relative z-30 flex flex-col flex-1 p-[17px]">
         {/* Top Floating Badges: Genre (left) & Status (right) */}
-        <div className="flex items-center justify-between gap-2 mb-36 sm:mb-40">
+        <div className="flex items-center justify-between gap-[6.8px] mb-[122.4px] sm:mb-[136px]">
           {project.genre ? (
-            <span className="px-2.5 py-1 text-[10px] font-semibold tracking-widest uppercase text-white/90 bg-black/60 backdrop-blur-md border border-white/10 rounded-full">
+            <span className="px-[8.5px] py-[0.85px] text-[8.5px] font-semibold tracking-widest uppercase text-white/90 bg-black/60 backdrop-blur-md border border-white/10 rounded-full">
               {project.genre}
             </span>
           ) : <div />}
 
           {project.status && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase backdrop-blur-md rounded-full border border-purple/35 text-purple-light bg-purple/15">
-              <span className="w-1.5 h-1.5 rounded-full bg-purple animate-pulse motion-reduce:animate-none" />
+            <span
+              className={`inline-flex items-center gap-[5.1px] px-[8.5px] py-[0.85px] text-[8.5px] font-bold tracking-wider uppercase backdrop-blur-md rounded-full border ${
+                project.status === 'Open'
+                  ? 'border-purple/35 text-purple-light bg-purple/15'
+                  : project.status === 'In Production'
+                  ? 'border-amber-400/35 text-amber-400 bg-amber-400/15'
+                  : project.status === 'Completed'
+                  ? 'border-emerald-400/35 text-emerald-400 bg-emerald-400/15'
+                  : 'border-white/20 text-white/60 bg-white/10'
+              }`}
+            >
+              <span
+                className={`w-[5.1px] h-[5.1px] rounded-full ${
+                  project.status === 'Open'
+                    ? 'bg-purple animate-pulse motion-reduce:animate-none'
+                    : project.status === 'In Production'
+                    ? 'bg-amber-400'
+                    : project.status === 'Completed'
+                    ? 'bg-emerald-400'
+                    : 'bg-white/40'
+                }`}
+              />
               {project.status}
             </span>
           )}
         </div>
 
         {/* Title — Fixed 2-line height area, bottom-aligned */}
-        <div className="h-[58px] sm:h-[66px] flex items-end w-full">
-          <h3 className="font-['Bebas_Neue',_sans-serif] text-2xl sm:text-[26px] font-normal tracking-wide text-white leading-tight line-clamp-2 w-full group-hover:text-purple-light transition-colors duration-300">
+        <div className="h-[49.3px] sm:h-[56.1px] flex items-end w-full">
+          <h3 className="font-['Bebas_Neue',_sans-serif] text-[20.4px] sm:text-[22.1px] font-normal tracking-wide text-white leading-tight line-clamp-2 w-full group-hover:text-purple-light transition-colors duration-300">
             {project.title || 'Untitled Project'}
           </h3>
         </div>
 
         {/* Location + Posted date */}
-        <div className="flex items-center gap-2 mt-2 text-[11px] text-white/50 font-medium tracking-wide h-4">
+        <div className="flex items-center gap-[6.8px] mt-[6.8px] text-[9.35px] text-white/50 font-medium tracking-wide h-[13.6px]">
           {project.location && (
             <>
-              <svg className="w-3 h-3 shrink-0 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
+              <svg className="w-[10.2px] h-[10.2px] shrink-0 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
@@ -942,58 +1064,58 @@ function ProjectCard({ project }) {
         </div>
 
         {/* Logline — Fixed 2-line height area */}
-        <p className="mt-2.5 text-[12.5px] text-white/50 leading-relaxed line-clamp-2 h-[40px]">
+        <p className="mt-[8.5px] text-[10.625px] text-white/50 leading-relaxed line-clamp-2 h-[34px]">
           {project.logline || ''}
         </p>
 
         {/* Roles needed — strictly one row */}
-        <div className="mt-4 min-h-[48px]">
-          <p className="text-[9.5px] font-semibold tracking-[0.14em] uppercase text-white/50 mb-2">Roles Needed</p>
+        <div className="mt-[13.6px] min-h-[40.8px]">
+          <p className="text-[8.075px] font-semibold tracking-[0.14em] uppercase text-white/50 mb-[6.8px]">Roles Needed</p>
           {allRoles.length > 0 ? (
-            <div className="flex items-center gap-1.5 overflow-hidden flex-nowrap w-full">
+            <div className="flex items-center gap-[5.1px] overflow-hidden flex-nowrap w-full">
               {visibleRoles.map((role, idx) => (
                 <span
                   key={`${role}-${idx}`}
                   title={role}
-                  className={`px-2.5 py-[3px] text-[11px] font-medium text-white/65 border border-white/[0.1] rounded-md bg-white/[0.03] transition-all duration-300 group-hover:border-purple/30 group-hover:text-purple-light whitespace-nowrap truncate min-w-0 ${
-                    idx === 0 ? 'max-w-[130px] sm:max-w-[150px]' : 'max-w-[160px] sm:max-w-[180px]'
+                  className={`px-[8.5px] py-[2.55px] text-[9.35px] font-medium text-white/65 border border-white/[0.1] rounded-[5px] bg-white/[0.03] transition-all duration-300 group-hover:border-purple/30 group-hover:text-purple-light whitespace-nowrap truncate min-w-0 ${
+                    idx === 0 ? 'max-w-[110.5px] sm:max-w-[127.5px]' : 'max-w-[136px] sm:max-w-[153px]'
                   }`}
                 >
                   {role}
                 </span>
               ))}
               {extraRoles > 0 && (
-                <span className="shrink-0 px-2 py-[3px] text-[11px] font-medium text-white/50 border border-white/[0.07] rounded-md bg-white/[0.02] whitespace-nowrap">
+                <span className="shrink-0 px-[6.8px] py-[2.55px] text-[9.35px] font-medium text-white/50 border border-white/[0.07] rounded-[5px] bg-white/[0.02] whitespace-nowrap">
                   +{extraRoles}
                 </span>
               )}
             </div>
           ) : (
-            <p className="text-[11px] text-white/50 italic py-[3px]">No open roles</p>
+            <p className="text-[9.35px] text-white/50 italic py-[2.55px]">No open roles</p>
           )}
         </div>
 
         {/* Creator row */}
-        <div className="flex items-center gap-2 mt-4 min-h-[20px]">
+        <div className="flex items-center gap-[6.8px] mt-[13.6px] min-h-[17px]">
           {creator && creator.name ? (
             <>
-              <div className="w-5 h-5 rounded-full overflow-hidden bg-purple/20 border border-purple/25 shrink-0 flex items-center justify-center">
+              <div className="w-[17px] h-[17px] rounded-full overflow-hidden bg-purple/20 border border-purple/25 shrink-0 flex items-center justify-center">
                 {creator.avatar ? (
                   <img src={creator.avatar} alt={creator.name} className="w-full h-full object-cover" />
                 ) : (
-                  <span className="text-[9px] font-bold text-purple-light">{creator.name.charAt(0).toUpperCase()}</span>
+                  <span className="text-[7.65px] font-bold text-purple-light">{creator.name.charAt(0).toUpperCase()}</span>
                 )}
               </div>
-              <span className="text-[11px] text-white/50 truncate">by <span className="text-white/70">{creator.name}</span></span>
+              <span className="text-[9.35px] text-white/50 truncate">by <span className="text-white/70">{creator.name}</span></span>
             </>
           ) : (
-            <div className="h-5" />
+            <div className="h-[17px]" />
           )}
         </div>
 
         {/* View Project CTA */}
-        <div className="mt-auto pt-5">
-          <InteractiveHoverButton text="View Project" />
+        <div className="mt-auto pt-[17px]">
+          <InteractiveHoverButton text="View Project" size="explore" />
         </div>
       </div>
     </Link>

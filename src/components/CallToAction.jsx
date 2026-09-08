@@ -4,19 +4,7 @@ import { useAuth } from '../context/useAuth'
 function CallToAction() {
   const { user } = useAuth()
   return (
-    <section id="cta" className="relative pt-10 md:pt-14 pb-20 md:pb-28 px-6 overflow-hidden">
-      {/* Background Effects */}
-      <div className="absolute inset-0">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-purple/8 rounded-full blur-[150px]" />
-        <div className="absolute top-1/2 left-1/3 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-purple/5 rounded-full blur-[100px]" />
-      </div>
-
-      {/* Grid pattern overlay */}
-      <div className="absolute inset-0 opacity-[0.02]" style={{
-        backgroundImage: 'linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)',
-        backgroundSize: '60px 60px',
-      }} />
-
+    <section id="cta" className="relative pt-10 md:pt-14 pb-20 md:pb-28 px-6 overflow-hidden" style={{ backgroundColor: '#000000' }}>
       <div className="relative max-w-3xl mx-auto text-center reveal">
         {/* Decorative element */}
         <div className="flex items-center justify-center gap-3 mb-8">

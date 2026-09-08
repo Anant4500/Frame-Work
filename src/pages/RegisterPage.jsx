@@ -239,11 +239,11 @@ export default function RegisterPage() {
   // Show email confirmation success state
   if (successMessage) {
     return (
-      <div className="min-h-screen bg-[#0A0A0F] text-white flex flex-col justify-center items-center px-4 py-16 relative overflow-hidden">
+      <div className="min-h-screen bg-[#000000] text-white flex flex-col justify-center items-center px-4 py-16 relative overflow-hidden">
         {/* Background glow */}
         <div className="fixed inset-0 pointer-events-none -z-10">
           <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-[#6239BF]/15 rounded-full blur-[120px]" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_transparent_0%,_#0A0A0F_75%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_transparent_0%,_#000000_75%)]" />
         </div>
 
         <div
@@ -330,12 +330,12 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0A0F] text-white flex flex-col justify-between relative overflow-x-hidden">
+    <div className="min-h-screen bg-[#000000] text-white flex flex-col justify-between relative overflow-x-hidden">
       {/* Background glow effects */}
       <div className="fixed inset-0 pointer-events-none -z-10">
         <div className="absolute -top-[20%] left-1/2 -translate-x-1/2 w-[700px] sm:w-[900px] h-[500px] bg-[#6239BF]/15 rounded-full blur-[120px]" />
         <div className="absolute top-[40%] right-[-10%] w-[450px] h-[450px] bg-[#6239BF]/8 rounded-full blur-[140px]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_transparent_0%,_#0A0A0F_75%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_transparent_0%,_#000000_75%)]" />
       </div>
 
       {/* Distraction-Free Auth Header */}

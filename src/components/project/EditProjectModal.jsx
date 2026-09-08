@@ -1,24 +1,297 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import RolePickerModal from './RolePickerModal'
+import LocationInput from './LocationInput'
 import { getRoleOccupancy } from './projectRoleUtils'
+import { formatOptions, MAX_TAGS, validateNewTag, normalizeTags } from '../../utils/projectDetailsFormatters'
+
+const GENRE_OPTIONS = [
+  'Drama',
+  'Sci-Fi',
+  'Thriller',
+  'Horror',
+  'Documentary',
+  'Comedy',
+  'Action',
+  'Romance',
+  'Animation',
+  'Experimental',
+]
+
+const SCRIPT_VISIBILITY_TIERS = [
+  {
+    value: 'ACCEPTED_TEAM',
+    label: 'Accepted Team Only',
+    desc: 'Only confirmed team members can view.',
+  },
+  {
+    value: 'APPLICANTS',
+    label: 'Applicants & Team',
+    desc: 'Pending & accepted applicants can view.',
+  },
+  {
+    value: 'PUBLIC',
+    label: 'Anyone Viewing Project',
+    desc: 'Public to anyone viewing the project.',
+  },
+]
+
+const EXPERIENCE_LEVELS = [
+  'Beginner',
+  'Student',
+  'Intermediate',
+  'Professional',
+]
 
 function clampToMaxNonWhitespace(text, maxNonWhitespace = 1000) {
   if (!text) return ''
+  if (text.length <= maxNonWhitespace) return text
+
   let count = 0
-  let result = ''
-  for (const char of text) {
-    if (/\s/.test(char)) {
-      result += char
-    } else {
-      if (count < maxNonWhitespace) {
-        count++
-        result += char
+  let cutIndex = text.length
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i)
+    const isWhitespace = code === 32 || (code >= 9 && code <= 13)
+    if (!isWhitespace) {
+      count++
+      if (count > maxNonWhitespace) {
+        cutIndex = i
+        break
       }
     }
   }
-  return result
+  return text.slice(0, cutIndex)
 }
+
+function countNonWhitespace(text) {
+  if (!text) return 0
+  let count = 0
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i)
+    if (!(code === 32 || (code >= 9 && code <= 13))) {
+      count++
+    }
+  }
+  return count
+}
+
+const ProjectTagsEditor = memo(function ProjectTagsEditor({ tags, setTags, disabled }) {
+  const [tagInput, setTagInput] = useState('')
+  const [tagError, setTagError] = useState('')
+
+  const handleAddTag = (e) => {
+    if (e) e.preventDefault()
+    if (!tagInput.trim()) return
+    const validation = validateNewTag(tagInput, tags)
+    if (!validation.valid) {
+      setTagError(validation.error)
+      return
+    }
+    setTagError('')
+    setTags((prev) => [...prev, validation.tag])
+    setTagInput('')
+  }
+
+  const handleRemoveTag = (indexToRemove) => {
+    setTags((prev) => prev.filter((_, i) => i !== indexToRemove))
+    setTagError('')
+  }
+
+  const handleClearAllTags = () => {
+    setTags([])
+    setTagError('')
+  }
+
+  const handleTagKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleAddTag()
+    }
+  }
+
+  return (
+    <div className="sm:col-span-2">
+      <div className="flex items-center justify-between mb-2">
+        <label className="block text-xs font-semibold text-white/70 uppercase tracking-wider">
+          Tags <span className="text-white/40 font-normal lowercase">(optional)</span>
+        </label>
+        <div className="flex items-center gap-3">
+          {tags.length > 0 && (
+            <button
+              type="button"
+              onClick={handleClearAllTags}
+              disabled={disabled}
+              className="text-xs text-white/40 hover:text-red-400 transition-colors disabled:opacity-40"
+            >
+              Clear all
+            </button>
+          )}
+          <span className="text-xs text-white/40">
+            {tags.length}/{MAX_TAGS}
+          </span>
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={tagInput}
+          onChange={(e) => {
+            setTagInput(e.target.value)
+            if (tagError) setTagError('')
+          }}
+          onKeyDown={handleTagKeyDown}
+          disabled={disabled}
+          placeholder="e.g. Student Film, Independent, Festival"
+          className="flex-1 px-4 py-3 bg-white/[0.04] border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-purple transition-all text-sm"
+        />
+        <button
+          type="button"
+          onClick={handleAddTag}
+          disabled={disabled || !tagInput.trim() || tags.length >= MAX_TAGS}
+          className="px-5 py-3 bg-white/[0.06] hover:bg-white/[0.12] disabled:opacity-40 disabled:cursor-not-allowed border border-white/10 text-white text-sm font-medium rounded-xl transition-all duration-200"
+        >
+          Add
+        </button>
+      </div>
+
+      {tagError && (
+        <p className="text-xs text-red-400 mt-2">{tagError}</p>
+      )}
+
+      {/* Tag Pills */}
+      {tags.length > 0 && (
+        <div className="flex flex-wrap gap-2 mt-3">
+          {tags.map((tag, idx) => (
+            <span
+              key={`${tag}-${idx}`}
+              className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#181818] border border-white/10 rounded-full text-xs text-white/80 font-['DM_Sans',_sans-serif]"
+            >
+              <span>{tag}</span>
+              <button
+                type="button"
+                onClick={() => handleRemoveTag(idx)}
+                disabled={disabled}
+                className="w-4 h-4 rounded-full flex items-center justify-center text-white/40 hover:text-white hover:bg-white/10 transition-colors"
+                aria-label={`Remove ${tag} tag`}
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+})
+
+const RoleItemRow = memo(function RoleItemRow({
+  roleObj,
+  index,
+  onCountChange,
+  onExperienceChange,
+  onRemoveRole,
+  disabled,
+}) {
+  const count = Number(roleObj.positions_needed) || 1
+  const minAllowed = Math.max(1, Number(roleObj.positions_filled) || 0)
+  const experience = roleObj.experience ?? ''
+
+  return (
+    <div className="p-3.5 sm:p-4 bg-white/[0.03] border border-white/[0.08] rounded-xl transition-all">
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm font-semibold text-white">{roleObj.role}</span>
+          {roleObj.isNew && (
+            <span className="px-2 py-0.5 text-[10px] font-bold text-purple-light bg-purple/10 border border-purple/20 rounded-full">
+              New
+            </span>
+          )}
+          {(roleObj.positions_filled || 0) > 0 && (
+            <span className="px-2 py-0.5 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
+              {roleObj.positions_filled} Filled
+            </span>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => onRemoveRole(index, roleObj)}
+          disabled={disabled || (roleObj.positions_filled || 0) > 0}
+          className={`text-xs font-medium px-2 py-1 rounded transition-all shrink-0 ${
+            (roleObj.positions_filled || 0) > 0
+              ? 'text-white/20 cursor-not-allowed'
+              : 'text-red-400/70 hover:text-red-300 hover:bg-red-500/10'
+          }`}
+          title={(roleObj.positions_filled || 0) > 0 ? 'Cannot remove filled role' : 'Remove role'}
+        >
+          Remove
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2.5 border-t border-white/[0.06]">
+        {/* Count Control */}
+        <div>
+          <span className="block text-[11px] font-medium text-white/40 mb-1.5 uppercase tracking-wider">
+            Count
+          </span>
+          <div className="inline-flex items-center bg-[#0C0C11] border border-white/[0.10] rounded-lg overflow-hidden">
+            <button
+              type="button"
+              onClick={() => onCountChange(index, -1)}
+              disabled={disabled || count <= minAllowed}
+              className="w-8 h-8 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/[0.05] disabled:opacity-25 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+              aria-label="Decrease count"
+            >
+              −
+            </button>
+            <span className="w-10 text-center text-xs font-semibold text-white">
+              {count}
+            </span>
+            <button
+              type="button"
+              onClick={() => onCountChange(index, 1)}
+              disabled={disabled}
+              className="w-8 h-8 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/[0.05] disabled:opacity-25 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+              aria-label="Increase count"
+            >
+              +
+            </button>
+          </div>
+        </div>
+
+        {/* Experience Level Selector */}
+        <div>
+          <span className="block text-[11px] font-medium text-white/40 mb-1.5 uppercase tracking-wider">
+            Experience Level
+          </span>
+          <div className="relative">
+            <select
+              value={experience}
+              onChange={(e) => onExperienceChange(index, e.target.value)}
+              disabled={disabled}
+              className="w-full appearance-none px-3 py-1.5 bg-[#0C0C11] border border-white/[0.10] rounded-lg text-xs text-white outline-none transition-all focus:border-purple cursor-pointer pr-8 disabled:opacity-50"
+            >
+              <option value="" className="bg-[#111118]">
+                Any experience
+              </option>
+              {EXPERIENCE_LEVELS.map((lvl) => (
+                <option key={lvl} value={lvl} className="bg-[#111118]">
+                  {lvl}
+                </option>
+              ))}
+            </select>
+            <svg className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+})
+
 
 function extractPosterStoragePath(posterUrl, creatorId) {
   if (!posterUrl || typeof posterUrl !== 'string' || !creatorId) {
@@ -71,8 +344,15 @@ export default function EditProjectModal({ isOpen, onClose, project, onSaveSucce
   const [description, setDescription] = useState('')
   const [genre, setGenre] = useState('Drama')
   const [location, setLocation] = useState('')
-  const [budget, setBudget] = useState('')
-  const [timeline, setTimeline] = useState('')
+  const [format, setFormat] = useState('')
+  const [shootStartDate, setShootStartDate] = useState('')
+  const [shootEndDate, setShootEndDate] = useState('')
+  const [language, setLanguage] = useState('')
+  const [budgetMin, setBudgetMin] = useState('')
+  const [budgetMax, setBudgetMax] = useState('')
+  const [clearLegacyBudget, setClearLegacyBudget] = useState(false)
+  const [target, setTarget] = useState('')
+  const [tags, setTags] = useState([])
   const [scriptVisibility, setScriptVisibility] = useState('ACCEPTED_TEAM')
   const [rolesList, setRolesList] = useState([])
   const [rolesToDelete, setRolesToDelete] = useState([])
@@ -87,16 +367,29 @@ export default function EditProjectModal({ isOpen, onClose, project, onSaveSucce
   const [posterError, setPosterError] = useState('')
   const posterInputRef = useRef(null)
   const posterBlobUrlRef = useRef(null)
+  const prevProjectIdRef = useRef(null)
+  const prevIsOpenRef = useRef(false)
 
   useEffect(() => {
-    if (project && isOpen) {
+    const isOpening = isOpen && !prevIsOpenRef.current
+    const isDifferentProject = project?.id && project.id !== prevProjectIdRef.current
+
+    if (isOpen && project && (isOpening || isDifferentProject)) {
+      prevProjectIdRef.current = project.id
       setTitle(project.title || '')
       setLogline(project.logline || '')
       setDescription(project.description || '')
       setGenre(project.genre || 'Drama')
       setLocation(project.location || '')
-      setBudget(project.budget || '')
-      setTimeline(project.timeline || '')
+      setFormat(project.format || '')
+      setShootStartDate(project.shoot_start_date || '')
+      setShootEndDate(project.shoot_end_date || '')
+      setLanguage(project.language || '')
+      setBudgetMin(project.budget_min != null ? String(project.budget_min) : '')
+      setBudgetMax(project.budget_max != null ? String(project.budget_max) : '')
+      setClearLegacyBudget(false)
+      setTarget(project.target || '')
+      setTags(Array.isArray(project.tags) ? [...project.tags] : [])
       setScriptVisibility(project.script_visibility || 'ACCEPTED_TEAM')
       setNewScriptFile(null)
       setScriptError('')
@@ -118,13 +411,14 @@ export default function EditProjectModal({ isOpen, onClose, project, onSaveSucce
 
       const raw = Array.isArray(project.rawRoles) ? project.rawRoles : []
       setRolesList(raw.map((r) => {
-        const { acceptedCount } = getRoleOccupancy(r, project.applicants)
+        const { acceptedCount, isAvailable } = getRoleOccupancy(r, project.applicants, { isCreator: true })
+        const safeFilled = isAvailable && acceptedCount != null ? acceptedCount : 0
         const expVal = r.experience_level !== undefined ? r.experience_level : (r.experience !== undefined ? r.experience : null)
         return {
           id: r.id,
           role: r.role,
-          positions_needed: Math.max(acceptedCount || 1, Number(r.positions_needed) || 1),
-          positions_filled: acceptedCount,
+          positions_needed: Math.max(safeFilled || 1, Number(r.positions_needed) || 1),
+          positions_filled: safeFilled,
           experience: expVal,
           isNew: false
         }
@@ -132,6 +426,7 @@ export default function EditProjectModal({ isOpen, onClose, project, onSaveSucce
       setRolesToDelete([])
       setErrorMsg('')
     }
+    prevIsOpenRef.current = isOpen
   }, [project, isOpen])
 
   // Revoke object URL on unmount
@@ -215,27 +510,7 @@ export default function EditProjectModal({ isOpen, onClose, project, onSaveSucce
     setDescription(clamped)
   }
 
-  if (!isOpen || !project) return null
-
-  const handleSelectRole = (canonicalRoleName) => {
-    if (rolesList.some((r) => r.role.toLowerCase() === canonicalRoleName.toLowerCase())) {
-      setErrorMsg('Role already exists in list')
-      return
-    }
-    setErrorMsg('')
-    setRolesList((prev) => [
-      ...prev,
-      {
-        role: canonicalRoleName,
-        positions_needed: 1,
-        positions_filled: 0,
-        experience: 'Intermediate',
-        isNew: true
-      }
-    ])
-  }
-
-  const handleRoleCountChange = (index, delta) => {
+  const handleRoleCountChange = useCallback((index, delta) => {
     setRolesList((prev) =>
       prev.map((r, i) => {
         if (i !== index) return r
@@ -245,16 +520,16 @@ export default function EditProjectModal({ isOpen, onClose, project, onSaveSucce
         return { ...r, positions_needed: newCount }
       })
     )
-  }
+  }, [])
 
-  const handleRoleExperienceChange = (index, newExp) => {
+  const handleRoleExperienceChange = useCallback((index, newExp) => {
     const normalized = (!newExp || newExp === 'Any experience') ? null : newExp
     setRolesList((prev) =>
       prev.map((r, i) => (i === index ? { ...r, experience: normalized } : r))
     )
-  }
+  }, [])
 
-  const handleRemoveRole = (index, roleObj) => {
+  const handleRemoveRole = useCallback((index, roleObj) => {
     if ((roleObj.positions_filled || 0) > 0) {
       setErrorMsg(`Cannot remove "${roleObj.role}" because positions have already been filled.`)
       return
@@ -264,7 +539,32 @@ export default function EditProjectModal({ isOpen, onClose, project, onSaveSucce
       setRolesToDelete((prev) => [...prev, roleObj.id])
     }
     setRolesList((prev) => prev.filter((_, i) => i !== index))
-  }
+  }, [])
+
+  const handleSelectRole = useCallback((canonicalRoleName) => {
+    setRolesList((prev) => {
+      if (prev.some((r) => r.role.toLowerCase() === canonicalRoleName.toLowerCase())) {
+        setErrorMsg('Role already exists in list')
+        return prev
+      }
+      setErrorMsg('')
+      return [
+        ...prev,
+        {
+          role: canonicalRoleName,
+          positions_needed: 1,
+          positions_filled: 0,
+          experience: 'Intermediate',
+          isNew: true
+        }
+      ]
+    })
+  }, [])
+
+  const selectedRoleNames = useMemo(() => rolesList.map((r) => r.role), [rolesList])
+  const descriptionCount = useMemo(() => countNonWhitespace(description), [description])
+
+  if (!isOpen || !project) return null
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -288,6 +588,10 @@ export default function EditProjectModal({ isOpen, onClose, project, onSaveSucce
       setErrorMsg('Description must be 1000 characters or less, excluding spaces.')
       return
     }
+    if (!location.trim()) {
+      setErrorMsg('Location is required.')
+      return
+    }
 
     // Validate role counts
     for (const r of rolesList) {
@@ -299,6 +603,39 @@ export default function EditProjectModal({ isOpen, onClose, project, onSaveSucce
       const minAllowed = Math.max(1, Number(r.positions_filled) || 0)
       if (count < minAllowed) {
         setErrorMsg(`You already have ${r.positions_filled} accepted collaborator${r.positions_filled > 1 ? 's' : ''} for "${r.role}". Count cannot be reduced below ${r.positions_filled}.`)
+        return
+      }
+    }
+
+    // Validate shoot dates
+    if (shootStartDate && shootEndDate && shootEndDate < shootStartDate) {
+      setErrorMsg('Shoot end date must not be earlier than start date.')
+      return
+    }
+
+    // Validate budget range
+    if (budgetMin !== '' && budgetMin != null) {
+      const minNum = Number(budgetMin)
+      if (isNaN(minNum) || !isFinite(minNum) || minNum < 0) {
+        setErrorMsg('Minimum budget must be a valid positive number.')
+        return
+      }
+    }
+    if (budgetMax !== '' && budgetMax != null) {
+      const maxNum = Number(budgetMax)
+      if (isNaN(maxNum) || !isFinite(maxNum) || maxNum < 0) {
+        setErrorMsg('Maximum budget must be a valid positive number.')
+        return
+      }
+    }
+    if (
+      budgetMin !== '' &&
+      budgetMin != null &&
+      budgetMax !== '' &&
+      budgetMax != null
+    ) {
+      if (Number(budgetMax) < Number(budgetMin)) {
+        setErrorMsg('Maximum budget must not be less than minimum budget.')
         return
       }
     }
@@ -386,14 +723,38 @@ export default function EditProjectModal({ isOpen, onClose, project, onSaveSucce
       }
 
       // 3. UPDATE projects record
+      const bMin = budgetMin === '' || budgetMin == null ? null : Number(budgetMin)
+      const bMax = budgetMax === '' || budgetMax == null ? null : Number(budgetMax)
+      const hasLegacyBudget = project?.budget != null && project?.budget !== '' && !isNaN(Number(project?.budget)) && project?.budget_min == null && project?.budget_max == null
+      let finalBudget = null
+      if (bMin != null || bMax != null) {
+        // Project uses the modern budget range representation (min and/or max).
+        // Legacy single budget amount is null so it does not misrepresent the range.
+        finalBudget = null
+      } else if (hasLegacyBudget && !clearLegacyBudget) {
+        // Existing legacy project with single budget amount, edited without adding a range or clearing:
+        // preserve the existing legacy budget value.
+        finalBudget = typeof project.budget === 'number' ? project.budget : (isNaN(Number(project.budget)) ? project.budget : Number(project.budget))
+      } else {
+        // Budget range was cleared, legacy budget was intentionally cleared, or project has no budget.
+        finalBudget = null
+      }
+
       const updatePayload = {
         title: title.trim(),
         logline: logline.trim(),
         description: description.trim(),
         genre,
         location: location.trim(),
-        budget: budget === '' || budget == null ? null : (isNaN(Number(budget)) ? budget.trim() : Number(budget)),
-        timeline: timeline.trim() || null,
+        format: format || null,
+        shoot_start_date: shootStartDate || null,
+        shoot_end_date: shootEndDate || null,
+        language: language.trim() || null,
+        budget_min: bMin,
+        budget_max: bMax,
+        budget: finalBudget,
+        target: target.trim() || null,
+        tags: normalizeTags(tags),
         script_visibility: scriptVisibility,
       }
 
@@ -467,7 +828,19 @@ export default function EditProjectModal({ isOpen, onClose, project, onSaveSucce
       }
 
       // 5. UPDATE existing roles with updated counts
-      const existingRolesToUpdate = rolesList.filter((r) => r.id && !r.isNew)
+      // 5. UPDATE existing roles only if their count or experience actually changed
+      const rawRoles = Array.isArray(project.rawRoles) ? project.rawRoles : []
+      const existingRolesToUpdate = rolesList.filter((r) => {
+        if (!r.id || r.isNew) return false
+        const orig = rawRoles.find((o) => o.id === r.id)
+        if (!orig) return true
+        const origCount = Number(orig.positions_needed) || 1
+        const origExp = orig.experience_level !== undefined ? orig.experience_level : (orig.experience !== undefined ? orig.experience : null)
+        const currCount = Number(r.positions_needed) || 1
+        const currExp = r.experience ?? null
+        return currCount !== origCount || currExp !== origExp
+      })
+
       if (existingRolesToUpdate.length > 0) {
         await Promise.all(
           existingRolesToUpdate.map(async (r) => {
@@ -522,7 +895,7 @@ export default function EditProjectModal({ isOpen, onClose, project, onSaveSucce
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-      <div className="relative w-full max-w-2xl bg-[#121212] border border-white/10 rounded-2xl p-6 sm:p-8 max-h-[90vh] overflow-y-auto shadow-2xl">
+      <div className="relative w-full max-w-2xl bg-[#121212] border border-white/10 rounded-2xl p-6 sm:p-8 max-h-[90vh] overflow-y-auto shadow-2xl transform-gpu">
         <div className="flex items-center justify-between pb-4 mb-6 border-b border-white/10">
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
             <svg className="w-5 h-5 text-purple" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
@@ -583,7 +956,7 @@ export default function EditProjectModal({ isOpen, onClose, project, onSaveSucce
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="block text-xs font-semibold text-white/70 uppercase tracking-wider">Description *</label>
-              <span className="text-xs text-white/30">{description.replace(/\s/g, '').length}/1000</span>
+              <span className="text-xs text-white/30">{descriptionCount}/1000</span>
             </div>
             <textarea
               rows={6}
@@ -595,8 +968,22 @@ export default function EditProjectModal({ isOpen, onClose, project, onSaveSucce
             />
           </div>
 
-          {/* Grid 2-col for Genre, Location, Budget, Timeline */}
+          {/* Project Details Fields */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-white/70 uppercase tracking-wider mb-2">Format</label>
+              <select
+                value={format}
+                onChange={(e) => setFormat(e.target.value)}
+                className="w-full px-4 py-3 bg-[#1a1a1a] border border-white/10 rounded-xl text-white focus:outline-none focus:border-purple transition-all"
+              >
+                <option value="">Select format</option>
+                {formatOptions.map((f) => (
+                  <option key={f} value={f}>{f}</option>
+                ))}
+              </select>
+            </div>
+
             <div>
               <label className="block text-xs font-semibold text-white/70 uppercase tracking-wider mb-2">Genre</label>
               <select
@@ -604,44 +991,138 @@ export default function EditProjectModal({ isOpen, onClose, project, onSaveSucce
                 onChange={(e) => setGenre(e.target.value)}
                 className="w-full px-4 py-3 bg-[#1a1a1a] border border-white/10 rounded-xl text-white focus:outline-none focus:border-purple transition-all"
               >
-                {['Drama', 'Sci-Fi', 'Thriller', 'Horror', 'Documentary', 'Comedy', 'Action', 'Romance', 'Animation', 'Experimental'].map((g) => (
+                {GENRE_OPTIONS.map((g) => (
                   <option key={g} value={g}>{g}</option>
                 ))}
               </select>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-white/70 uppercase tracking-wider mb-2">Location</label>
-              <input
-                type="text"
+              <label htmlFor="edit-location" className="block text-xs font-semibold text-white/70 uppercase tracking-wider mb-2">Location *</label>
+              <LocationInput
+                id="edit-location"
+                name="location"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                className="w-full px-4 py-3 bg-white/[0.04] border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-purple transition-all"
-                placeholder="e.g. Mumbai / Remote"
+                placeholder="e.g. Mumbai, Pune or Remote"
+                required
+                className="w-full px-4 py-3 bg-white/[0.04] border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-purple transition-all text-sm pr-10"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-white/70 uppercase tracking-wider mb-2">Budget</label>
+              <label className="block text-xs font-semibold text-white/70 uppercase tracking-wider mb-2">Language</label>
               <input
                 type="text"
-                value={budget}
-                onChange={(e) => setBudget(e.target.value)}
+                value={language}
+                onChange={(e) => setLanguage(e.target.value)}
                 className="w-full px-4 py-3 bg-white/[0.04] border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-purple transition-all"
-                placeholder="e.g. ₹5,00,000 / Indie"
+                placeholder="e.g. Hindi, English"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-white/70 uppercase tracking-wider mb-2">Timeline</label>
+              <label className="block text-xs font-semibold text-white/70 uppercase tracking-wider mb-2">Shoot Start Date</label>
               <input
-                type="text"
-                value={timeline}
-                onChange={(e) => setTimeline(e.target.value)}
-                className="w-full px-4 py-3 bg-white/[0.04] border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-purple transition-all"
-                placeholder="e.g. Shooting Nov 2026"
+                type="date"
+                value={shootStartDate}
+                onChange={(e) => setShootStartDate(e.target.value)}
+                className="w-full px-4 py-3 bg-white/[0.04] border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-purple transition-all [color-scheme:dark]"
               />
             </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-white/70 uppercase tracking-wider mb-2">Shoot End Date</label>
+              <input
+                type="date"
+                value={shootEndDate}
+                onChange={(e) => setShootEndDate(e.target.value)}
+                min={shootStartDate || undefined}
+                className="w-full px-4 py-3 bg-white/[0.04] border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-purple transition-all [color-scheme:dark]"
+              />
+            </div>
+
+            {/* Legacy budget indicator and clear action */}
+            {project?.budget != null && project?.budget !== '' && !isNaN(Number(project?.budget)) && project?.budget_min == null && project?.budget_max == null && !budgetMin && !budgetMax && (
+              <div className="sm:col-span-2">
+                {!clearLegacyBudget ? (
+                  <div className="flex items-center justify-between gap-3 px-3.5 py-2.5 bg-white/[0.03] border border-white/10 rounded-xl text-xs">
+                    <div className="flex items-center gap-2 flex-wrap text-white/70">
+                      <span>Current saved budget:</span>
+                      <span className="font-semibold text-emerald-400">
+                        ₹{Number(project.budget).toLocaleString('en-IN')}
+                      </span>
+                      <span className="text-white/40">(legacy amount)</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setClearLegacyBudget(true)}
+                      className="text-xs text-red-400 hover:text-red-300 font-medium px-2.5 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition-colors shrink-0"
+                    >
+                      Clear Budget
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between gap-3 px-3.5 py-2.5 bg-red-500/10 border border-red-500/20 rounded-xl text-xs">
+                    <span className="text-red-300">
+                      Legacy budget will be cleared on save.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setClearLegacyBudget(false)}
+                      className="text-xs text-white/70 hover:text-white font-medium px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 transition-colors shrink-0"
+                    >
+                      Undo
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div>
+              <label className="block text-xs font-semibold text-white/70 uppercase tracking-wider mb-2">Min Budget (₹)</label>
+              <input
+                type="number"
+                value={budgetMin}
+                onChange={(e) => {
+                  setBudgetMin(e.target.value)
+                  if (clearLegacyBudget) setClearLegacyBudget(false)
+                }}
+                placeholder="e.g. 100000"
+                min="0"
+                step="any"
+                className="w-full px-4 py-3 bg-white/[0.04] border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-purple transition-all"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-white/70 uppercase tracking-wider mb-2">Max Budget (₹)</label>
+              <input
+                type="number"
+                value={budgetMax}
+                onChange={(e) => {
+                  setBudgetMax(e.target.value)
+                  if (clearLegacyBudget) setClearLegacyBudget(false)
+                }}
+                placeholder="e.g. 500000"
+                min="0"
+                step="any"
+                className="w-full px-4 py-3 bg-white/[0.04] border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-purple transition-all"
+              />
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-semibold text-white/70 uppercase tracking-wider mb-2">Target Goals / Festivals</label>
+              <input
+                type="text"
+                value={target}
+                onChange={(e) => setTarget(e.target.value)}
+                placeholder="e.g. Film festivals, streaming, theatrical"
+                className="w-full px-4 py-3 bg-white/[0.04] border border-white/10 rounded-xl text-white placeholder-white/30 focus:outline-none focus:border-purple transition-all"
+              />
+            </div>
+
+            <ProjectTagsEditor tags={tags} setTags={setTags} disabled={isSaving} />
           </div>
 
           {/* Project Poster Section */}
@@ -907,23 +1388,7 @@ export default function EditProjectModal({ isOpen, onClose, project, onSaveSucce
               Configure who can view and read this project's screenplay.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-              {[
-                {
-                  value: 'ACCEPTED_TEAM',
-                  label: 'Accepted Team Only',
-                  desc: 'Only confirmed team members can view.',
-                },
-                {
-                  value: 'APPLICANTS',
-                  label: 'Applicants & Team',
-                  desc: 'Pending & accepted applicants can view.',
-                },
-                {
-                  value: 'PUBLIC',
-                  label: 'Anyone Viewing Project',
-                  desc: 'Public to anyone viewing the project.',
-                },
-              ].map((tier) => {
+              {SCRIPT_VISIBILITY_TIERS.map((tier) => {
                 const isSelected = scriptVisibility === tier.value
                 return (
                   <button
@@ -967,105 +1432,17 @@ export default function EditProjectModal({ isOpen, onClose, project, onSaveSucce
             {/* Existing and Added Roles List */}
             <div className="space-y-3 mb-4 max-h-64 overflow-y-auto pr-1">
               {rolesList.length > 0 ? (
-                rolesList.map((r, idx) => {
-                  const count = Number(r.positions_needed) || 1
-                  const minAllowed = Math.max(1, Number(r.positions_filled) || 0)
-                  const experience = r.experience ?? ''
-
-                  return (
-                    <div
-                      key={r.id || `new-${idx}`}
-                      className="p-3.5 sm:p-4 bg-white/[0.03] border border-white/[0.08] rounded-xl transition-all"
-                    >
-                      <div className="flex items-start justify-between gap-3 mb-3">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-sm font-semibold text-white">{r.role}</span>
-                          {r.isNew && (
-                            <span className="px-2 py-0.5 text-[10px] font-bold text-purple-light bg-purple/10 border border-purple/20 rounded-full">
-                              New
-                            </span>
-                          )}
-                          {(r.positions_filled || 0) > 0 && (
-                            <span className="px-2 py-0.5 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
-                              {r.positions_filled} Filled
-                            </span>
-                          )}
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveRole(idx, r)}
-                          disabled={(r.positions_filled || 0) > 0}
-                          className={`text-xs font-medium px-2 py-1 rounded transition-all shrink-0 ${
-                            (r.positions_filled || 0) > 0
-                              ? 'text-white/20 cursor-not-allowed'
-                              : 'text-red-400/70 hover:text-red-300 hover:bg-red-500/10'
-                          }`}
-                          title={(r.positions_filled || 0) > 0 ? 'Cannot remove filled role' : 'Remove role'}
-                        >
-                          Remove
-                        </button>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2.5 border-t border-white/[0.06]">
-                        {/* Count Control */}
-                        <div>
-                          <span className="block text-[11px] font-medium text-white/40 mb-1.5 uppercase tracking-wider">
-                            Count
-                          </span>
-                          <div className="inline-flex items-center bg-[#0C0C11] border border-white/[0.10] rounded-lg overflow-hidden">
-                            <button
-                              type="button"
-                              onClick={() => handleRoleCountChange(idx, -1)}
-                              disabled={count <= minAllowed}
-                              className="w-8 h-8 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/[0.05] disabled:opacity-25 disabled:cursor-not-allowed transition-colors text-sm font-medium"
-                              aria-label="Decrease count"
-                            >
-                              −
-                            </button>
-                            <span className="w-10 text-center text-xs font-semibold text-white">
-                              {count}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => handleRoleCountChange(idx, 1)}
-                              className="w-8 h-8 flex items-center justify-center text-white/60 hover:text-white hover:bg-white/[0.05] transition-colors text-sm font-medium"
-                              aria-label="Increase count"
-                            >
-                              +
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Experience Level Selector */}
-                        <div>
-                          <span className="block text-[11px] font-medium text-white/40 mb-1.5 uppercase tracking-wider">
-                            Experience Level
-                          </span>
-                          <div className="relative">
-                            <select
-                              value={experience}
-                              onChange={(e) => handleRoleExperienceChange(idx, e.target.value)}
-                              className="w-full appearance-none px-3 py-1.5 bg-[#0C0C11] border border-white/[0.10] rounded-lg text-xs text-white outline-none transition-all focus:border-purple cursor-pointer pr-8"
-                            >
-                              <option value="" className="bg-[#111118]">
-                                Any experience
-                              </option>
-                              {['Beginner', 'Student', 'Intermediate', 'Professional'].map((lvl) => (
-                                <option key={lvl} value={lvl} className="bg-[#111118]">
-                                  {lvl}
-                                </option>
-                              ))}
-                            </select>
-                            <svg className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                            </svg>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })
+                rolesList.map((r, idx) => (
+                  <RoleItemRow
+                    key={r.id || `new-${idx}`}
+                    roleObj={r}
+                    index={idx}
+                    onCountChange={handleRoleCountChange}
+                    onExperienceChange={handleRoleExperienceChange}
+                    onRemoveRole={handleRemoveRole}
+                    disabled={isSaving}
+                  />
+                ))
               ) : (
                 <p className="text-white/30 text-xs py-2">No roles currently listed.</p>
               )}
@@ -1083,12 +1460,14 @@ export default function EditProjectModal({ isOpen, onClose, project, onSaveSucce
           </div>
 
           {/* Role Picker Modal */}
-          <RolePickerModal
-            isOpen={isRolePickerOpen}
-            onClose={() => setIsRolePickerOpen(false)}
-            onSelectRole={handleSelectRole}
-            selectedRoleNames={rolesList.map((r) => r.role)}
-          />
+          {isRolePickerOpen && (
+            <RolePickerModal
+              isOpen={isRolePickerOpen}
+              onClose={() => setIsRolePickerOpen(false)}
+              onSelectRole={handleSelectRole}
+              selectedRoleNames={selectedRoleNames}
+            />
+          )}
 
           {/* Action Buttons */}
           <div className="flex items-center justify-end gap-3 pt-6 border-t border-white/10">

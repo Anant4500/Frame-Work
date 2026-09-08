@@ -23,65 +23,11 @@ const flowchartSteps = [
 function HowItWorks() {
   const { user } = useAuth()
   return (
-    <section id="how-it-works" className="relative py-12 md:py-16 px-6 overflow-hidden">
+    <section id="how-it-works" className="relative py-12 md:py-16 px-6 overflow-hidden" style={{ backgroundColor: '#000000' }}>
       {/* ── Section Background Stack ── */}
 
       {/* Layer 1: Base */}
-      <div className="absolute inset-0 pointer-events-none" style={{ backgroundColor: '#0A0A0F' }} />
-
-      {/* Layer 2: Residual Purple Haze */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
-        {/* Upper-middle ambient haze — leftover from Hero */}
-        <div
-          className="absolute pointer-events-none"
-          style={{
-            width: '900px',
-            height: '550px',
-            top: '0%',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            background: 'radial-gradient(ellipse 70% 50% at 50% 20%, rgba(59, 31, 115, 0.16) 0%, rgba(98, 57, 191, 0.07) 50%, transparent 80%)',
-            filter: 'blur(75px)',
-          }}
-        />
-
-        {/* Layer 3: Center-card emphasis — restrained radial glow behind middle area */}
-        <div
-          className="absolute pointer-events-none"
-          style={{
-            width: '560px',
-            height: '420px',
-            top: '64%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            background: 'radial-gradient(ellipse, rgba(98, 57, 191, 0.14) 0%, rgba(59, 31, 115, 0.08) 45%, transparent 70%)',
-            filter: 'blur(60px)',
-          }}
-        />
-      </div>
-
-      {/* Layer 4: Grain (Subtle 1.8%) */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        aria-hidden="true"
-        style={{
-          opacity: 0.018,
-          mixBlendMode: 'overlay',
-          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='hiw-g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.78' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23hiw-g)'/%3E%3C/svg%3E")`,
-          backgroundRepeat: 'repeat',
-        }}
-      />
-
-      {/* Layer 6: Bottom transition to next section */}
-      <div
-        className="absolute bottom-0 left-0 right-0 pointer-events-none"
-        aria-hidden="true"
-        style={{
-          height: '80px',
-          background: 'linear-gradient(to bottom, transparent, #0A0A0F)',
-          zIndex: 4,
-        }}
-      />
+      <div className="absolute inset-0 pointer-events-none" style={{ backgroundColor: '#000000' }} />
 
       {/* Subtle top divider */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-40 h-px bg-gradient-to-r from-transparent via-purple/30 to-transparent z-10" />

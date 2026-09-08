@@ -7,7 +7,7 @@ import CreatorProjectView from '../components/project/CreatorProjectView'
 import CollaboratorProjectView from '../components/project/CollaboratorProjectView'
 import EditProjectModal from '../components/project/EditProjectModal'
 import ApplyModal from '../components/project/ApplyModal'
-import { getRoleOccupancy } from '../components/project/projectRoleUtils'
+import { getRoleOccupancy, formatProjectStatus } from '../components/project/projectRoleUtils'
 
 function ProjectDetailPage() {
   const { id } = useParams()
@@ -166,11 +166,19 @@ function ProjectDetailPage() {
           genre,
           status,
           location,
+          format,
+          shoot_start_date,
+          shoot_end_date,
+          language,
+          budget_min,
+          budget_max,
+          target,
           budget,
           timeline,
           poster_url,
           script_url,
           script_visibility,
+          tags,
           created_at,
           updated_at,
           creator:profiles(
@@ -215,19 +223,18 @@ function ProjectDetailPage() {
         description: data.description || '',
         genre: data.genre || 'Drama',
         location: data.location || 'Remote',
+        format: data.format || null,
+        shoot_start_date: data.shoot_start_date || null,
+        shoot_end_date: data.shoot_end_date || null,
+        language: data.language || null,
+        budget_min: data.budget_min != null ? Number(data.budget_min) : null,
+        budget_max: data.budget_max != null ? Number(data.budget_max) : null,
+        target: data.target || null,
+        tags: Array.isArray(data.tags) ? data.tags : [],
         budget: data.budget,
         timeline: data.timeline,
         rawStatus: data.status,
-        status:
-          data.status === 'OPEN'
-            ? 'Open'
-            : data.status === 'IN_PRODUCTION'
-            ? 'In Production'
-            : data.status === 'COMPLETED'
-            ? 'Completed'
-            : data.status === 'CLOSED'
-            ? 'Closed'
-            : data.status,
+        status: formatProjectStatus(data.status),
         thumbnail: data.poster_url || '/images/hero-bg.png',
         poster_url: data.poster_url,
         script_url: data.script_url || null,
@@ -327,6 +334,18 @@ function ProjectDetailPage() {
     }
   }, [searchParams, setSearchParams])
 
+  const handleStatusUpdated = useCallback((newRawStatus) => {
+    const displayStatus = formatProjectStatus(newRawStatus)
+
+    setProject((prev) => prev ? {
+      ...prev,
+      rawStatus: newRawStatus,
+      status: displayStatus,
+    } : prev)
+
+    setToast({ type: 'success', text: `Project status updated to ${displayStatus}.` })
+  }, [])
+
   const handleApplyRole = (role) => {
     if (!user) {
       navigate('/login', {
@@ -352,8 +371,8 @@ function ProjectDetailPage() {
     const roleObj = Array.isArray(project?.rawRoles)
       ? project.rawRoles.find((r) => r.role === role)
       : null
-    const { isFilled } = getRoleOccupancy(roleObj, project?.applicants || [])
-    if (isFilled) {
+    const { isFilled, isAvailable } = getRoleOccupancy(roleObj, project?.applicants || [])
+    if (isAvailable && isFilled) {
       setToast({ type: 'error', text: 'This role has already been filled.' })
       return
     }
@@ -403,32 +422,60 @@ function ProjectDetailPage() {
       : null
     const projectRoleId = roleObj?.id || null
 
-    const { isFilled } = getRoleOccupancy(roleObj, project?.applicants || [])
-    if (isFilled) {
+    if (!projectRoleId) {
+      setToast({ type: 'error', text: 'Role information could not be found. Please try again.' })
+      return
+    }
+
+    const { isFilled: localFilled, isAvailable: localAvailable } = getRoleOccupancy(roleObj, project?.applicants || [])
+    if (localAvailable && localFilled) {
       setToast({ type: 'error', text: 'This role has already been filled.' })
       setApplyModalOpen(false)
       return
     }
 
-    // Double check with Supabase live count
-    if (projectRoleId) {
-      const { count: liveAccepted } = await supabase
-        .from('applications')
-        .select('*', { count: 'exact', head: true })
-        .eq('project_role_id', projectRoleId)
-        .eq('status', 'ACCEPTED')
-
-      const reqCount = Math.max(1, Number(roleObj?.positions_needed) || 1)
-      if (liveAccepted != null && liveAccepted >= reqCount) {
-        setToast({ type: 'error', text: 'This role has already been filled.' })
-        setApplyModalOpen(false)
-        await fetchApplications(project.id)
-        return
-      }
-    }
-
     try {
       setIsSubmittingApplication(true)
+
+      // Verify live role capacity from authorized project_roles record
+      const { data: liveRole, error: roleError } = await supabase
+        .from('project_roles')
+        .select('id, positions_needed, positions_filled')
+        .eq('id', projectRoleId)
+        .single()
+
+      if (roleError || !liveRole) {
+        console.error('Error verifying role capacity:', roleError)
+        setToast({ type: 'error', text: 'Unable to verify role availability. Please try again.' })
+        return
+      }
+
+      const rawNeeded = liveRole.positions_needed
+      const rawFilled = liveRole.positions_filled
+      const hasValidNeeded =
+        rawNeeded !== null &&
+        rawNeeded !== undefined &&
+        !isNaN(Number(rawNeeded)) &&
+        Number(rawNeeded) >= 1
+      const hasValidFilled =
+        rawFilled !== null &&
+        rawFilled !== undefined &&
+        !isNaN(Number(rawFilled)) &&
+        Number(rawFilled) >= 0
+
+      if (!hasValidNeeded || !hasValidFilled) {
+        setToast({ type: 'error', text: 'Role availability information is currently unavailable. Please try again.' })
+        return
+      }
+
+      const reqCount = Number(rawNeeded)
+      const filledCount = Number(rawFilled)
+      if (filledCount >= reqCount) {
+        setToast({ type: 'error', text: 'This role has already been filled.' })
+        setApplyModalOpen(false)
+        await fetchProject(false)
+        return
+      }
       const { data: newApp, error: insertError } = await supabase
         .from('applications')
         .insert({
@@ -505,8 +552,8 @@ function ProjectDetailPage() {
         )
       : null
 
-    const { requiredCount, acceptedCount } = getRoleOccupancy(roleObj, project?.applicants || [])
-    if (acceptedCount >= requiredCount) {
+    const { requiredCount, acceptedCount, isAvailable } = getRoleOccupancy(roleObj, project?.applicants || [], { isCreator: true })
+    if (isAvailable && acceptedCount != null && acceptedCount >= requiredCount) {
       setToast({ type: 'error', text: 'This role is already filled.' })
       return
     }
@@ -679,6 +726,7 @@ function ProjectDetailPage() {
             applicationsError={applicationsError}
             onRetryApplications={() => fetchApplications(project.id)}
             onEnsureScriptUrl={ensureScriptSignedUrl}
+            onStatusUpdated={handleStatusUpdated}
           />
         ) : (
           <CollaboratorProjectView

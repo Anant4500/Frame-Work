@@ -45,7 +45,7 @@ export default function CollaboratorApplicationCard({ application }) {
 
   return (
     <div
-      className={`group bg-[#111118] border rounded-2xl p-3.5 sm:p-4 transition-all duration-300 flex flex-col justify-between h-full ${
+      className={`group bg-[#111111] border rounded-2xl p-3.5 sm:p-4 transition-all duration-300 flex flex-col justify-between h-full ${
         isAccepted
           ? 'border-emerald-500/25 ring-1 ring-emerald-500/15 shadow-[0_0_20px_rgba(16,185,129,0.05)]'
           : 'border-white/[0.08] hover:border-white/[0.14] hover:shadow-[0_8px_32px_rgba(0,0,0,0.35)]'

@@ -50,10 +50,7 @@ function FeaturedProjects() {
   }, [fetchFeaturedProjects])
 
   return (
-    <section id="projects" className="relative py-16 md:py-24 px-6 overflow-hidden">
-      {/* Background accent */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-purple/5 rounded-full blur-[120px] pointer-events-none" />
-
+    <section id="projects" className="relative py-16 md:py-24 px-6 overflow-hidden" style={{ backgroundColor: '#000000' }}>
       <div className="max-w-7xl mx-auto relative">
         {/* Section Header */}
         <div className="text-center mb-10 sm:mb-12 reveal">
