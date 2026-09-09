@@ -158,6 +158,18 @@ export default function CreatorProjectCard({ project }) {
         {/* Action Row: Primary CTA + Edit Action */}
         <div className="pt-4 mt-2 border-t border-white/[0.06] flex items-center justify-end gap-2.5">
           <Link
+            to={`/project/${id}/team-chat`}
+            id={`chat-project-${id}-btn`}
+            aria-label={`Open Team Chat for ${title}`}
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#6239BF]/15 hover:bg-[#6239BF]/25 text-purple-light hover:text-white border border-[#6239BF]/30 hover:border-[#6239BF]/50 text-xs font-semibold rounded-xl transition-all duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6239BF]"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a.75.75 0 01-.774-.774 4.004 4.004 0 00-.097-1.127C3.393 17.65 3 15.657 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+            </svg>
+            <span>Chat</span>
+          </Link>
+
+          <Link
             to={`/project/${id}?edit=true`}
             id={`edit-project-${id}-btn`}
             className="inline-flex items-center gap-1.5 px-3 py-2 bg-white/[0.04] hover:bg-white/[0.08] text-white/70 hover:text-white border border-white/10 hover:border-purple/40 text-xs font-semibold rounded-xl transition-all duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6239BF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0F]"

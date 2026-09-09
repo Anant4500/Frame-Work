@@ -117,13 +117,27 @@ export default function JoinedProductionCard({ production }) {
       </div>
 
       {/* ── Action Footer ── */}
-      <div className="border-t border-white/[0.06] mt-3.5 pt-3">
+      <div className="border-t border-white/[0.06] mt-3.5 pt-3 flex items-center gap-2">
         <Link
           to={`/project/${production.projectId}`}
-          className="w-full py-2 px-3 rounded-lg text-xs font-semibold text-white/80 bg-white/[0.04] border border-white/[0.08] hover:border-[#6239BF]/50 hover:bg-[#6239BF]/10 hover:text-white transition-all duration-200 flex items-center justify-center gap-1.5 group/btn focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6239BF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0F]"
+          className="flex-1 min-w-0 py-2 px-2.5 rounded-lg text-xs font-semibold text-white/80 bg-white/[0.04] border border-white/[0.08] hover:border-[#6239BF]/50 hover:bg-[#6239BF]/10 hover:text-white transition-all duration-200 flex items-center justify-center gap-1 group/btn focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6239BF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0F]"
         >
-          <span>Open Project</span>
-          <span className="transition-transform duration-200 group-hover/btn:translate-x-1" aria-hidden="true">&rarr;</span>
+          <span className="truncate">Open Project</span>
+          <span className="transition-transform duration-200 group-hover/btn:translate-x-0.5 shrink-0" aria-hidden="true">&rarr;</span>
+        </Link>
+        <Link
+          to={`/project/${production.projectId}/team-chat`}
+          state={{
+            projectTitle: production.title,
+            role: production.role,
+            creatorName: production.creatorName,
+          }}
+          className="flex-1 min-w-0 py-2 px-2.5 rounded-lg text-xs font-semibold text-white bg-[#6239BF]/20 border border-[#6239BF]/40 hover:bg-[#6239BF] hover:border-[#6239BF] hover:shadow-[0_0_15px_rgba(98,57,191,0.35)] transition-all duration-200 flex items-center justify-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#6239BF] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0A0F]"
+        >
+          <svg className="w-3.5 h-3.5 text-purple-light shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2} aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a.75.75 0 01-.774-.75 4.968 4.968 0 01.996-2.908c-.767-1.127-1.132-2.385-1.132-3.812 0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+          </svg>
+          <span className="truncate">Chat</span>
         </Link>
       </div>
     </div>

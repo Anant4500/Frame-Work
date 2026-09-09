@@ -10,6 +10,7 @@ import ExploreProjects from './pages/ExploreProjects'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import ProjectDetailPage from './pages/ProjectDetailPage'
+import TeamChatPage from './pages/TeamChatPage'
 import CreateProjectPage from './pages/CreateProjectPage'
 import ProfilePage from './pages/ProfilePage'
 import PublicProfilePage from './pages/PublicProfilePage'
@@ -125,6 +126,7 @@ function AuthProfileMissingState({ onRetry, onSignOut }) {
 function AppContent() {
   const location = useLocation()
   const isAuth = location.pathname === '/login' || location.pathname === '/register'
+  const isChat = location.pathname.includes('/team-chat')
   const { loading, authStatus, retryProfile, logout } = useAuth()
 
   // Set safe title for global auth interception states (loading/error)
@@ -230,12 +232,13 @@ function AppContent() {
   return (
     <div className="min-h-screen bg-[#000000] text-white">
       <ScrollToTop />
-      <Header />
-      <main>
+      {!isChat && <Header />}
+      <main className={isChat ? 'h-screen overflow-hidden' : ''}>
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/explore" element={<ExploreProjects />} />
           <Route path="/project/:id" element={<ProjectDetailPage />} />
+          <Route path="/project/:id/team-chat" element={<TeamChatPage />} />
           <Route path="/create-project" element={<CreateProjectPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/profile/:id" element={<PublicProfilePage />} />
@@ -246,7 +249,7 @@ function AppContent() {
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
-      {!isAuth && <Footer />}
+      {!isAuth && !isChat && <Footer />}
     </div>
   )
 }
