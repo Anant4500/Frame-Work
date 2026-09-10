@@ -234,6 +234,16 @@ function Header() {
           >
             Explore
           </Link>
+          <Link
+            to="/marketplace"
+            className={`text-sm font-medium transition-colors duration-300 relative after:content-[''] after:absolute after:bottom-[-4px] after:left-0 after:h-[2px] after:bg-purple after:transition-all after:duration-300 ${
+              location.pathname === '/marketplace'
+                ? 'text-white after:w-full'
+                : 'text-white/70 hover:text-white after:w-0 hover:after:w-full'
+            }`}
+          >
+            Marketplace
+          </Link>
           {user && (
             <Link
               to="/my-projects"
@@ -513,8 +523,21 @@ function Header() {
         }`}
       >
         <div className="px-6 py-6 flex flex-col gap-4">
-          <Link to="/explore" className="text-white/70 hover:text-white transition-colors py-2">
+          <Link
+            to="/explore"
+            className={`transition-colors py-2 ${
+              location.pathname === '/explore' ? 'text-purple-light font-medium' : 'text-white/70 hover:text-white'
+            }`}
+          >
             Explore
+          </Link>
+          <Link
+            to="/marketplace"
+            className={`transition-colors py-2 ${
+              location.pathname === '/marketplace' ? 'text-purple-light font-medium' : 'text-white/70 hover:text-white'
+            }`}
+          >
+            Marketplace
           </Link>
           {user && (
             <>

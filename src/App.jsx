@@ -7,6 +7,7 @@ import Header from './components/Header'
 import Footer from './components/Footer'
 import HomePage from './pages/HomePage'
 import ExploreProjects from './pages/ExploreProjects'
+import MarketplacePage from './pages/MarketplacePage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import ProjectDetailPage from './pages/ProjectDetailPage'
@@ -237,6 +238,7 @@ function AppContent() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/explore" element={<ExploreProjects />} />
+          <Route path="/marketplace" element={<MarketplacePage />} />
           <Route path="/project/:id" element={<ProjectDetailPage />} />
           <Route path="/project/:id/team-chat" element={<TeamChatPage />} />
           <Route path="/create-project" element={<CreateProjectPage />} />
