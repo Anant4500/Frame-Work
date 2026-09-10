@@ -31,6 +31,7 @@ function MyProjectsPage() {
   const [myApplicationsList, setMyApplicationsList] = useState([])
   const [loadingCreated, setLoadingCreated] = useState(true)
   const [loadingApps, setLoadingApps] = useState(true)
+  const [loadingJoined, setLoadingJoined] = useState(true)
   const [creatorError, setCreatorError] = useState(null)
   const [collaboratorError, setCollaboratorError] = useState(null)
   const [toast, setToast] = useState(null)
@@ -155,11 +156,12 @@ function MyProjectsPage() {
     if (!user?.id) return
     try {
       setCollaboratorError(null)
-      setLoadingApps(true)
+      setLoadingJoined(true)
       const { data: appData, error: appError } = await supabase
         .from('applications')
         .select(`
           id,
+          project_id,
           status,
           message,
           created_at,
@@ -242,23 +244,19 @@ function MyProjectsPage() {
       console.error('Error fetching collaborator applications:', err)
       setCollaboratorError("We couldn't load your applications and joined productions. Please try again.")
     } finally {
-      setLoadingApps(false)
+      setLoadingJoined(false)
     }
   }, [user?.id])
 
   useEffect(() => {
     if (isCreator) {
       fetchCreatorData(true)
-    } else {
-      fetchCollaboratorData()
     }
+    fetchCollaboratorData()
   }, [isCreator, fetchCreatorData, fetchCollaboratorData])
 
   // Collaborator Joined Productions (Accepted applications with real project status & creator)
   const joinedProductionsList = useMemo(() => {
-    if (isCreator) {
-      return []
-    }
     return myApplicationsList
       .filter((a) => a.status === 'Accepted')
       .map((a) => ({
@@ -277,7 +275,7 @@ function MyProjectsPage() {
         location: a.location,
         genre: a.genre,
       }))
-  }, [isCreator, myApplicationsList])
+  }, [myApplicationsList])
 
   // Group incoming applications by project ID for Creator Command Center
   const applicationsByProject = useMemo(() => {
@@ -511,7 +509,7 @@ function MyProjectsPage() {
     ? [
         { key: 'created', label: 'Projects', count: enrichedCreatorProjects.length },
         { key: 'applications', label: 'Applications', count: incomingApplications.length, pendingCount: creatorSummary.pendingApplications },
-        { key: 'joined', label: 'Joined', count: 0 },
+        { key: 'joined', label: 'Joined', count: joinedProductionsList.length },
       ]
     : [
         { key: 'joined', label: 'Joined Productions', count: joinedProductionsList.length },
@@ -725,9 +723,6 @@ function MyProjectsPage() {
             />
           )}
 
-          {isCreator && activeTab === 'joined' && (
-            <JoinedTab projects={[]} />
-          )}
 
           {isCreator && activeTab === 'applications' && (
             <ApplicationsTab
@@ -745,16 +740,16 @@ function MyProjectsPage() {
               filter={collaboratorAppFilter}
               onFilterChange={setCollaboratorAppFilter}
               filterCounts={collaboratorFilterCounts}
-              loading={loadingApps}
+              loading={loadingJoined}
               error={collaboratorError}
               onRetry={fetchCollaboratorData}
             />
           )}
 
-          {!isCreator && activeTab === 'joined' && (
+          {activeTab === 'joined' && (
             <CollaboratorJoinedTab
               productions={joinedProductionsList}
-              loading={loadingApps}
+              loading={loadingJoined}
               error={collaboratorError}
               onRetry={fetchCollaboratorData}
             />

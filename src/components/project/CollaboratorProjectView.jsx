@@ -177,8 +177,7 @@ export default function CollaboratorProjectView({
   const myApplication = useMemo(() => {
     if (!user || !applicants || applicants.length === 0) return null
     return applicants.find((a) =>
-      (user.id && (a.applicant_id === user.id || a.applicant?.id === user.id)) ||
-      (user.name && a.name === user.name)
+      user.id && (a.applicant_id === user.id || a.applicant?.id === user.id)
     )
   }, [user, applicants])
 
@@ -948,4 +947,3 @@ export default function CollaboratorProjectView({
     </div>
   )
 }
-

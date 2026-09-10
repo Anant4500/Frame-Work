@@ -8,6 +8,7 @@ export default function ChatComposer({
 }) {
   const [text, setText] = useState('')
   const textareaRef = useRef(null)
+  const sendingRef = useRef(false)
 
   // Auto-resize textarea height
   useEffect(() => {
@@ -19,13 +20,14 @@ export default function ChatComposer({
 
   const handleSend = async () => {
     const trimmed = text.trim()
-    if (!trimmed || isSending || trimmed.length > 2000) return
+    if (!trimmed || isSending || sendingRef.current || trimmed.length > 2000) return
+    sendingRef.current = true
     
     try {
       const ok = await onSendMessage(trimmed)
-      // Only clear if onSendMessage returned true (or void/truthy)
-      if (ok !== false) {
-        setText('')
+      // Clear only after confirmed persistence, preserving any subsequently edited draft.
+      if (ok === true) {
+        setText(current => current === text ? '' : current)
         if (textareaRef.current) {
           textareaRef.current.style.height = 'auto'
           textareaRef.current.focus()
@@ -33,11 +35,13 @@ export default function ChatComposer({
       }
     } catch {
       // Keep unsent text on failure
+    } finally {
+      sendingRef.current = false
     }
   }
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault()
       handleSend()
     }

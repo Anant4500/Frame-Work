@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useLayoutEffect, useRef } from 'react'
 
 function formatMessageTime(isoString) {
   if (!isoString) return ''
@@ -25,20 +25,29 @@ function getMessageDateKey(isoString) {
 export default function ChatMessageList({
   messages = [],
   loading = false,
+  error = null,
   hasMoreOlder = false,
   loadingOlder = false,
   onLoadOlder,
 }) {
   const bottomRef = useRef(null)
+  const listRef = useRef(null)
+  const previousRef = useRef(null)
 
-  // Scroll to bottom on new messages if not loading older
-  const prevCountRef = useRef(messages.length)
-  useEffect(() => {
-    if (!loadingOlder && messages.length > prevCountRef.current) {
+  // Preserve the viewport when older rows are prepended.
+  useLayoutEffect(() => {
+    const list = listRef.current
+    if (!list) return
+    const previous = previousRef.current
+    const first = messages[0]?.id
+    const last = messages[messages.length - 1]?.id
+    if (previous && first !== previous.first && last === previous.last) {
+      list.scrollTop += list.scrollHeight - previous.height
+    } else if (!loadingOlder && last !== previous?.last) {
       bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
     }
-    prevCountRef.current = messages.length
-  }, [messages.length, loadingOlder])
+    previousRef.current = { first, last, height: list.scrollHeight }
+  }, [messages, loadingOlder, loading])
 
   if (loading) {
     return (
@@ -50,6 +59,10 @@ export default function ChatMessageList({
         <p className="text-xs text-white/40">Loading messages...</p>
       </div>
     )
+  }
+
+  if (messages.length === 0 && error) {
+    return <div className="flex-1 bg-black" />
   }
 
   if (messages.length === 0) {
@@ -68,7 +81,7 @@ export default function ChatMessageList({
 
   // Group messages by date
   return (
-    <div className="flex-1 overflow-y-auto px-3 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-5 bg-[#000000]">
+    <div ref={listRef} style={{ overflowAnchor: 'none' }} className="flex-1 overflow-y-auto px-3 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-5 bg-[#000000]">
       {/* ── Optional Load Older Messages Button ── */}
       {hasMoreOlder && (
         <div className="flex justify-center pb-2">

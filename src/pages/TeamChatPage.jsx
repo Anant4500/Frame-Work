@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../context/useAuth'
 import { usePageTitle } from '../hooks/usePageTitle'
 import { supabase } from '../lib/supabaseClient'
+import { CHAT_PAGE_SIZE, CHAT_MESSAGE_SELECT, parseChatProjectId, mergeChatMessages, chatCursorFilter, formatChatMember, fetchChatAfter } from '../utils/chatMessages'
 import ChatHeader from '../components/chat/ChatHeader'
 import ChatMessageList from '../components/chat/ChatMessageList'
 import ChatComposer from '../components/chat/ChatComposer'
@@ -29,19 +30,23 @@ function formatDbMessage(row, creatorId) {
 
 export default function TeamChatPage() {
   const { id } = useParams()
+  const { user } = useAuth()
+  // A route/account change resets the room, requests, and composer together.
+  return <TeamChatRoom key={`${id}:${user?.id || 'anonymous'}`} />
+}
+
+function TeamChatRoom() {
+  const { id } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
   const { user, loading: authLoading } = useAuth()
-
-  const projectIdNum = Number(id)
-  const isValidProjectId = Boolean(id && !isNaN(projectIdNum) && projectIdNum > 0)
-
-  // Project and state
-  const [project, setProject] = useState(null)
-  const [projectTitle, setProjectTitle] = useState(location.state?.projectTitle || 'Team Production Room')
+  const projectIdNum = parseChatProjectId(id)
+  const isValidProjectId = projectIdNum !== null
+  const [projectTitle, setProjectTitle] = useState('Team Production Room')
   const [authChecking, setAuthChecking] = useState(true)
   const [authorized, setAuthorized] = useState(false)
-
+  const [accessError, setAccessError] = useState(null)
+  const [chatError, setChatError] = useState(null)
   const [messages, setMessages] = useState([])
   const [members, setMembers] = useState([])
   const [loadingHistory, setLoadingHistory] = useState(true)
@@ -49,375 +54,208 @@ export default function TeamChatPage() {
   const [loadingOlder, setLoadingOlder] = useState(false)
   const [isSending, setIsSending] = useState(false)
   const [sendError, setSendError] = useState(null)
-
-  // Sidebar toggle
-  const [isMembersOpen, setIsMembersOpen] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return window.innerWidth >= 1024
-    }
-    return true
-  })
-
+  const [isMembersOpen, setIsMembersOpen] = useState(() => window.innerWidth >= 1024)
+  const roomRef = useRef(null)
   usePageTitle(`${projectTitle} Team Chat | FrameWork`)
 
-  // Navigation back
   const handleBack = useCallback(() => {
-    if (window.history.state && window.history.state.idx > 0) {
-      navigate(-1)
-    } else if (isValidProjectId) {
-      navigate(`/project/${projectIdNum}`)
-    } else {
-      navigate('/my-projects')
-    }
+    if (window.history.state?.idx > 0) navigate(-1)
+    else navigate(isValidProjectId ? `/project/${projectIdNum}` : '/my-projects')
   }, [navigate, isValidProjectId, projectIdNum])
 
-  // 1. Verify Authentication & Membership Access
   useEffect(() => {
     if (authLoading) return
-
-    if (!user) {
-      // Not logged in -> send to login with return path
-      navigate('/login', { state: { from: location.pathname } })
+    if (!user?.id) {
+      navigate('/login', { replace: true, state: { from: location.pathname } })
       return
     }
-
     if (!isValidProjectId) {
       setAuthChecking(false)
-      setAuthorized(false)
       return
     }
-
-    let isMounted = true
-
-    async function checkAccess() {
-      setAuthChecking(true)
+    const room = { active: true, allowed: false, rows: [], project: null, sending: false, older: false }
+    roomRef.current = room
+    let channel
+    let syncing = false
+    let syncAgain = false
+    let historyLoaded = false
+    const query = () => supabase.from('project_chat_messages').select(CHAT_MESSAGE_SELECT).eq('project_id', projectIdNum)
+    room.query = query
+    room.merge = (rows) => {
+      if (!room.active || !room.allowed) return
+      room.rows = mergeChatMessages(room.rows, rows.map(row => formatDbMessage(row, room.project.creator_id)))
+      setMessages(room.rows)
+    }
+    room.checkAccess = async () => {
+      const { data, error } = await supabase.rpc('can_access_project_chat', { p_project_id: projectIdNum })
+      if (!room.active) return false
+      if (error) throw error
+      room.allowed = data === true
+      setAuthorized(room.allowed)
+      if (!room.allowed) {
+        setAccessError(null)
+        room.rows = []
+        historyLoaded = false
+        setMessages([])
+        setMembers([])
+        if (channel) {
+          void supabase.removeChannel(channel)
+          channel = null
+        }
+      }
+      return room.allowed
+    }
+    // Serialize history/reconnect queries and repeat for notifications received in flight.
+    const sync = async () => {
+      if (!room.active) return
+      if (syncing) { syncAgain = true; return }
+      syncing = true
       try {
-        // Fetch project metadata & verify chat access RPC
-        const [accessRes, projectRes] = await Promise.all([
-          supabase.rpc('can_access_project_chat', { p_project_id: projectIdNum }),
-          supabase.from('projects').select('id, title, creator_id').eq('id', projectIdNum).maybeSingle(),
-        ])
-
-        if (!isMounted) return
-
-        if (accessRes.error || !accessRes.data) {
-          setAuthorized(false)
+        do {
+          syncAgain = false
+          if (!await room.checkAccess()) return
+          if (!room.project) {
+            const { data, error } = await supabase.from('projects').select('id, title, creator_id').eq('id', projectIdNum).single()
+            if (!room.active) return
+            if (error) throw error
+            room.project = data
+            setProjectTitle(data.title || 'Team Production Room')
+          }
+          setAccessError(null)
           setAuthChecking(false)
-          return
-        }
-
-        // User is authorized!
-        setAuthorized(true)
-        if (projectRes.data) {
-          setProject(projectRes.data)
-          setProjectTitle(projectRes.data.title)
-        }
-      } catch (err) {
-        console.error('Error verifying chat access:', err)
-        if (isMounted) setAuthorized(false)
-      } finally {
-        if (isMounted) setAuthChecking(false)
-      }
-    }
-
-    checkAccess()
-
-    return () => {
-      isMounted = false
-    }
-  }, [user, authLoading, isValidProjectId, projectIdNum, navigate, location.pathname])
-
-  // 2. Fetch Members and Recent 50 Messages once authorized
-  useEffect(() => {
-    if (!authorized || !isValidProjectId || !project) return
-
-    let isMounted = true
-
-    async function fetchChatData() {
-      setLoadingHistory(true)
-      try {
-        // Fetch members and messages concurrently
-        const [membersRes, messagesRes] = await Promise.all([
-          supabase.rpc('get_project_chat_members', { p_project_id: projectIdNum }),
-          supabase
-            .from('project_chat_messages')
-            .select(`
-              id,
-              project_id,
-              sender_id,
-              body,
-              created_at,
-              sender:profiles!sender_id(id, name, profile_photo_url, role)
-            `)
-            .eq('project_id', projectIdNum)
-            .order('created_at', { ascending: false })
-            .order('id', { ascending: false })
-            .limit(50),
-        ])
-
-        if (!isMounted) return
-
-        if (!membersRes.error && membersRes.data) {
-          const formattedMembers = membersRes.data.map((m) => ({
-            id: m.user_id,
-            name: m.name || 'Crew Member',
-            avatar: m.profile_photo_url || null,
-            role: m.role || 'Collaborator',
-            roles: m.project_roles || (m.is_creator ? ['Project Owner'] : ['Crew Member']),
-            isCreator: Boolean(m.is_creator),
-            is_creator: Boolean(m.is_creator),
-          }))
-          setMembers(formattedMembers)
-        }
-
-        if (!messagesRes.error && messagesRes.data) {
-          if (messagesRes.data.length === 50) {
-            setHasMoreOlder(true)
-          }
-          // Messages were fetched descending for limit 50, reverse to show chronological order
-          const chronological = [...messagesRes.data].reverse().map((row) =>
-            formatDbMessage(row, project.creator_id)
-          )
-          setMessages(chronological)
-        }
-      } catch (err) {
-        console.error('Failed to load chat data:', err)
-      } finally {
-        if (isMounted) setLoadingHistory(false)
-      }
-    }
-
-    fetchChatData()
-
-    return () => {
-      isMounted = false
-    }
-  }, [authorized, isValidProjectId, projectIdNum, project])
-
-  // Ref to latest messages for reconnect reconciliation
-  const messagesRef = useRef(messages)
-  useEffect(() => {
-    messagesRef.current = messages
-  }, [messages])
-
-  // 3. Setup Realtime Private Broadcast Channel (Notification-Only)
-  useEffect(() => {
-    if (!authorized || !isValidProjectId || !project) return
-
-    const topic = `project:${projectIdNum}:chat`
-    const channel = supabase.channel(topic, {
-      config: { private: true },
-    })
-
-    // Reconnection helper to pull missed messages using stable keyset pagination
-    const reconcileMissedMessages = async () => {
-      const currentList = messagesRef.current
-      if (currentList.length === 0) return
-      const latestMsg = currentList[currentList.length - 1]
-      if (!latestMsg?.created_at || !latestMsg?.id) return
-
-      try {
-        const { data, error } = await supabase
-          .from('project_chat_messages')
-          .select(`
-            id,
-            project_id,
-            sender_id,
-            body,
-            created_at,
-            sender:profiles!sender_id(id, name, profile_photo_url, role)
-          `)
-          .eq('project_id', projectIdNum)
-          .or(`created_at.gt.${latestMsg.created_at},and(created_at.eq.${latestMsg.created_at},id.gt.${latestMsg.id})`)
-          .order('created_at', { ascending: true })
-          .order('id', { ascending: true })
-
-        if (!error && data && data.length > 0) {
-          const newRows = data.map((r) => formatDbMessage(r, project.creator_id))
-          setMessages((prev) => {
-            const existingIds = new Set(prev.map((m) => m.id))
-            const unique = newRows.filter((m) => !existingIds.has(m.id))
-            return unique.length > 0 ? [...prev, ...unique] : prev
-          })
-        }
-      } catch (err) {
-        console.warn('Error during chat reconnect reconciliation:', err)
-      }
-    }
-
-    // Handle broadcast notifications (ID only - fetch full message through RLS)
-    channel
-      .on('broadcast', { event: 'new_message' }, async ({ payload }) => {
-        const messageId = payload?.id
-        if (!messageId) return
-
-        // If already present (e.g. sender's confirmed insert return), do not re-fetch
-        if (messagesRef.current.some((m) => m.id === messageId)) return
-
-        try {
-          // Authoritative fetch via RLS: only authorized members can read the message body
-          const { data: row } = await supabase
-            .from('project_chat_messages')
-            .select(`
-              id,
-              project_id,
-              sender_id,
-              body,
-              created_at,
-              sender:profiles!sender_id(id, name, profile_photo_url, role)
-            `)
-            .eq('id', messageId)
-            .maybeSingle()
-
-          if (row) {
-            const formatted = formatDbMessage(row, project.creator_id)
-            setMessages((prev) => {
-              if (prev.some((m) => m.id === formatted.id)) return prev
-              return [...prev, formatted]
-            })
+          const { data: roster, error: rosterError } = await supabase.rpc('get_project_chat_members', { p_project_id: projectIdNum })
+          if (!room.active) return
+          if (rosterError) throw rosterError
+          setMembers((roster || []).map(formatChatMember))
+          if (!historyLoaded) {
+            const { data, error } = await query().order('created_at', { ascending: false }).order('id', { ascending: false }).limit(CHAT_PAGE_SIZE)
+            if (!room.active) return
+            if (error) throw error
+            room.merge(data || [])
+            room.recoveryStart = data?.[data.length - 1] || null
+            setHasMoreOlder((data || []).length > 0)
+            historyLoaded = true
           } else {
-            // Row is null or fetch error: revalidate membership to verify if access was revoked
-            const { data: canAccess, error: accessErr } = await supabase.rpc('can_access_project_chat', {
-              p_project_id: projectIdNum,
-            })
-            // Only revoke if access check succeeded and returned false (not a transient network error)
-            if (!accessErr && canAccess === false) {
-              setAuthorized(false)
-              supabase.removeChannel(channel)
-            }
+            // Replay the loaded window so an out-of-order notification cannot skip a gap.
+            const rows = await fetchChatAfter(cursor => {
+              let request = query().order('created_at', { ascending: true }).order('id', { ascending: true }).limit(CHAT_PAGE_SIZE)
+              if (cursor) request = request.or(chatCursorFilter(cursor, 'newer'))
+              return request
+            }, room.recoveryStart, () => room.active && room.allowed)
+            room.merge(rows)
           }
-        } catch (err) {
-          console.warn('Failed to fetch broadcasted message:', err)
-        }
-      })
-      .subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          // Revalidate membership on reconnect before reconciling messages
-          try {
-            const { data: canAccess, error: accessErr } = await supabase.rpc('can_access_project_chat', {
-              p_project_id: projectIdNum,
-            })
-            if (!accessErr && canAccess === false) {
-              setAuthorized(false)
-              supabase.removeChannel(channel)
-              return
-            }
-          } catch {
-            // Transient error: preserve retry behavior
+          if (!room.active) return
+          setChatError(null)
+          setLoadingHistory(false)
+          if (!channel) {
+            channel = supabase.channel(`project:${projectIdNum}:chat`, { config: { private: true } })
+              .on('broadcast', { event: 'new_message' }, async ({ payload }) => {
+                if (String(payload?.project_id) !== projectIdNum || !payload?.id) return
+                try {
+                  // Fetch the notified ID even if its transaction timestamp predates history.
+                  // Both project scope and message access are enforced by Postgres RLS.
+                  const { data, error } = await query().eq('id', payload.id).maybeSingle()
+                  if (!room.active) return
+                  if (error) throw error
+                  if (data) room.merge([data])
+                } catch {
+                  if (room.active) setChatError('Message sync interrupted. Retrying automatically.')
+                } finally {
+                  if (room.active) void sync()
+                }
+              })
+              .subscribe(status => {
+                if (!room.active) return
+                if (status === 'SUBSCRIBED') void sync()
+                else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+                  setChatError('Live connection interrupted. Retrying message sync automatically.')
+                }
+              })
           }
-
-          reconcileMissedMessages()
+        } while (syncAgain && room.active)
+      } catch {
+        if (room.active) {
+          if (!room.project) setAccessError('Unable to verify crew room access. Check your connection and retry.')
+          else setChatError('Unable to load or sync chat. Check your connection and retry.')
         }
-      })
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [authorized, isValidProjectId, projectIdNum, project])
-
-  // 4. Load Older Messages: Stable Keyset Pagination (created_at DESC, id DESC)
-  const handleLoadOlder = useCallback(async () => {
-    if (loadingOlder || messages.length === 0 || !project) return
-    setLoadingOlder(true)
-    const oldest = messages[0]
-    if (!oldest?.created_at || !oldest?.id) {
-      setLoadingOlder(false)
-      return
-    }
-
-    try {
-      const { data, error } = await supabase
-        .from('project_chat_messages')
-        .select(`
-          id,
-          project_id,
-          sender_id,
-          body,
-          created_at,
-          sender:profiles!sender_id(id, name, profile_photo_url, role)
-        `)
-        .eq('project_id', projectIdNum)
-        .or(`created_at.lt.${oldest.created_at},and(created_at.eq.${oldest.created_at},id.lt.${oldest.id})`)
-        .order('created_at', { ascending: false })
-        .order('id', { ascending: false })
-        .limit(50)
-
-      if (!error && data) {
-        if (data.length < 50) {
-          setHasMoreOlder(false)
-        }
-        const formatted = [...data].reverse().map((r) => formatDbMessage(r, project.creator_id))
-        setMessages((prev) => {
-          const existingIds = new Set(prev.map((m) => m.id))
-          const uniqueOlder = formatted.filter((m) => !existingIds.has(m.id))
-          return [...uniqueOlder, ...prev]
-        })
-      }
-    } catch (err) {
-      console.error('Failed to load older messages:', err)
-    } finally {
-      setLoadingOlder(false)
-    }
-  }, [loadingOlder, messages, project, projectIdNum])
-
-  // 5. Send Message Handler with Revocation Gating
-  const handleSendMessage = useCallback(
-    async (bodyText) => {
-      if (!user?.id || !isValidProjectId || !project) return false
-      setIsSending(true)
-      setSendError(null)
-
-      try {
-        const { data, error } = await supabase
-          .from('project_chat_messages')
-          .insert({
-            project_id: projectIdNum,
-            sender_id: user.id,
-            body: bodyText,
-          })
-          .select(`
-            id,
-            project_id,
-            sender_id,
-            body,
-            created_at,
-            sender:profiles!sender_id(id, name, profile_photo_url, role)
-          `)
-          .single()
-
-        if (error) {
-          // Check if insert was denied due to revoked membership
-          const { data: canAccess, error: accessErr } = await supabase.rpc('can_access_project_chat', {
-            p_project_id: projectIdNum,
-          })
-          if (!accessErr && canAccess === false) {
-            setAuthorized(false)
-            return false
-          }
-          throw error
-        }
-
-        if (data) {
-          const formatted = formatDbMessage(data, project.creator_id)
-          setMessages((prev) => {
-            if (prev.some((m) => m.id === formatted.id)) return prev
-            return [...prev, formatted]
-          })
-        }
-
-        return true
-      } catch (err) {
-        console.error('Error sending message:', err)
-        setSendError(err.message || 'Failed to send message. Please try again.')
-        return false
       } finally {
-        setIsSending(false)
+        syncing = false
+        if (room.active) {
+          setAuthChecking(false)
+          setLoadingHistory(false)
+        }
       }
-    },
-    [user?.id, isValidProjectId, project, projectIdNum]
-  )
+    }
+    room.sync = sync
+    void sync()
+    // Revalidate quiet rooms too, and recover transient notification fetch failures.
+    const timer = window.setInterval(sync, 30000)
+    window.addEventListener('online', sync)
+    window.addEventListener('focus', sync)
+    return () => {
+      room.active = false
+      window.clearInterval(timer)
+      window.removeEventListener('online', sync)
+      window.removeEventListener('focus', sync)
+      if (channel) void supabase.removeChannel(channel)
+    }
+  }, [user?.id, authLoading, isValidProjectId, projectIdNum, navigate, location.pathname])
 
-  // ── Render: Auth Checking State ──
+  const handleLoadOlder = async () => {
+    const room = roomRef.current
+    if (!room?.active || !room.allowed || room.older || !room.rows.length) return
+    room.older = true
+    setLoadingOlder(true)
+    try {
+      const { data, error } = await room.query().or(chatCursorFilter(room.rows[0], 'older'))
+        .order('created_at', { ascending: false }).order('id', { ascending: false }).limit(CHAT_PAGE_SIZE)
+      if (!room.active) return
+      if (error) throw error
+      room.merge(data || [])
+      setHasMoreOlder((data || []).length > 0)
+      setChatError(null)
+    } catch {
+      if (room.active) setChatError('Unable to load older messages. Please try again.')
+    } finally {
+      room.older = false
+      if (room.active) setLoadingOlder(false)
+    }
+  }
+
+  const handleSendMessage = async (bodyText) => {
+    const room = roomRef.current
+    if (!room?.active || !room.allowed || !room.project || room.sending) return false
+    room.sending = true
+    setIsSending(true)
+    setSendError(null)
+    try {
+      const { data, error } = await supabase.from('project_chat_messages')
+        .insert({ project_id: projectIdNum, sender_id: user.id, body: bodyText })
+        .select(CHAT_MESSAGE_SELECT).single()
+      if (!room.active) return false
+      if (error || !data) {
+        await room.checkAccess()
+        throw error || new Error('No persisted message returned')
+      }
+      room.merge([data])
+      return true
+    } catch {
+      if (room.active) setSendError('Unable to confirm sending. Your text has been kept; check the conversation before retrying.')
+      return false
+    } finally {
+      room.sending = false
+      if (room.active) setIsSending(false)
+    }
+  }
+
+  if (accessError) {
+    return <div role="alert" className="h-screen bg-black text-white flex flex-col items-center justify-center gap-4">
+      <p>{accessError}</p>
+      <button onClick={() => roomRef.current?.sync()} className="text-purple-light">Retry</button>
+      <button onClick={handleBack}>Back</button>
+    </div>
+  }
+
   if (authLoading || authChecking) {
     return (
       <div className="h-screen w-full bg-[#000000] text-white flex flex-col items-center justify-center p-6">
@@ -508,9 +346,13 @@ export default function TeamChatPage() {
       <div className="flex-1 flex min-h-0 relative overflow-hidden">
         {/* Main Message Panel */}
         <main className="flex-1 flex flex-col min-w-0 h-full bg-[#000000]">
+          {chatError && <div role="alert" className="p-3 text-sm text-red-400">
+            {chatError} <button className="underline" onClick={() => roomRef.current?.sync()}>Retry sync</button>
+          </div>}
           <ChatMessageList
             messages={messages}
             loading={loadingHistory}
+            error={chatError}
             hasMoreOlder={hasMoreOlder}
             loadingOlder={loadingOlder}
             onLoadOlder={handleLoadOlder}

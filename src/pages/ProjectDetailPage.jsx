@@ -11,6 +11,12 @@ import { getRoleOccupancy, formatProjectStatus } from '../components/project/pro
 
 function ProjectDetailPage() {
   const { id } = useParams()
+  const { user } = useAuth()
+  return <ProjectDetailContent key={`${id}:${user?.id || 'anonymous'}`} />
+}
+
+function ProjectDetailContent() {
+  const { id } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()

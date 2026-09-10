@@ -771,6 +771,8 @@ export default function EditProjectModal({ isOpen, onClose, project, onSaveSucce
         .update(updatePayload)
         .eq('id', project.id)
         .eq('creator_id', activeUserId)
+        .select('id')
+        .single()
 
       if (updateErr) {
         // Rollback uploaded files if DB update fails to avoid orphaned storage files
